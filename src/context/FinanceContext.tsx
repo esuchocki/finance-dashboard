@@ -7,7 +7,7 @@ interface FinanceContextType {
   transactions: Transaction[];
   filteredTransactions: Transaction[];
   isLoading: boolean;
-  uploadQBOFile: (file: File) => Promise<void>;
+  uploadQBOFile: (file: File) => Promise<number>;
   applyFilters: (filters: TransactionFilterOptions) => void;
   summary: FinancialSummary | null;
   insights: FinancialInsight[];
@@ -120,7 +120,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const findPotentialDuplicates = (txns: Transaction[]): string[] => {
     const duplicateIds: string[] = [];
     
-    for (let i = 0; i < txns.length; i++) {
+    for (let i = 0; < txns.length; i++) {
       for (let j = i + 1; j < txns.length; j++) {
         const t1 = txns[i];
         const t2 = txns[j];
@@ -139,7 +139,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     return [...new Set(duplicateIds)];
   };
 
-  const uploadQBOFile = async (file: File) => {
+  const uploadQBOFile = async (file: File): Promise<number> => {
     try {
       setIsLoading(true);
       
@@ -152,18 +152,29 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setTransactions(parsedTransactions);
       setFilteredTransactions(parsedTransactions);
       
-      // Calculate summary
-      const newSummary = calculateSummary(parsedTransactions);
-      setSummary(newSummary);
+      const transactionCount = parsedTransactions.length;
       
-      // Generate insights
-      const newInsights = generateInsights(parsedTransactions, newSummary);
-      setInsights(newInsights);
+      // Only calculate summary and generate insights if we have transactions
+      if (transactionCount > 0) {
+        // Calculate summary
+        const newSummary = calculateSummary(parsedTransactions);
+        setSummary(newSummary);
+        
+        // Generate insights
+        const newInsights = generateInsights(parsedTransactions, newSummary);
+        setInsights(newInsights);
+        
+        toast.success(`Imported ${transactionCount} transactions successfully.`);
+      } else {
+        setSummary(null);
+        setInsights([]);
+      }
       
-      toast.success(`Imported ${parsedTransactions.length} transactions successfully.`);
+      return transactionCount;
     } catch (error) {
       console.error("Error uploading QBO file:", error);
       toast.error(`Error uploading file: ${(error as Error).message}`);
+      throw error;
     } finally {
       setIsLoading(false);
     }

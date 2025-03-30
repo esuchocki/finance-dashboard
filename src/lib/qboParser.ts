@@ -38,12 +38,7 @@ const locationPatterns = [
   { pattern: /([A-Za-z]+ ?[A-Za-z]*) (TX|CA|NY|FL|IL|PA|OH|GA|NC|MI|NJ|VA|WA|AZ|MA|TN|IN|MO|MD|WI|CO|MN|SC|AL|LA|KY|OR|OK|CT|UT|IA|NV|AR|MS|KS|NM|NE|WV|ID|HI|NH|ME|MT|RI|DE|SD|ND|AK|DC|VT|WY)/, extract: (match: RegExpMatchArray) => `${match[1]}, ${match[2]}` },  // City and state
 ];
 
-// Common QBO transaction paths to try - simplified for faster processing
-const TRANSACTION_PATHS = [
-  ["OFX", "BANKMSGSRSV1", "STMTTRNRS", "STMTRS", "BANKTRANLIST", "STMTTRN"],
-  ["OFX", "CREDITCARDMSGSRSV1", "CCSTMTTRNRS", "CCSTMTRS", "BANKTRANLIST", "STMTTRN"],
-];
-
+// Direct approach to extract transactions from OFX response
 export function parseQBOFile(fileContent: string): Transaction[] {
   try {
     // Basic validation check
@@ -69,121 +64,216 @@ export function parseQBOFile(fileContent: string): Transaction[] {
     
     console.log("Processing QBO file...");
     
-    // Create parser with minimal options to prevent stack overflow
-    const parser = new XMLParser({
-      ignoreAttributes: true,
-      isArray: (name) => name === "STMTTRN",
-      parseTagValue: false,  // Don't parse tag values to prevent recursion
-      trimValues: true,
-      allowBooleanAttributes: false,
-      parseAttributeValue: false,
-      ignoreDeclaration: true,
-      ignorePiTags: true,
-      preserveOrder: false
-    });
+    // Simplified direct extraction approach 
+    // Instead of using complex XML parsing, directly extract transactions using string manipulation
+    // This is much faster than deep XML parsing for large files
+    const transactions = extractTransactionsDirectly(xmlContent);
     
-    try {
-      // Parse XML content
-      const result = parser.parse(xmlContent);
-      console.log("QBO structure parsed");
+    if (!transactions || transactions.length === 0) {
+      console.log("No transactions found using direct extraction, trying XML parser as fallback");
       
-      // Find transactions using the most direct path possible
-      const transactions = extractTransactions(result);
-      
-      if (!transactions || transactions.length === 0) {
-        console.error("No transactions found in QBO file");
-        return [];
+      // Fallback to XML parser with minimal options
+      try {
+        const parser = new XMLParser({
+          ignoreAttributes: true,
+          isArray: (name) => name === "STMTTRN",
+          parseTagValue: false,
+          trimValues: true
+        });
+        
+        const result = parser.parse(xmlContent);
+        const xmlTransactions = findSTMTTRNArrayInParsedXML(result);
+        
+        if (xmlTransactions && xmlTransactions.length > 0) {
+          console.log(`Found ${xmlTransactions.length} transactions using XML parser`);
+          return processTransactionsInBatches(xmlTransactions, 50);
+        } else {
+          console.error("No transactions found in QBO file");
+          return [];
+        }
+      } catch (parseError) {
+        console.error("XML parsing error:", parseError);
+        throw new Error(`Failed to parse QBO XML content: ${(parseError as Error).message}`);
       }
-      
-      console.log(`Found ${transactions.length} transactions in QBO file`);
-      
-      // Process transactions in very small batches to avoid stack overflow
-      // This is crucial for large files
-      return processTransactionsInBatches(transactions, 20);
-      
-    } catch (parseError) {
-      console.error("XML parsing error:", parseError);
-      throw new Error(`Failed to parse QBO XML content: ${(parseError as Error).message}`);
     }
+    
+    console.log(`Found ${transactions.length} transactions in QBO file using direct extraction`);
+    return transactions;
+    
   } catch (error) {
     console.error("Error parsing QBO file:", error);
     throw new Error(`Failed to parse QBO file: ${(error as Error).message}`);
   }
 }
 
-// Extract transactions using a non-recursive, direct path approach
-function extractTransactions(root: any): any[] {
-  // Most common path for transactions in QBO files
-  if (root && 
-      root.OFX && 
-      root.OFX.BANKMSGSRSV1 && 
-      root.OFX.BANKMSGSRSV1.STMTTRNRS && 
-      root.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS && 
-      root.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST && 
-      Array.isArray(root.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN)) {
-    return root.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN;
+// Extract transactions directly from the XML string for better performance
+function extractTransactionsDirectly(xmlContent: string): Transaction[] {
+  const transactions: Transaction[] = [];
+  const stmtTrnPattern = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
+  const fieldPattern = /<(\w+)>([\s\S]*?)(?=<\/\1>|<\w+>)/g;
+  
+  let match;
+  while ((match = stmtTrnPattern.exec(xmlContent)) !== null) {
+    const trnContent = match[1];
+    const trnData: Record<string, string> = {};
+    
+    let fieldMatch;
+    while ((fieldMatch = fieldPattern.exec(trnContent)) !== null) {
+      const [, fieldName, fieldValue] = fieldMatch;
+      trnData[fieldName] = fieldValue.trim();
+    }
+    
+    const transaction = createTransactionFromData(trnData);
+    if (transaction) {
+      transactions.push(transaction);
+    }
   }
   
-  // Alternative path for credit card QBO files
-  if (root && 
-      root.OFX && 
-      root.OFX.CREDITCARDMSGSRSV1 && 
-      root.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS && 
-      root.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS && 
-      root.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST && 
-      Array.isArray(root.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST.STMTTRN)) {
-    return root.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // Other common variations
-  if (root && 
-      root.OFX && 
-      root.OFX.BANKMSGSRSV1 && 
-      root.OFX.BANKMSGSRSV1.STMTRS && 
-      root.OFX.BANKMSGSRSV1.STMTRS.BANKTRANLIST && 
-      Array.isArray(root.OFX.BANKMSGSRSV1.STMTRS.BANKTRANLIST.STMTTRN)) {
-    return root.OFX.BANKMSGSRSV1.STMTRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // Try to find transactions at the direct path
-  if (root && 
-      root.OFX && 
-      root.OFX.BANKMSGSRSV1 && 
-      root.OFX.BANKMSGSRSV1.STMTTRNRS && 
-      root.OFX.BANKMSGSRSV1.STMTTRNRS.BANKTRANLIST && 
-      Array.isArray(root.OFX.BANKMSGSRSV1.STMTTRNRS.BANKTRANLIST.STMTTRN)) {
-    return root.OFX.BANKMSGSRSV1.STMTTRNRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // If all else fails, try to search for STMTTRN array anywhere
-  return findSTMTTRNArrayInObject(root);
+  return transactions;
 }
 
-// Non-recursive search for STMTTRN arrays in the object
-function findSTMTTRNArrayInObject(obj: any): any[] {
-  if (!obj || typeof obj !== 'object') {
-    return [];
+// Create transaction from extracted data
+function createTransactionFromData(data: Record<string, string>): Transaction | null {
+  try {
+    // Basic validation
+    if (!data.TRNAMT || !data.DTPOSTED) {
+      return null;
+    }
+    
+    const amount = parseFloat(data.TRNAMT);
+    if (isNaN(amount)) return null;
+    
+    const name = data.NAME || "";
+    const memo = data.MEMO || "";
+    const description = `${name} ${memo}`.trim();
+    
+    // Determine transaction type
+    let type = TransactionType.OTHER;
+    if (data.TRNTYPE) {
+      switch (data.TRNTYPE.toUpperCase()) {
+        case "DEBIT": type = TransactionType.DEBIT; break;
+        case "CREDIT": type = TransactionType.CREDIT; break;
+        case "CHECK": type = TransactionType.CHECK; break;
+        case "DEP": case "DEPOSIT": type = TransactionType.DEPOSIT; break;
+        case "WITHDRAWAL": type = TransactionType.WITHDRAWAL; break;
+        case "FEE": type = TransactionType.FEE; break;
+        case "INT": case "INTEREST": type = TransactionType.INTEREST; break;
+        case "XFER": case "TRANSFER": type = TransactionType.TRANSFER; break;
+        default: 
+          // If type is unknown, determine by amount
+          type = amount < 0 ? TransactionType.DEBIT : TransactionType.CREDIT;
+      }
+    } else {
+      // Determine type based on amount if not specified
+      type = amount < 0 ? TransactionType.DEBIT : TransactionType.CREDIT;
+    }
+    
+    // Determine category and other metadata
+    let category = "Uncategorized";
+    let subCategory = "";
+    
+    for (const { pattern, category: cat, subcategory: subcat } of categoryPatterns) {
+      if (pattern.test(description)) {
+        category = cat;
+        subCategory = subcat;
+        break;
+      }
+    }
+    
+    // Extract location if available in the description
+    let location = "";
+    for (const { pattern, extract } of locationPatterns) {
+      const match = description.match(pattern);
+      if (match) {
+        location = extract(match);
+        break;
+      }
+    }
+    
+    // Check for recurring transactions
+    const isRecurring = /monthly|recurring|subscription|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon/i.test(description);
+    
+    const date = parseQBODate(data.DTPOSTED);
+    
+    return {
+      id: data.FITID || `${date.getTime()}-${amount}-${Math.random().toString(36).substring(2, 9)}`,
+      date,
+      amount: Math.abs(amount),
+      type,
+      name,
+      description,
+      memo: data.MEMO || "",
+      category,
+      subCategory,
+      location,
+      isRecurring,
+      payee: name,
+      tags: []
+    };
+  } catch (err) {
+    console.error("Error processing transaction data:", err);
+    return null;
+  }
+}
+
+// Fallback XML parsing approach
+function findSTMTTRNArrayInParsedXML(obj: any): any[] {
+  if (!obj) return [];
+  
+  // Common paths to look for transaction arrays
+  const paths = [
+    ['OFX', 'BANKMSGSRSV1', 'STMTTRNRS', 'STMTRS', 'BANKTRANLIST', 'STMTTRN'],
+    ['OFX', 'CREDITCARDMSGSRSV1', 'CCSTMTTRNRS', 'CCSTMTRS', 'BANKTRANLIST', 'STMTTRN'],
+    ['OFX', 'BANKMSGSRSV1', 'STMTRS', 'BANKTRANLIST', 'STMTTRN']
+  ];
+  
+  // Try each path
+  for (const path of paths) {
+    let current = obj;
+    let valid = true;
+    
+    for (let i = 0; i < path.length; i++) {
+      if (!current || !current[path[i]]) {
+        valid = false;
+        break;
+      }
+      current = current[path[i]];
+    }
+    
+    if (valid && Array.isArray(current)) {
+      return current;
+    }
   }
   
-  // Check if this object has a STMTTRN property with an array value
+  // Last resort: search for STMTTRN array anywhere in the object
+  if (obj.OFX) {
+    const result = searchForSTMTTRNArray(obj.OFX);
+    if (result.length > 0) return result;
+  }
+  
+  return [];
+}
+
+// Non-recursive search for STMTTRN arrays
+function searchForSTMTTRNArray(obj: any): any[] {
+  if (!obj || typeof obj !== 'object') return [];
+  
+  // Check direct properties
   if (obj.STMTTRN && Array.isArray(obj.STMTTRN)) {
     return obj.STMTTRN;
   }
   
-  // Try to find the BANKTRANLIST which typically contains STMTTRN
+  // Check BANKTRANLIST property
   if (obj.BANKTRANLIST && obj.BANKTRANLIST.STMTTRN && Array.isArray(obj.BANKTRANLIST.STMTTRN)) {
     return obj.BANKTRANLIST.STMTTRN;
   }
   
-  // Search only one level deep to avoid stack issues
+  // Check first-level properties
   for (const key in obj) {
     if (obj[key] && typeof obj[key] === 'object') {
-      // Check if this property has a STMTTRN array
       if (obj[key].STMTTRN && Array.isArray(obj[key].STMTTRN)) {
         return obj[key].STMTTRN;
       }
-      
-      // Check if this property has a BANKTRANLIST with STMTTRN array
       if (obj[key].BANKTRANLIST && 
           obj[key].BANKTRANLIST.STMTTRN && 
           Array.isArray(obj[key].BANKTRANLIST.STMTTRN)) {
@@ -195,23 +285,16 @@ function findSTMTTRNArrayInObject(obj: any): any[] {
   return [];
 }
 
-// Process transactions in very small batches to avoid stack overflow
-function processTransactionsInBatches(transactions: any[], batchSize: number = 20): Transaction[] {
+// Process transactions in batches for better performance
+function processTransactionsInBatches(transactions: any[], batchSize: number = 50): Transaction[] {
   const result: Transaction[] = [];
   const totalTransactions = transactions.length;
-  
-  console.log(`Processing ${totalTransactions} transactions in batches of ${batchSize}`);
   
   for (let i = 0; i < totalTransactions; i += batchSize) {
     const endIndex = Math.min(i + batchSize, totalTransactions);
     const batch = transactions.slice(i, endIndex);
     const processedBatch = batch.map(processTransaction).filter(Boolean) as Transaction[];
     result.push(...processedBatch);
-    
-    // Log progress periodically
-    if (i % (batchSize * 5) === 0 || i + batchSize >= totalTransactions) {
-      console.log(`Processed ${Math.min(i + batchSize, totalTransactions)} of ${totalTransactions} transactions`);
-    }
   }
   
   return result;
@@ -301,7 +384,7 @@ function processTransaction(trn: any): Transaction | null {
   }
 }
 
-// Parse QBO date format (YYYYMMDDHHMMSS.000[-TZ:TZ_NAME])
+// Parse QBO date format
 function parseQBODate(dateStr: string): Date {
   if (!dateStr) return new Date();
   

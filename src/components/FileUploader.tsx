@@ -6,15 +6,18 @@ import { useFinance } from "@/context/FinanceContext";
 import { Upload, AlertCircle, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { useToast } from "@/hooks/use-toast";
 
 const FileUploader = () => {
   const { uploadQBOFile, isLoading } = useFinance();
+  const { toast } = useToast();
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [processingTimeout, setProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + " bytes";
@@ -34,6 +37,19 @@ const FileUploader = () => {
       if (file.name.endsWith('.qbo')) {
         // Start progress animation
         setProgress(10);
+        
+        // Set a timeout to show an error if processing takes too long
+        if (processingTimeout) {
+          clearTimeout(processingTimeout);
+        }
+        
+        const timeout = setTimeout(() => {
+          setError("Processing is taking longer than expected. The file might be too large or in an unsupported format.");
+          setProgress(0);
+        }, 20000); // 20 seconds timeout
+        
+        setProcessingTimeout(timeout);
+        
         const progressInterval = setInterval(() => {
           setProgress((prev) => {
             if (prev >= 90) {
@@ -45,12 +61,32 @@ const FileUploader = () => {
         }, 300);
         
         try {
-          await uploadQBOFile(file);
+          const transactionCount = await uploadQBOFile(file);
+          
           clearInterval(progressInterval);
           setProgress(100);
+          
+          if (processingTimeout) {
+            clearTimeout(processingTimeout);
+            setProcessingTimeout(null);
+          }
+          
+          if (transactionCount === 0) {
+            toast({
+              title: "No transactions found",
+              description: "The file was processed but no transactions were found. Please check the file format.",
+              variant: "destructive"
+            });
+          }
         } catch (err) {
           clearInterval(progressInterval);
           setProgress(0);
+          
+          if (processingTimeout) {
+            clearTimeout(processingTimeout);
+            setProcessingTimeout(null);
+          }
+          
           setError((err as Error).message || "Failed to upload file");
         }
       } else {
@@ -84,6 +120,19 @@ const FileUploader = () => {
       if (file.name.endsWith('.qbo')) {
         // Start progress animation
         setProgress(10);
+        
+        // Set a timeout to show an error if processing takes too long
+        if (processingTimeout) {
+          clearTimeout(processingTimeout);
+        }
+        
+        const timeout = setTimeout(() => {
+          setError("Processing is taking longer than expected. The file might be too large or in an unsupported format.");
+          setProgress(0);
+        }, 20000); // 20 seconds timeout
+        
+        setProcessingTimeout(timeout);
+        
         const progressInterval = setInterval(() => {
           setProgress((prev) => {
             if (prev >= 90) {
@@ -95,12 +144,32 @@ const FileUploader = () => {
         }, 300);
         
         try {
-          await uploadQBOFile(file);
+          const transactionCount = await uploadQBOFile(file);
+          
           clearInterval(progressInterval);
           setProgress(100);
+          
+          if (processingTimeout) {
+            clearTimeout(processingTimeout);
+            setProcessingTimeout(null);
+          }
+          
+          if (transactionCount === 0) {
+            toast({
+              title: "No transactions found",
+              description: "The file was processed but no transactions were found. Please check the file format.",
+              variant: "destructive"
+            });
+          }
         } catch (err) {
           clearInterval(progressInterval);
           setProgress(0);
+          
+          if (processingTimeout) {
+            clearTimeout(processingTimeout);
+            setProcessingTimeout(null);
+          }
+          
           setError((err as Error).message || "Failed to upload file");
         }
       } else {
@@ -112,6 +181,15 @@ const FileUploader = () => {
   const handleButtonClick = () => {
     fileInputRef.current?.click();
   };
+
+  // Clean up the timeout when component unmounts
+  React.useEffect(() => {
+    return () => {
+      if (processingTimeout) {
+        clearTimeout(processingTimeout);
+      }
+    };
+  }, [processingTimeout]);
 
   return (
     <Card className="w-full">
