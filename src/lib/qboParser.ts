@@ -27,6 +27,9 @@ const categoryPatterns = [
   { pattern: /(electric|gas|water|sewer|utility|internet|cable|phone|cell|mobile)/i, category: "Housing", subcategory: "Utilities" },
   { pattern: /(insurance|geico|allstate|statefarm|progressive|liberty)/i, category: "Insurance", subcategory: "General" },
   { pattern: /(salary|payroll|direct deposit|deposit)/i, category: "Income", subcategory: "Salary" },
+  { pattern: /(anthropic|claude\.ai)/i, category: "Software", subcategory: "AI Tools" },
+  { pattern: /(patreon|facebook|meta)/i, category: "Entertainment", subcategory: "Social Media" },
+  { pattern: /(home depot|lowes|ikea|wayfair|overstock|furniture)/i, category: "Housing", subcategory: "Home Improvement" },
 ];
 
 // Common location patterns in transaction descriptions
@@ -38,22 +41,56 @@ const locationPatterns = [
 
 export function parseQBOFile(fileContent: string): Transaction[] {
   try {
+    // Check if content has OFX headers (which are not XML)
+    const hasHeaders = fileContent.includes("OFXHEADER:");
+    
+    // If headers exist, strip them to get to the XML part
+    let xmlContent = fileContent;
+    if (hasHeaders) {
+      const xmlStartIndex = fileContent.indexOf("<OFX>");
+      if (xmlStartIndex !== -1) {
+        xmlContent = fileContent.substring(xmlStartIndex);
+      } else {
+        throw new Error("Invalid QBO file: Missing <OFX> tag");
+      }
+    }
+    
     // Parse XML
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "_",
+      ignoreDeclaration: true,
+      parseTagValue: false,
+      trimValues: true,
     });
     
-    const result = parser.parse(fileContent);
+    const result = parser.parse(xmlContent);
     
-    if (!result.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.STMTTRN) {
-      throw new Error("Invalid QBO file format");
+    console.log("Parsed QBO data structure:", JSON.stringify(result, null, 2));
+    
+    // Validate structure and get transactions
+    if (!result.OFX || 
+        !result.OFX.BANKMSGSRSV1 || 
+        !result.OFX.BANKMSGSRSV1.STMTTRNRS || 
+        !result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS || 
+        !result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST) {
+      console.error("Invalid QBO structure:", result);
+      throw new Error("Invalid QBO file format: Missing required structure");
     }
     
-    const qboTransactions = Array.isArray(result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN) 
-      ? result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN 
-      : [result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN];
-      
+    const bankTranList = result.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST;
+    
+    if (!bankTranList.STMTTRN) {
+      console.error("No transactions found in QBO file");
+      return [];
+    }
+    
+    const qboTransactions = Array.isArray(bankTranList.STMTTRN) 
+      ? bankTranList.STMTTRN 
+      : [bankTranList.STMTTRN];
+    
+    console.log(`Found ${qboTransactions.length} transactions in QBO file`);
+    
     return qboTransactions.map((trn: QBOTransaction["STMTTRN"]) => {
       if (!trn) return null;
       
@@ -72,7 +109,7 @@ export function parseQBOFile(fileContent: string): Transaction[] {
           case "DEP": case "DEPOSIT": type = TransactionType.DEPOSIT; break;
           case "WITHDRAWAL": type = TransactionType.WITHDRAWAL; break;
           case "FEE": type = TransactionType.FEE; break;
-          case "INT": type = TransactionType.INTEREST; break;
+          case "INT": case "INTEREST": type = TransactionType.INTEREST; break;
           case "XFER": case "TRANSFER": type = TransactionType.TRANSFER; break;
           default: type = TransactionType.OTHER;
         }
@@ -103,9 +140,8 @@ export function parseQBOFile(fileContent: string): Transaction[] {
         }
       }
       
-      // Determine if it's a recurring transaction (simplified logic)
-      // A more sophisticated implementation would compare across multiple statements
-      const isRecurring = false;
+      // Look for recurring transactions (checking for repeated patterns)
+      const isRecurring = /monthly|recurring|subscription|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon/i.test(description);
       
       const date = parseQBODate(trn.DTPOSTED || "");
       
@@ -131,18 +167,31 @@ export function parseQBOFile(fileContent: string): Transaction[] {
   }
 }
 
-// Parse QBO date format (YYYYMMDD)
+// Parse QBO date format (YYYYMMDDHHMMSS.000[-TZ:TZ_NAME])
 function parseQBODate(dateStr: string): Date {
   if (!dateStr) return new Date();
   
-  // Handle QBO date format which could be YYYYMMDD or YYYYMMDDHHMMSS
-  if (dateStr.length >= 8) {
-    const year = parseInt(dateStr.substring(0, 4));
-    const month = parseInt(dateStr.substring(4, 6)) - 1; // JS months are 0-based
-    const day = parseInt(dateStr.substring(6, 8));
-    
-    return new Date(year, month, day);
-  }
+  // Standard QBO date format can be:
+  // 1. YYYYMMDDHHMMSS.000[-TZ:TZ_NAME]
+  // 2. YYYYMMDD
   
-  return new Date();
+  try {
+    // Extract just the date portion for simplicity
+    const datePart = dateStr.substring(0, 8); // Get first 8 chars (YYYYMMDD)
+    
+    if (datePart.length === 8) {
+      const year = parseInt(datePart.substring(0, 4));
+      const month = parseInt(datePart.substring(4, 6)) - 1; // JS months are 0-based
+      const day = parseInt(datePart.substring(6, 8));
+      
+      return new Date(year, month, day);
+    }
+    
+    // Fallback to current date if we can't parse
+    console.warn(`Could not parse date: ${dateStr}, using current date instead`);
+    return new Date();
+  } catch (error) {
+    console.error(`Error parsing date ${dateStr}:`, error);
+    return new Date();
+  }
 }
