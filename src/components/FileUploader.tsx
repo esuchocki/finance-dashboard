@@ -3,23 +3,54 @@ import React, { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
-import { Upload, AlertCircle } from "lucide-react";
+import { Upload, AlertCircle, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 
 const FileUploader = () => {
   const { uploadQBOFile, isLoading } = useFinance();
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileSize, setFileSize] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + " bytes";
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+    else return (bytes / 1048576).toFixed(1) + " MB";
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError(null);
+    setProgress(0);
+    
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setFileName(file.name);
+      setFileSize(formatFileSize(file.size));
+      
       if (file.name.endsWith('.qbo')) {
+        // Start progress animation
+        setProgress(10);
+        const progressInterval = setInterval(() => {
+          setProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 300);
+        
         try {
           await uploadQBOFile(file);
+          clearInterval(progressInterval);
+          setProgress(100);
         } catch (err) {
+          clearInterval(progressInterval);
+          setProgress(0);
           setError((err as Error).message || "Failed to upload file");
         }
       } else {
@@ -43,13 +74,33 @@ const FileUploader = () => {
     e.stopPropagation();
     setDragActive(false);
     setError(null);
+    setProgress(0);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
+      setFileName(file.name);
+      setFileSize(formatFileSize(file.size));
+      
       if (file.name.endsWith('.qbo')) {
+        // Start progress animation
+        setProgress(10);
+        const progressInterval = setInterval(() => {
+          setProgress((prev) => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 10;
+          });
+        }, 300);
+        
         try {
           await uploadQBOFile(file);
+          clearInterval(progressInterval);
+          setProgress(100);
         } catch (err) {
+          clearInterval(progressInterval);
+          setProgress(0);
           setError((err as Error).message || "Failed to upload file");
         }
       } else {
@@ -94,27 +145,47 @@ const FileUploader = () => {
             onChange={handleFileChange}
             className="hidden"
           />
-          <Upload className="mx-auto h-12 w-12 text-gray-400" />
-          <p className="mt-2 text-sm text-gray-600">
-            Drag and drop your .qbo file here, or click to browse
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            Your data stays on your device and is not uploaded to any server
-          </p>
+          
+          {isLoading || progress > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-center space-x-2">
+                <FileText className="h-8 w-8 text-primary animate-pulse" />
+                {fileName && (
+                  <div className="text-left">
+                    <p className="font-medium text-sm">{fileName}</p>
+                    <p className="text-xs text-muted-foreground">{fileSize}</p>
+                  </div>
+                )}
+              </div>
+              <Progress value={progress} className="h-2 w-full max-w-md mx-auto" />
+              <p className="text-sm text-muted-foreground">Processing file...</p>
+            </div>
+          ) : (
+            <>
+              <Upload className="mx-auto h-12 w-12 text-gray-400" />
+              <p className="mt-2 text-sm text-gray-600">
+                Drag and drop your .qbo file here, or click to browse
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Your data stays on your device and is not uploaded to any server
+              </p>
+            </>
+          )}
         </div>
 
         <div className="mt-4 text-xs text-muted-foreground">
-          <p className="font-medium mb-1">Supported format:</p>
+          <p className="font-medium mb-1">Supported formats and tips:</p>
           <ul className="list-disc list-inside space-y-1">
             <li>QBO files exported from your bank or financial institution</li>
             <li>Files containing transaction data (date, amount, description, etc.)</li>
-            <li>Files with the .qbo extension</li>
+            <li>For large files (500KB+), please give the app a moment to process</li>
+            <li>Files with multiple months or years of data are supported</li>
           </ul>
         </div>
       </CardContent>
       <CardFooter className="flex justify-center">
-        <Button onClick={handleButtonClick} disabled={isLoading}>
-          {isLoading ? "Uploading..." : "Select QBO File"}
+        <Button onClick={handleButtonClick} disabled={isLoading || progress > 0}>
+          {isLoading || progress > 0 ? "Processing..." : "Select QBO File"}
         </Button>
       </CardFooter>
     </Card>
