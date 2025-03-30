@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,24 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Finance dashboard custom colors
+				finance: {
+					primary: '#0EA5E9',
+					secondary: '#38BDF8',
+					accent: '#0284C7',
+					muted: '#E0F2FE',
+					positive: '#10B981',
+					negative: '#EF4444',
+					neutral: '#64748B',
+					chart1: '#0EA5E9',
+					chart2: '#06B6D4',
+					chart3: '#14B8A6',
+					chart4: '#10B981',
+					chart5: '#34D399',
+					chart6: '#8B5CF6',
+					chart7: '#A855F7',
+					chart8: '#EC4899',
 				}
 			},
 			borderRadius: {
