@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
 import TransactionFilters from "./TransactionFilters";
-import AnalysisSection from "./AnalysisSection";
+import AnalysisSectionWrapper from "./AnalysisSectionWrapper";
 import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 
 const TransactionPage = () => {
-  const { transactions, filteredTransactions, filterOptions, applyFilters, clearData } = useFinance();
+  const { transactions, filteredTransactions, clearData } = useFinance();
   const [activeTab, setActiveTab] = useState("all");
 
   return (
@@ -30,11 +30,7 @@ const TransactionPage = () => {
             </Button>
           </div>
           
-          <TransactionFilters 
-            transactions={transactions}
-            filterOptions={filterOptions}
-            applyFilters={applyFilters}
-          />
+          <TransactionFilters />
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
@@ -44,7 +40,7 @@ const TransactionPage = () => {
               />
             </div>
             <div className="md:col-span-1">
-              <AnalysisSection transactions={filteredTransactions} />
+              <AnalysisSectionWrapper />
             </div>
           </div>
         </>

@@ -12,6 +12,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Search, X } from "lucide-react";
 
+// Remove the props interface as we'll get everything from the context
 const TransactionFilters = () => {
   const { applyFilters, transactions } = useFinance();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
