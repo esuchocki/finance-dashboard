@@ -4,62 +4,51 @@ import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
 import TransactionFilters from "./TransactionFilters";
 import AnalysisSection from "./AnalysisSection";
+import FileUploader from "./FileUploader";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 const TransactionPage = () => {
-  const { filteredTransactions } = useFinance();
-  const [page, setPage] = useState(1);
-  const perPage = 20;
-  
-  const totalPages = Math.ceil(filteredTransactions.length / perPage);
-  const startIndex = (page - 1) * perPage;
-  const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + perPage);
-  
-  const goToPage = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setPage(newPage);
-    }
-  };
+  const { transactions, filteredTransactions, filterOptions, applyFilters, clearData } = useFinance();
+  const [activeTab, setActiveTab] = useState("all");
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1">
-          <TransactionFilters />
-        </div>
-        <div className="lg:col-span-3 space-y-6">
-          <AnalysisSection />
+      {transactions.length === 0 ? (
+        <FileUploader />
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row justify-between space-y-4 md:space-y-0 items-start md:items-center">
+            <h1 className="text-2xl font-bold">Transactions</h1>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={clearData}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Change QBO File
+            </Button>
+          </div>
           
-          <TransactionList 
-            transactions={paginatedTransactions}
-            title={`Transactions (${filteredTransactions.length})`}
+          <TransactionFilters 
+            transactions={transactions}
+            filterOptions={filterOptions}
+            applyFilters={applyFilters}
           />
           
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center mt-4">
-              <div className="flex items-center space-x-2">
-                <button
-                  className="px-3 py-1 rounded-md border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => goToPage(page - 1)}
-                  disabled={page === 1}
-                >
-                  Previous
-                </button>
-                <span className="text-sm">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  className="px-3 py-1 rounded-md border border-gray-300 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => goToPage(page + 1)}
-                  disabled={page === totalPages}
-                >
-                  Next
-                </button>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <TransactionList 
+                transactions={filteredTransactions} 
+                title={`Filtered Transactions (${filteredTransactions.length})`} 
+              />
             </div>
-          )}
-        </div>
-      </div>
+            <div className="md:col-span-1">
+              <AnalysisSection transactions={filteredTransactions} />
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

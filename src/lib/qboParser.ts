@@ -39,6 +39,15 @@ const locationPatterns = [
   { pattern: /([A-Za-z]+ ?[A-Za-z]*) (TX|CA|NY|FL|IL|PA|OH|GA|NC|MI|NJ|VA|WA|AZ|MA|TN|IN|MO|MD|WI|CO|MN|SC|AL|LA|KY|OR|OK|CT|UT|IA|NV|AR|MS|KS|NM|NE|WV|ID|HI|NH|ME|MT|RI|DE|SD|ND|AK|DC|VT|WY)/, extract: (match: RegExpMatchArray) => `${match[1]}, ${match[2]}` },  // City and state
 ];
 
+// Common QBO transaction paths to try
+const TRANSACTION_PATHS = [
+  ["OFX", "BANKMSGSRSV1", "STMTTRNRS", "STMTRS", "BANKTRANLIST", "STMTTRN"],
+  ["OFX", "CREDITCARDMSGSRSV1", "CCSTMTTRNRS", "CCSTMTRS", "BANKTRANLIST", "STMTTRN"],
+  ["OFX", "BANKMSGSRSV1", "STMTRS", "BANKTRANLIST", "STMTTRN"],
+  ["OFX", "BANKMSGSRSV1", "STMTTRNRS", "BANKTRANLIST", "STMTTRN"],
+  ["OFX", "BANKMSGSRSV1", "STMTTRNRS", "STMTRS", "BANKTRANLIST", "STMTTRN"],
+];
+
 export function parseQBOFile(fileContent: string): Transaction[] {
   try {
     // Check if the file is QBO format with headers
@@ -82,9 +91,8 @@ export function parseQBOFile(fileContent: string): Transaction[] {
       const result = parser.parse(xmlContent);
       console.log("QBO structure:", JSON.stringify(result, null, 2).substring(0, 200) + "...");
       
-      // Flexible navigation through the parsed structure
-      // Try different paths to find the transactions
-      const transactions = findTransactionsInStructure(result);
+      // Attempt to find transactions using predefined paths instead of recursive search
+      let transactions = findTransactionsInStructureIterative(result);
       
       if (!transactions || transactions.length === 0) {
         console.error("No transactions found in QBO file");
@@ -93,10 +101,8 @@ export function parseQBOFile(fileContent: string): Transaction[] {
       
       console.log(`Found ${transactions.length} transactions in QBO file`);
       
-      // Process transactions
-      return transactions.map((trn: any) => {
-        return processTransaction(trn);
-      }).filter(Boolean) as Transaction[];
+      // Process transactions in batches to avoid call stack issues
+      return processTransactionsInBatches(transactions);
       
     } catch (parseError) {
       console.error("XML parsing error:", parseError);
@@ -125,39 +131,73 @@ function cleanupQBOXml(xml: string): string {
   return cleaned;
 }
 
-// Flexible function to find transactions wherever they might be in the structure
-function findTransactionsInStructure(obj: any): any[] {
-  // Looking for STMTTRN array in the structure
+// Non-recursive function to find transactions using predefined paths
+function findTransactionsInStructureIterative(obj: any): any[] {
   if (!obj) return [];
   
-  // Direct path if structure follows standard
-  if (obj.OFX?.BANKMSGSRSV1?.STMTTRNRS?.STMTRS?.BANKTRANLIST?.STMTTRN) {
-    return obj.OFX.BANKMSGSRSV1.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // Try alternate paths (credit card statement)
-  if (obj.OFX?.CREDITCARDMSGSRSV1?.CCSTMTTRNRS?.CCSTMTRS?.BANKTRANLIST?.STMTTRN) {
-    return obj.OFX.CREDITCARDMSGSRSV1.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // Shorter alternate paths
-  if (obj.OFX?.BANKMSGSRSV1?.STMTRS?.BANKTRANLIST?.STMTTRN) {
-    return obj.OFX.BANKMSGSRSV1.STMTRS.BANKTRANLIST.STMTTRN;
-  }
-  
-  // Try to find STMTTRN anywhere in the object (recursive search)
-  for (const key in obj) {
-    if (key === "STMTTRN" && Array.isArray(obj[key])) {
-      return obj[key];
+  // Try each predefined path
+  for (const path of TRANSACTION_PATHS) {
+    let current = obj;
+    let valid = true;
+    
+    // Navigate through the path
+    for (let i = 0; i < path.length; i++) {
+      const key = path[i];
+      if (!current || !current[key]) {
+        valid = false;
+        break;
+      }
+      current = current[key];
     }
     
-    if (typeof obj[key] === "object" && obj[key] !== null) {
-      const found = findTransactionsInStructure(obj[key]);
-      if (found.length > 0) return found;
+    if (valid && Array.isArray(current)) {
+      return current;
+    }
+  }
+  
+  // If no transactions found using predefined paths, try a more general approach
+  if (obj.OFX) {
+    // Search for STMTTRN in direct children of OFX
+    for (const key in obj.OFX) {
+      if (key === "STMTTRN" && Array.isArray(obj.OFX[key])) {
+        return obj.OFX[key];
+      }
+      
+      // Look one level deeper
+      if (typeof obj.OFX[key] === "object" && obj.OFX[key] !== null) {
+        for (const nestedKey in obj.OFX[key]) {
+          if (nestedKey === "STMTTRN" && Array.isArray(obj.OFX[key][nestedKey])) {
+            return obj.OFX[key][nestedKey];
+          }
+          
+          // Look one more level deeper
+          if (typeof obj.OFX[key][nestedKey] === "object" && obj.OFX[key][nestedKey] !== null) {
+            for (const deepKey in obj.OFX[key][nestedKey]) {
+              if (deepKey === "STMTTRN" && Array.isArray(obj.OFX[key][nestedKey][deepKey])) {
+                return obj.OFX[key][nestedKey][deepKey];
+              }
+            }
+          }
+        }
+      }
     }
   }
   
   return [];
+}
+
+// Process transactions in smaller batches to avoid stack overflow
+function processTransactionsInBatches(transactions: any[]): Transaction[] {
+  const BATCH_SIZE = 100; // Adjust based on performance testing
+  const result: Transaction[] = [];
+  
+  for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+    const batch = transactions.slice(i, i + BATCH_SIZE);
+    const processedBatch = batch.map((trn) => processTransaction(trn)).filter(Boolean) as Transaction[];
+    result.push(...processedBatch);
+  }
+  
+  return result;
 }
 
 // Process a single transaction

@@ -9,7 +9,7 @@ import FileUploader from "./FileUploader";
 import TransactionList from "./TransactionList";
 import InsightsList from "./InsightsList";
 import { Button } from "@/components/ui/button";
-import { Upload, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 const Dashboard = () => {
   const { transactions, filteredTransactions, summary, clearData } = useFinance();
