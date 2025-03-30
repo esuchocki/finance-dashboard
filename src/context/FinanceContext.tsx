@@ -1,8 +1,7 @@
-
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Transaction, TransactionFilterOptions, FinancialSummary, FinancialInsight } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qboParser";
-import { toast } from "@/components/ui/sonner";
+import { toast } from "sonner";
 
 interface FinanceContextType {
   transactions: Transaction[];

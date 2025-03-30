@@ -3,10 +3,12 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import AppNavbar from "@/components/AppNavbar";
 import { FinanceProvider } from "@/context/FinanceContext";
+import { Toaster } from "sonner";
 
 const MainLayout = () => {
   return (
     <FinanceProvider>
+      <Toaster position="top-right" />
       <div className="min-h-screen flex flex-col">
         <AppNavbar />
         <main className="flex-1 container py-6 px-4">
