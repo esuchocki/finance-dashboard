@@ -120,7 +120,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const findPotentialDuplicates = (txns: Transaction[]): string[] => {
     const duplicateIds: string[] = [];
     
-    for (let i = 0; < txns.length; i++) {
+    for (let i = 0; i < txns.length; i++) {
       for (let j = i + 1; j < txns.length; j++) {
         const t1 = txns[i];
         const t2 = txns[j];
