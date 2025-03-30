@@ -12,6 +12,7 @@ interface FinanceContextType {
   summary: FinancialSummary | null;
   insights: FinancialInsight[];
   filterOptions: TransactionFilterOptions;
+  clearData: () => void;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -219,6 +220,15 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setFilteredTransactions(filtered);
   };
 
+  const clearData = () => {
+    setTransactions([]);
+    setFilteredTransactions([]);
+    setSummary(null);
+    setInsights([]);
+    setFilterOptions({});
+    toast.success("Data cleared. You can now upload a new file.");
+  };
+
   const value = {
     transactions,
     filteredTransactions,
@@ -227,7 +237,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     applyFilters,
     summary,
     insights,
-    filterOptions
+    filterOptions,
+    clearData
   };
 
   return (

@@ -8,9 +8,11 @@ import { Transaction } from "@/lib/types";
 import FileUploader from "./FileUploader";
 import TransactionList from "./TransactionList";
 import InsightsList from "./InsightsList";
+import { Button } from "@/components/ui/button";
+import { Upload, RefreshCw } from "lucide-react";
 
 const Dashboard = () => {
-  const { transactions, filteredTransactions, summary } = useFinance();
+  const { transactions, filteredTransactions, summary, clearData } = useFinance();
 
   // Prepare chart data
   const prepareChartData = (transactions: Transaction[]) => {
@@ -43,6 +45,18 @@ const Dashboard = () => {
       ) : (
         <>
           {/* Summary Cards */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Financial Dashboard</h2>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={clearData}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Change QBO File
+            </Button>
+          </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
