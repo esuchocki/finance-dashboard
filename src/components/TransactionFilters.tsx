@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -213,9 +212,9 @@ const TransactionFilters = () => {
           <div className="space-y-2 col-span-full">
             <Label>Recurring Transactions</Label>
             <Select
-              value={isRecurring === undefined ? "" : String(isRecurring)}
+              value={isRecurring === undefined ? "undefined" : String(isRecurring)}
               onValueChange={(value) => {
-                if (value === "") {
+                if (value === "undefined") {
                   setIsRecurring(undefined);
                 } else {
                   setIsRecurring(value === "true");
@@ -226,7 +225,7 @@ const TransactionFilters = () => {
                 <SelectValue placeholder="Select Filter" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Transactions</SelectItem>
+                <SelectItem value="undefined">All Transactions</SelectItem>
                 <SelectItem value="true">Recurring Only</SelectItem>
                 <SelectItem value="false">Non-Recurring Only</SelectItem>
               </SelectContent>
