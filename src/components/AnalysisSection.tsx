@@ -11,9 +11,16 @@ const AnalysisSection = () => {
   const { filteredTransactions } = useFinance();
   const [activeTab, setActiveTab] = useState("spending");
 
+  // Define an interface for the monthly data
+  interface MonthlyData {
+    spending: number;
+    income: number;
+    label: string; // Add label to the interface
+  }
+
   // Spending by month
   const prepareMonthlyData = () => {
-    const monthlyData = new Map<string, { spending: number; income: number }>();
+    const monthlyData = new Map<string, MonthlyData>();
     
     filteredTransactions.forEach(t => {
       const date = t.date;
