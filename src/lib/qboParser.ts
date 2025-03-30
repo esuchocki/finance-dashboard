@@ -76,7 +76,7 @@ export function parseQBOFile(fileContent: string): Transaction[] {
     
     console.log("Processing QBO content...");
     
-    // Parse XML
+    // Parse XML with optimized settings to prevent stack overflow
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "_",
@@ -84,14 +84,19 @@ export function parseQBOFile(fileContent: string): Transaction[] {
       trimValues: true,
       isArray: (name) => {
         return name === "STMTTRN"; // Always treat STMTTRN as array
-      }
+      },
+      // Add these options to prevent stack overflow
+      allowBooleanAttributes: true,
+      preserveOrder: false,
+      parseAttributeValue: false
     });
     
     try {
       const result = parser.parse(xmlContent);
-      console.log("QBO structure:", JSON.stringify(result, null, 2).substring(0, 200) + "...");
+      // Avoid deep stringification that could cause stack overflow
+      console.log("QBO structure parsed successfully");
       
-      // Attempt to find transactions using predefined paths instead of recursive search
+      // Attempt to find transactions using predefined paths
       let transactions = findTransactionsInStructureIterative(result);
       
       if (!transactions || transactions.length === 0) {
@@ -101,8 +106,8 @@ export function parseQBOFile(fileContent: string): Transaction[] {
       
       console.log(`Found ${transactions.length} transactions in QBO file`);
       
-      // Process transactions in batches to avoid call stack issues
-      return processTransactionsInBatches(transactions);
+      // Process transactions in smaller batches to avoid call stack issues
+      return processTransactionsInBatches(transactions, 50); // Reduce batch size
       
     } catch (parseError) {
       console.error("XML parsing error:", parseError);
@@ -155,31 +160,24 @@ function findTransactionsInStructureIterative(obj: any): any[] {
     }
   }
   
-  // If no transactions found using predefined paths, try a more general approach
-  if (obj.OFX) {
-    // Search for STMTTRN in direct children of OFX
-    for (const key in obj.OFX) {
-      if (key === "STMTTRN" && Array.isArray(obj.OFX[key])) {
-        return obj.OFX[key];
-      }
-      
-      // Look one level deeper
-      if (typeof obj.OFX[key] === "object" && obj.OFX[key] !== null) {
-        for (const nestedKey in obj.OFX[key]) {
-          if (nestedKey === "STMTTRN" && Array.isArray(obj.OFX[key][nestedKey])) {
-            return obj.OFX[key][nestedKey];
-          }
-          
-          // Look one more level deeper
-          if (typeof obj.OFX[key][nestedKey] === "object" && obj.OFX[key][nestedKey] !== null) {
-            for (const deepKey in obj.OFX[key][nestedKey]) {
-              if (deepKey === "STMTTRN" && Array.isArray(obj.OFX[key][nestedKey][deepKey])) {
-                return obj.OFX[key][nestedKey][deepKey];
-              }
-            }
-          }
-        }
-      }
+  // If no transactions found using predefined paths, try a simple direct approach
+  // This avoids deep recursive searches that can cause stack overflow
+  if (obj.OFX && obj.OFX.BANKMSGSRSV1) {
+    const bankMsg = obj.OFX.BANKMSGSRSV1;
+    if (bankMsg.STMTTRNRS && bankMsg.STMTTRNRS.STMTRS && 
+        bankMsg.STMTTRNRS.STMTRS.BANKTRANLIST && 
+        Array.isArray(bankMsg.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN)) {
+      return bankMsg.STMTTRNRS.STMTRS.BANKTRANLIST.STMTTRN;
+    }
+  }
+  
+  // Additional credit card format check
+  if (obj.OFX && obj.OFX.CREDITCARDMSGSRSV1) {
+    const ccMsg = obj.OFX.CREDITCARDMSGSRSV1;
+    if (ccMsg.CCSTMTTRNRS && ccMsg.CCSTMTTRNRS.CCSTMTRS && 
+        ccMsg.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST && 
+        Array.isArray(ccMsg.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST.STMTTRN)) {
+      return ccMsg.CCSTMTTRNRS.CCSTMTRS.BANKTRANLIST.STMTTRN;
     }
   }
   
@@ -187,12 +185,11 @@ function findTransactionsInStructureIterative(obj: any): any[] {
 }
 
 // Process transactions in smaller batches to avoid stack overflow
-function processTransactionsInBatches(transactions: any[]): Transaction[] {
-  const BATCH_SIZE = 100; // Adjust based on performance testing
+function processTransactionsInBatches(transactions: any[], batchSize: number = 50): Transaction[] {
   const result: Transaction[] = [];
   
-  for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
-    const batch = transactions.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < transactions.length; i += batchSize) {
+    const batch = transactions.slice(i, i + batchSize);
     const processedBatch = batch.map((trn) => processTransaction(trn)).filter(Boolean) as Transaction[];
     result.push(...processedBatch);
   }
