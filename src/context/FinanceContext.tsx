@@ -208,7 +208,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         id: "increasing-expenses",
         title: "Increasing Expenses Trend",
         description: `Your monthly expenses have increased by ${percentIncrease.toFixed(1)}% over the last ${recentMonths.length} months.`,
-        type: "warning"
+        type: "warning" as const // Fix: explicitly type as literal "warning"
       };
     }
     
