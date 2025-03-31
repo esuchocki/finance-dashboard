@@ -24,7 +24,6 @@ const Dashboard = () => {
   const [incomeData, setIncomeData] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showFileUploader, setShowFileUploader] = useState(false);
 
   // Process transaction data when filteredTransactions change
   useEffect(() => {
@@ -357,7 +356,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       {transactions.length === 0 ? (
         <div className="animate-fade-in">
-          <FileUploader open={showFileUploader} onOpenChange={setShowFileUploader} />
+          <FileUploader />
         </div>
       ) : (
         <div className="space-y-6">
@@ -431,11 +430,6 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      
-      <FileUploader
-        open={showFileUploader}
-        onOpenChange={setShowFileUploader}
-      />
     </div>
   );
 };
