@@ -44,8 +44,8 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiKey = getClaudeApiKey();
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
-    // Process in smaller batches to get more detailed results
-    const BATCH_SIZE = 20; // Increased from 10 to 20 for better throughput
+    // Process in larger batches to improve throughput
+    const BATCH_SIZE = 50; // Increased from 20 to 50 for better throughput
     let enhancedTransactions: Transaction[] = [];
     
     // Calculate total batches for logging
@@ -68,18 +68,17 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
           description: t.description || "",
           memo: t.memo || "",
           payee: t.payee || "",
-          location: t.location || "",
-          category: t.category || ""  // Include existing category as context
+          location: t.location || ""
         }))
       );
 
-      // Enhanced prompt for better categorization and more readable descriptions
-      const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement. 
+      // Enhanced prompt focusing on 100% categorization and much better descriptions
+      const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement.
       
 YOUR MOST CRITICAL TASK is to process EVERY transaction in the input. Each transaction MUST receive:
 1. A main category
 2. A specific subcategory 
-3. A much more descriptive, human-readable version of the transaction name/description
+3. A much more descriptive, human-readable version of the transaction name/description that is COMPLETELY DIFFERENT from the original
 4. A confidence rating (high, medium, low)
 
 PROCESS 100% OF TRANSACTIONS, even if your confidence is low. It's better to make an educated guess than to skip categorization.
@@ -99,7 +98,9 @@ Rules for categorization:
 - For recurring transactions to the same payee, maintain consistent categorization
 
 For the verbose description (THIS IS THE MOST IMPORTANT PART):
+- NEVER return the original description unchanged - always create a completely new human-readable version
 - Create a clear, human-readable description that explains what the transaction actually is
+- The verbose description MUST be noticeably different from the original description
 - Use multiple strategies to deduce what the transaction is:
   1. Business name recognition (identify common merchants, "AMZN" → "Amazon")
   2. Pattern matching (recognize payment patterns like "ACH" for direct deposits)
@@ -122,22 +123,25 @@ For the verbose description (THIS IS THE MOST IMPORTANT PART):
 - Remove cryptic codes, abbreviations and numbers while keeping informative details
 - Make it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
 - Keep it concise - ideally under 40 characters
-- NEVER return the exact same string as the original description - always make it more readable
+- NEVER return the exact same string as the original description or name - always make it more readable
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
 - category: The main category
 - subCategory: The specific subcategory
-- verboseDescription: A clearer, more human-readable version of the transaction
+- verboseDescription: A clearer, more human-readable version of the transaction that is DIFFERENT from the original
 - confidence: Your confidence level in this categorization (high, medium, low)`;
 
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
-Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember you MUST process EVERY transaction, even if your confidence is low. The verboseDescription should be significantly different from the original - make it truly human-readable.`;
+Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. 
+You MUST process EVERY transaction, even if your confidence is low. 
+The verboseDescription MUST be significantly different from the original - make it truly human-readable.
+CRITICAL: Do not return the same description as the original. If you don't know what a transaction is, make your best guess.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout (increased)
       
       try {
         console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1} to Claude API...`);
@@ -182,7 +186,13 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         
         if (!jsonMatch) {
           console.error("Failed to parse Claude response:", content);
-          throw new Error("Invalid response format from Claude API");
+          // If we fail to parse as JSON, try to extract just what's between brackets
+          const bracketMatch = content.match(/\[([\s\S]*)\]/s);
+          if (bracketMatch) {
+            jsonMatch = bracketMatch;
+          } else {
+            throw new Error("Invalid response format from Claude API");
+          }
         }
         
         let jsonStr = jsonMatch[1];
@@ -202,32 +212,65 @@ Please categorize each transaction, determine a subcategory, create a verbose de
             if (enhancement) {
               // Ensure verbose description is actually different from original
               let verboseDescription = enhancement.verboseDescription;
-              if (verboseDescription === t.description || verboseDescription === t.name) {
-                // If Claude returned the same string, try to make it more readable
-                if (t.description.toUpperCase() === t.description) {
-                  // If all caps, convert to Title Case
-                  verboseDescription = t.description.toLowerCase().split(' ')
+              
+              // Verify the description is actually different
+              if (!verboseDescription || 
+                  verboseDescription === t.description || 
+                  verboseDescription === t.name) {
+                
+                // Generate a fallback description based on the transaction type
+                let prefix = "";
+                if (t.type === "DEBIT") {
+                  prefix = "Payment to ";
+                } else if (t.type === "CREDIT") {
+                  prefix = "Deposit from ";
+                } else if (t.type === "CHECK") {
+                  prefix = "Check payment ";
+                } else if (t.type === "WITHDRAWAL") {
+                  prefix = "Withdrawal - ";
+                } else if (t.type === "FEE") {
+                  prefix = "Fee - ";
+                } else if (t.type === "INTEREST") {
+                  prefix = "Interest from ";
+                }
+                
+                // Get the most descriptive text from the transaction
+                const baseText = t.description || t.name || "Unknown Transaction";
+                
+                // Convert to title case if it's all caps
+                const formattedText = baseText.toUpperCase() === baseText ? 
+                  baseText.toLowerCase().split(' ')
                     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ');
-                } else {
-                  // Add some context based on transaction type
-                  const prefix = t.type === "DEBIT" ? "Payment to " : 
-                               t.type === "CREDIT" ? "Deposit from " :
-                               t.type === "CHECK" ? "Check payment " : "";
-                  verboseDescription = prefix + verboseDescription;
+                    .join(' ') : 
+                  baseText;
+                
+                verboseDescription = prefix + formattedText;
+                
+                // Make sure it's actually different
+                if (verboseDescription === t.description || verboseDescription === t.name) {
+                  verboseDescription = "Transaction: " + formattedText;
                 }
               }
               
               return {
                 ...t,
-                category: enhancement.category || t.category || "Uncategorized",
-                subCategory: enhancement.subCategory || t.subCategory || "",
+                category: enhancement.category || "Uncategorized",
+                subCategory: enhancement.subCategory || "",
                 verboseDescription: verboseDescription,
                 confidence: enhancement.confidence || "low"
               };
             }
             
-            return t;
+            // If no enhancement found, create a basic categorization (shouldn't happen with proper prompt)
+            return {
+              ...t,
+              category: "Uncategorized",
+              subCategory: "",
+              verboseDescription: t.description ? 
+                `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
+                `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
+              confidence: "low"
+            };
           });
           
           enhancedTransactions = [...enhancedTransactions, ...batchWithEnhancements];
@@ -239,19 +282,47 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         } catch (jsonError) {
           console.error("Error parsing JSON from Claude response:", jsonError);
           console.error("Raw content:", content);
-          // Add the unenhanced batch to the result to avoid data loss
-          enhancedTransactions = [...enhancedTransactions, ...batch];
+          
+          // Add fallback enhancements to the batch to avoid data loss
+          const batchWithFallbackEnhancements = batch.map(t => {
+            // Create basic fallback enhancements
+            return {
+              ...t,
+              category: t.category || "Uncategorized",
+              subCategory: t.subCategory || "",
+              verboseDescription: t.description ? 
+                `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
+                `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
+              confidence: "low"
+            };
+          });
+          
+          enhancedTransactions = [...enhancedTransactions, ...batchWithFallbackEnhancements];
         }
         
       } catch (error) {
         clearTimeout(timeoutId);
         console.error(`Error processing batch starting at index ${i}:`, error);
-        // Add the unenhanced batch to the result to avoid data loss
-        enhancedTransactions = [...enhancedTransactions, ...batch];
+        
+        // Add fallback enhancements to the batch to avoid data loss
+        const batchWithFallbackEnhancements = batch.map(t => {
+          // Create basic fallback enhancements
+          return {
+            ...t,
+            category: t.category || "Uncategorized",
+            subCategory: t.subCategory || "",
+            verboseDescription: t.description ? 
+              `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
+              `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
+            confidence: "low"
+          };
+        });
+        
+        enhancedTransactions = [...enhancedTransactions, ...batchWithFallbackEnhancements];
       }
       
       // Add a small delay between batches to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
     // Count how many transactions were successfully categorized

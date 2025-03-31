@@ -169,6 +169,9 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
         transaction.verboseDescription !== transaction.name) {
       return transaction.verboseDescription;
     }
+    if (transaction.payee) {
+      return transaction.payee;
+    }
     return transaction.description || transaction.name;
   };
 
@@ -302,7 +305,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                       <p className="font-medium">
                         {getTransactionDisplayName(t)}
                       </p>
-                      {(t.description !== t.verboseDescription && t.description) && (
+                      {(t.description && t.description !== getTransactionDisplayName(t)) && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Original: {t.description}
                         </p>
