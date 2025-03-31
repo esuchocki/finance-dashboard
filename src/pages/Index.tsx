@@ -1,6 +1,11 @@
 
 import React, { useEffect, useState } from "react";
-import { Dashboard, ClaudeEnhancedCategories, CategoryHierarchyDebugger } from "@/components/dashboard";
+import { 
+  Dashboard, 
+  ClaudeEnhancedCategories, 
+  CategoryHierarchyDebugger,
+  ClaudeRawCategoryDebugger 
+} from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
@@ -91,6 +96,9 @@ const Index = () => {
       {/* Add enhanced category visualization when we have transactions */}
       {transactions.length > 0 && (
         <div className="mt-8 space-y-8 animate-fade-in">
+          {/* Add the Raw Category Debugger */}
+          <ClaudeRawCategoryDebugger transactions={transactions} />
+          
           {/* Add the Category Hierarchy Debugger */}
           <CategoryHierarchyDebugger transactions={transactions} />
           
