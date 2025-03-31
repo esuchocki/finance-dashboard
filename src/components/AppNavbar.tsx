@@ -1,9 +1,10 @@
+
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useFinance } from "@/context/FinanceContext";
 import { MoonIcon, SunIcon, UploadIcon, Key, Bug } from "lucide-react";
-import { useTheme } from "@/components/ui/theme-provider";
+import { useTheme } from "@/hooks/use-theme";
 import FileUploader from "@/components/FileUploader";
 import ClaudeApiKeyModal from "@/components/ClaudeApiKeyModal";
 import { hasClaudeApiKey } from "@/lib/claudeService";
