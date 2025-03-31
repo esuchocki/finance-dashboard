@@ -4,6 +4,7 @@ import { Dashboard, ClaudeEnhancedCategories } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import CategoryBreakdown from "@/components/dashboard/CategoryBreakdown";
 
 const Index = () => {
   const { transactions, isLoading, error } = useFinance();
@@ -87,9 +88,13 @@ const Index = () => {
     <div className="max-w-7xl mx-auto">
       <Dashboard />
       
-      {/* Add the Claude Enhanced Categories section if we have transactions */}
+      {/* Add enhanced category visualization when we have transactions */}
       {transactions.length > 0 && (
-        <div className="mt-8 animate-fade-in">
+        <div className="mt-8 space-y-8 animate-fade-in">
+          {/* Add the dedicated category breakdown component */}
+          <CategoryBreakdown transactions={transactions} />
+          
+          {/* Show Claude's enhanced categorization details */}
           <ClaudeEnhancedCategories transactions={transactions} />
         </div>
       )}
