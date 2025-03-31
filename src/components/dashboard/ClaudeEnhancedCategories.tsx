@@ -68,11 +68,12 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     );
   };
 
-  // Extract Claude-enhanced categories (only from transactions that actually have Claude data)
+  // Extract Claude-enhanced categories (more inclusive criteria)
   const prepareClaudeData = () => {
-    // Filter transactions to include only those with Claude-enhanced data
+    // Include transactions with ANY Claude-enhanced data (more inclusive criteria)
     const enhancedTransactions = transactions.filter(t => 
-      t.verboseDescription || t.confidence || 
+      t.verboseDescription || 
+      t.confidence || 
       (t.category && t.category !== "Uncategorized" && t.category !== "Other")
     );
     
@@ -88,6 +89,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     }>();
     
     enhancedTransactions.forEach(t => {
+      // Use the assigned category or default to "Uncategorized"
       const category = t.category || "Uncategorized";
       
       if (!categoryMap.has(category)) {
@@ -160,6 +162,11 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     }
   };
 
+  // Get display name for transaction - prioritize verbose description
+  const getTransactionDisplayName = (transaction: Transaction) => {
+    return transaction.verboseDescription || transaction.description || transaction.name;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -197,7 +204,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                 <div className="space-y-2">
                   <h4 className="font-medium">AI-Enhanced Data</h4>
                   <p className="text-sm text-muted-foreground">
-                    This chart only shows the {enhancedCount} transactions ({percentCategorized}%) 
+                    This chart shows the {enhancedCount} transactions ({percentCategorized}%) 
                     that Claude AI successfully categorized out of {totalTransactions} total transactions.
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -288,7 +295,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                   <div className="flex justify-between items-start">
                     <div className="max-w-[70%]">
                       <p className="font-medium">
-                        {t.verboseDescription || t.description || t.name}
+                        {getTransactionDisplayName(t)}
                       </p>
                       {(t.description !== t.verboseDescription && t.description) && (
                         <p className="text-xs text-muted-foreground mt-1">
