@@ -41,7 +41,7 @@ export const hasClaudeApiKey = (): boolean => {
 export const enhanceTransactionsWithClaude = async (
   transactions: Transaction[],
   batchSize = 10
-): Promise<Transaction[]> {
+): Promise<Transaction[]> => {
   const apiKey = getClaudeApiKey();
   
   if (!apiKey) {
@@ -74,7 +74,7 @@ export const enhanceTransactionsWithClaude = async (
 const processBatchWithClaude = async (
   batch: Transaction[],
   apiKey: string
-): Promise<Transaction[]> {
+): Promise<Transaction[]> => {
   // Only send minimal transaction data to Claude
   const sanitizedBatch = batch.map(transaction => ({
     description: transaction.description,
@@ -181,7 +181,7 @@ const processBatchWithClaude = async (
 export const resolveMerchantWithClaude = async (
   transactionDescription: string,
   location: string
-): Promise<{ merchantName: string; confidence: string } | null> {
+): Promise<{ merchantName: string; confidence: string } | null> => {
   const apiKey = getClaudeApiKey();
   
   if (!apiKey) {
