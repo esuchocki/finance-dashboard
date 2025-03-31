@@ -45,7 +45,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
     // Process in smaller batches to get more detailed results
-    const BATCH_SIZE = 10; // Reduced batch size for more detailed processing
+    const BATCH_SIZE = 20; // Increased from 10 to 20 for better throughput
     let enhancedTransactions: Transaction[] = [];
     
     // Calculate total batches for logging
@@ -57,17 +57,19 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
       const batch = transactions.slice(i, i + BATCH_SIZE);
       console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${totalBatches} (${batch.length} transactions)`);
       
-      // Prepare batch for Claude API
+      // Prepare batch for Claude API with more fields for better context
       const batchJSON = JSON.stringify(
         batch.map(t => ({
           id: t.id,
           date: t.date.toISOString(),
           amount: t.amount,
           type: t.type,
-          name: t.name,
-          description: t.description,
-          memo: t.memo,
-          payee: t.payee || ""
+          name: t.name || "",
+          description: t.description || "",
+          memo: t.memo || "",
+          payee: t.payee || "",
+          location: t.location || "",
+          category: t.category || ""  // Include existing category as context
         }))
       );
 
@@ -114,9 +116,13 @@ For the verbose description (THIS IS THE MOST IMPORTANT PART):
   - "POS PURCHASE KROGER #1234" → "Groceries at Kroger"
   - "POS DEBIT SPOTIFY USA" → "Spotify Monthly Subscription"
   - "VENMO PAYMENT 1234567890" → "Venmo Payment"
+  - "DEBIT PURCHASE VISA ONLINE PMT" → "Credit Card Payment"
+  - "POS PURCHASE TARGET 12345" → "Target Shopping"
+  - "ACH DEBIT INSURANCE PREMIUM" → "Insurance Premium Payment"
 - Remove cryptic codes, abbreviations and numbers while keeping informative details
 - Make it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
 - Keep it concise - ideally under 40 characters
+- NEVER return the exact same string as the original description - always make it more readable
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
@@ -127,13 +133,14 @@ Return a JSON array of objects with these fields:
 
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
-Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember you MUST process EVERY transaction, even if your confidence is low.`;
+Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember you MUST process EVERY transaction, even if your confidence is low. The verboseDescription should be significantly different from the original - make it truly human-readable.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
       
       try {
+        console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1} to Claude API...`);
         const response = await fetch(apiUrl, {
           method: "POST",
           headers: {
@@ -159,11 +166,13 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         
         if (!response.ok) {
           const errorText = await response.text();
+          console.error(`Claude API error: ${response.status} ${errorText}`);
           throw new Error(`Claude API error: ${response.status} ${errorText}`);
         }
 
         const data = await response.json();
         const content = data.content?.[0]?.text || "";
+        console.log(`Received response from Claude API for batch ${Math.floor(i / BATCH_SIZE) + 1}`);
         
         // Improved JSON extraction from Claude's response
         let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
@@ -184,17 +193,36 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         
         try {
           const enhancedBatch = JSON.parse(jsonStr);
+          console.log(`Successfully parsed JSON for batch ${Math.floor(i / BATCH_SIZE) + 1}`);
           
           // Map the enhanced data back to the original transactions
           const batchWithEnhancements = batch.map(t => {
             const enhancement = enhancedBatch.find((e: any) => e.id === t.id);
             
             if (enhancement) {
+              // Ensure verbose description is actually different from original
+              let verboseDescription = enhancement.verboseDescription;
+              if (verboseDescription === t.description || verboseDescription === t.name) {
+                // If Claude returned the same string, try to make it more readable
+                if (t.description.toUpperCase() === t.description) {
+                  // If all caps, convert to Title Case
+                  verboseDescription = t.description.toLowerCase().split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+                } else {
+                  // Add some context based on transaction type
+                  const prefix = t.type === "DEBIT" ? "Payment to " : 
+                               t.type === "CREDIT" ? "Deposit from " :
+                               t.type === "CHECK" ? "Check payment " : "";
+                  verboseDescription = prefix + verboseDescription;
+                }
+              }
+              
               return {
                 ...t,
                 category: enhancement.category || t.category || "Uncategorized",
                 subCategory: enhancement.subCategory || t.subCategory || "",
-                verboseDescription: enhancement.verboseDescription || t.description,
+                verboseDescription: verboseDescription,
                 confidence: enhancement.confidence || "low"
               };
             }
@@ -233,6 +261,12 @@ Please categorize each transaction, determine a subcategory, create a verbose de
     
     const categorizedPercent = Math.round((categorizedCount / transactions.length) * 100);
     console.log(`Successfully categorized ${categorizedCount} out of ${transactions.length} transactions (${categorizedPercent}%)`);
+    
+    // Check for transactions that weren't properly enhanced
+    const unenhancedCount = enhancedTransactions.filter(t => !t.verboseDescription).length;
+    if (unenhancedCount > 0) {
+      console.warn(`Warning: ${unenhancedCount} transactions did not receive verbose descriptions`);
+    }
     
     return enhancedTransactions;
     

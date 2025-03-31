@@ -2,11 +2,10 @@
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Info, LineChart, ArrowUpDown, BadgeCheck, Loader2 } from "lucide-react";
+import { ChevronLeft, Info, LineChart, BadgeCheck, Loader2 } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -74,7 +73,8 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     const enhancedTransactions = transactions.filter(t => 
       t.verboseDescription || 
       t.confidence || 
-      (t.category && t.category !== "Uncategorized")
+      (t.category && t.category !== "Uncategorized") ||
+      t.subCategory
     );
     
     const totalTransactions = transactions.length;
@@ -164,7 +164,12 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
 
   // Get display name for transaction - prioritize verbose description
   const getTransactionDisplayName = (transaction: Transaction) => {
-    return transaction.verboseDescription || transaction.description || transaction.name;
+    if (transaction.verboseDescription && 
+        transaction.verboseDescription !== transaction.description &&
+        transaction.verboseDescription !== transaction.name) {
+      return transaction.verboseDescription;
+    }
+    return transaction.description || transaction.name;
   };
 
   return (
