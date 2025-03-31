@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
@@ -129,10 +128,8 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
         });
       }
       
-      // Get current category data
-      const categoryData = categoryMap.get(category)!;
-      
       // Update category data
+      const categoryData = categoryMap.get(category)!;
       categoryData.amount += Math.abs(t.amount);
       categoryData.count += 1;
       categoryData.transactions.push(t);
@@ -229,7 +226,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     }
   };
 
-  // Get display name for transaction - prioritize verbose description
+  // Get display name for transaction - UPDATED to prioritize verbose description
   const getTransactionDisplayName = (transaction: Transaction) => {
     if (transaction.verboseDescription && 
         transaction.verboseDescription !== transaction.description &&
@@ -395,10 +392,12 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                 <div key={t.id} className="text-sm p-3 border rounded-md hover:bg-muted/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div className="max-w-[70%]">
+                      {/* Prioritize displaying the verbose description */}
                       <p className="font-medium">
                         {getTransactionDisplayName(t)}
                       </p>
-                      {(t.description && t.description !== getTransactionDisplayName(t)) && (
+                      {/* Only show original description if different from verbose */}
+                      {t.description && t.description !== getTransactionDisplayName(t) && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Original: {t.description || t.name}
                         </p>

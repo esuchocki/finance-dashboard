@@ -34,6 +34,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
   }
 
   // Helper function to get the best display name for a transaction
+  // Updated to prioritize verbose descriptions
   const getDisplayName = (transaction: Transaction) => {
     // Always prioritize the verbose description if it exists and is unique
     if (transaction.verboseDescription && 
@@ -118,6 +119,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                       </Badge>
                     </>
                   )}
+                  {/* Only show original description if it's different from the verbose one */}
                   {transaction.description && 
                    transaction.description !== getDisplayName(transaction) && (
                     <>
