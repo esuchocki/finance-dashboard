@@ -92,12 +92,13 @@
 
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
 }
 
 /* Custom finance dashboard styles */
 .finance-card {
-  @apply bg-white rounded-lg shadow-md p-4 border border-gray-100;
+  @apply bg-white rounded-lg shadow-md p-4 border border-gray-100 transition-all duration-200 hover:shadow-lg;
 }
 
 .finance-stat {
@@ -117,7 +118,7 @@
 }
 
 .transaction-item {
-  @apply border-b border-gray-100 py-3 hover:bg-gray-50 transition-colors;
+  @apply border-b border-gray-100 py-3 hover:bg-gray-50 transition-colors duration-200;
 }
 
 .transaction-item:last-child {
@@ -126,4 +127,49 @@
 
 .category-badge {
   @apply inline-block px-2 py-0.5 text-xs rounded-full;
+}
+
+/* Enhanced dashboard animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+
+/* Card hover effects */
+.dashboard-card {
+  @apply transition-all duration-300 hover:translate-y-[-4px] hover:shadow-md;
+}
+
+/* Enhanced chart styles */
+.chart-container {
+  @apply rounded-lg overflow-hidden p-4;
 }

@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, CalendarClock } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarClock, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import ComparisonIndicator from "@/components/ComparisonIndicator";
 import { FinancialSummary } from "@/lib/types";
@@ -19,69 +19,85 @@ interface DashboardSummaryCardsProps {
 const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, trends }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Income</CardTitle>
+      <Card className="dashboard-card border-l-4 border-l-finance-positive animate-fade-in stagger-1">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+            <TrendingUp className="text-finance-positive h-4 w-4 mr-2" />
+            Total Income
+          </CardTitle>
+          {trends && (
+            <ComparisonIndicator 
+              value={trends.incomeChange} 
+              suffix="%" 
+              positiveIsGood={true}
+            />
+          )}
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-finance-positive">
+          <div className="text-3xl font-bold text-finance-positive tracking-tight">
             {summary ? formatCurrency(summary.totalIncome) : "$0.00"}
           </div>
-          <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
-              <TrendingUp className="text-finance-positive h-4 w-4 mr-1" />
               <span className="text-xs text-muted-foreground">
                 {summary?.transactionCount || 0} transactions
               </span>
             </div>
-            {trends && (
-              <ComparisonIndicator 
-                value={trends.incomeChange} 
-                suffix="%" 
-                positiveIsGood={true}
-              />
-            )}
           </div>
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Total Expenses</CardTitle>
+      <Card className="dashboard-card border-l-4 border-l-finance-negative animate-fade-in stagger-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+            <TrendingDown className="text-finance-negative h-4 w-4 mr-2" />
+            Total Expenses
+          </CardTitle>
+          {trends && (
+            <ComparisonIndicator 
+              value={trends.expensesChange} 
+              suffix="%" 
+              positiveIsGood={false}
+            />
+          )}
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-finance-negative">
+          <div className="text-3xl font-bold text-finance-negative tracking-tight">
             {summary ? formatCurrency(summary.totalExpenses) : "$0.00"}
           </div>
-          <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
-              <TrendingDown className="text-finance-negative h-4 w-4 mr-1" />
               <span className="text-xs text-muted-foreground">
                 {summary ? summary.topExpenseCategories?.length || 0 : 0} categories
               </span>
             </div>
-            {trends && (
-              <ComparisonIndicator 
-                value={trends.expensesChange} 
-                suffix="%" 
-                positiveIsGood={false}
-              />
-            )}
           </div>
         </CardContent>
       </Card>
       
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Net Cashflow</CardTitle>
+      <Card className="dashboard-card border-l-4 border-l-finance-accent animate-fade-in stagger-3">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
+            <CalendarClock className="h-4 w-4 mr-2 text-accent" />
+            Net Cashflow
+          </CardTitle>
+          {trends && trends.balanceChange !== 0 && (
+            <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
+              {trends.balanceChange > 0 ? (
+                <ArrowUpRight className="h-3 w-3 mr-1" />
+              ) : (
+                <ArrowDownRight className="h-3 w-3 mr-1" />
+              )}
+              {formatCurrency(Math.abs(trends.balanceChange))}
+            </Badge>
+          )}
         </CardHeader>
         <CardContent>
-          <div className={`text-2xl font-bold ${summary && summary.netCashflow >= 0 ? "text-finance-positive" : "text-finance-negative"}`}>
+          <div className={`text-3xl font-bold tracking-tight ${summary && summary.netCashflow >= 0 ? "text-finance-positive" : "text-finance-negative"}`}>
             {summary ? formatCurrency(summary.netCashflow) : "$0.00"}
           </div>
-          <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center justify-between mt-2">
             <div className="flex items-center">
-              <CalendarClock className="h-4 w-4 mr-1 text-muted-foreground" />
               <span className="text-xs text-muted-foreground">
                 {summary && summary.dateRange ? 
                   `${summary.dateRange.start.toLocaleDateString()} - ${summary.dateRange.end.toLocaleDateString()}` : 
@@ -89,11 +105,6 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                 }
               </span>
             </div>
-            {trends && trends.balanceChange !== 0 && (
-              <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2">
-                {trends.balanceChange > 0 ? "+" : ""}{formatCurrency(trends.balanceChange)}
-              </Badge>
-            )}
           </div>
         </CardContent>
       </Card>

@@ -1,8 +1,8 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, LineChart } from "lucide-react";
 import FileUploader from "@/components/FileUploader";
 import TransactionList from "@/components/TransactionList";
 import InsightsList from "@/components/InsightsList";
@@ -130,18 +130,25 @@ const Dashboard = () => {
   return (
     <div className="space-y-6">
       {transactions.length === 0 ? (
-        <FileUploader />
+        <div className="animate-fade-in">
+          <FileUploader />
+        </div>
       ) : (
-        <>
+        <div className="space-y-6">
           {/* Show Upload Summary first when data is loaded */}
-          <UploadSummary />
+          <div className="animate-fade-in">
+            <UploadSummary />
+          </div>
           
           {/* Summary Cards */}
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Financial Dashboard</h2>
+          <div className="flex justify-between items-center animate-fade-in">
+            <h2 className="text-2xl font-bold flex items-center">
+              <LineChart className="h-6 w-6 mr-2 text-finance-primary" />
+              Financial Dashboard
+            </h2>
             <Button 
               variant="outline" 
-              className="flex items-center gap-2" 
+              className="flex items-center gap-2 hover:bg-muted" 
               onClick={clearData}
             >
               <RefreshCw className="h-4 w-4" />
@@ -162,14 +169,18 @@ const Dashboard = () => {
           <CategoryCharts expenseData={chartData} incomeData={incomeChartData} />
           
           {/* Insights */}
-          <InsightsList />
+          <div className="animate-fade-in stagger-1">
+            <InsightsList />
+          </div>
           
           {/* Transactions List */}
-          <TransactionList 
-            transactions={filteredTransactions.slice(0, 10)} 
-            title="Recent Transactions"
-          />
-        </>
+          <div className="animate-fade-in stagger-2">
+            <TransactionList 
+              transactions={filteredTransactions.slice(0, 10)} 
+              title="Recent Transactions"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

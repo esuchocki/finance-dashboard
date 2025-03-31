@@ -13,9 +13,12 @@ import {
   Cell, 
   Legend, 
   Tooltip, 
-  ResponsiveContainer 
+  ResponsiveContainer,
+  Label
 } from "recharts";
 import { formatCurrency } from "@/lib/formatters";
+import { Badge } from "@/components/ui/badge";
+import { PieChart as PieChartIcon, BarChart } from "lucide-react";
 
 interface CategoryData {
   name: string;
@@ -29,23 +32,63 @@ interface CategoryChartsProps {
 
 const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData }) => {
   // Define chart colors
-  const CHART_COLORS = [
-    "#0EA5E9", "#06B6D4", "#14B8A6", "#10B981", "#34D399", 
-    "#8B5CF6", "#A855F7", "#EC4899", "#F472B6", "#FB7185"
+  const EXPENSE_COLORS = [
+    "#F97316", "#FB923C", "#FDBA74", "#FED7AA", "#FFEDD5",
+    "#F43F5E", "#FB7185", "#FDA4AF", "#FECDD3", "#FCE7F3"
   ];
+  
+  const INCOME_COLORS = [
+    "#10B981", "#34D399", "#6EE7B7", "#A7F3D0", "#D1FAE5",
+    "#0EA5E9", "#38BDF8", "#7DD3FC", "#BAE6FD", "#E0F2FE"
+  ];
+  
+  // Custom legend renderer for better formatting
+  const renderCustomizedLegend = (props: any) => {
+    const { payload } = props;
+    
+    return (
+      <ul className="flex flex-wrap justify-center gap-2 mt-4">
+        {payload.map((entry: any, index: number) => (
+          <li key={`item-${index}`} className="flex items-center">
+            <Badge 
+              style={{ backgroundColor: entry.color, color: '#fff' }}
+              className="mr-1 whitespace-nowrap"
+            >
+              {entry.value}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    );
+  };
+
+  // Calculate totals for center labels
+  const expenseTotal = expenseData.reduce((sum, item) => sum + item.value, 0);
+  const incomeTotal = incomeData.reduce((sum, item) => sum + item.value, 0);
   
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Expense Categories Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Spending by Category</CardTitle>
-          <CardDescription>
-            {expenseData.length} categories
-          </CardDescription>
+      <Card className="dashboard-card animate-fade-in">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center">
+                <PieChartIcon className="h-5 w-5 mr-2 text-finance-negative" />
+                Spending by Category
+              </CardTitle>
+              <CardDescription>
+                {expenseData.length} categories
+              </CardDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Expenses</div>
+              <div className="text-xl font-bold text-finance-negative">{formatCurrency(expenseTotal)}</div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
+          <div className="h-[300px] chart-container">
             {expenseData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -55,6 +98,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData
                     cy="50%"
                     labelLine={false}
                     outerRadius={100}
+                    innerRadius={40}
                     fill="#8884d8"
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -62,14 +106,20 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData
                     {expenseData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={CHART_COLORS[index % CHART_COLORS.length]} 
+                        fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} 
                       />
                     ))}
+                    <Label
+                      value="Expenses"
+                      position="center"
+                      fill="#333"
+                      style={{ fontSize: '14px', fontWeight: 'bold' }}
+                    />
                   </Pie>
                   <Tooltip 
                     formatter={(value: number) => formatCurrency(value)}
                   />
-                  <Legend />
+                  <Legend content={renderCustomizedLegend} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -82,15 +132,26 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData
       </Card>
       
       {/* Income Categories Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Income Sources</CardTitle>
-          <CardDescription>
-            {incomeData.length} categories
-          </CardDescription>
+      <Card className="dashboard-card animate-fade-in">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center">
+                <BarChart className="h-5 w-5 mr-2 text-finance-positive" />
+                Income Sources
+              </CardTitle>
+              <CardDescription>
+                {incomeData.length} categories
+              </CardDescription>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-muted-foreground">Total Income</div>
+              <div className="text-xl font-bold text-finance-positive">{formatCurrency(incomeTotal)}</div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
+          <div className="h-[300px] chart-container">
             {incomeData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -100,6 +161,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData
                     cy="50%"
                     labelLine={false}
                     outerRadius={100}
+                    innerRadius={40}
                     fill="#10B981"
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
@@ -107,14 +169,20 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({ expenseData, incomeData
                     {incomeData.map((entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={CHART_COLORS[index % CHART_COLORS.length]} 
+                        fill={INCOME_COLORS[index % INCOME_COLORS.length]} 
                       />
                     ))}
+                    <Label
+                      value="Income"
+                      position="center"
+                      fill="#333"
+                      style={{ fontSize: '14px', fontWeight: 'bold' }}
+                    />
                   </Pie>
                   <Tooltip 
                     formatter={(value: number) => formatCurrency(value)}
                   />
-                  <Legend />
+                  <Legend content={renderCustomizedLegend} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
