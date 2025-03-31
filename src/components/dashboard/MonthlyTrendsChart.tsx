@@ -156,6 +156,12 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         ? `${(value / 1000).toFixed(1)}k` 
                         : value}`}
                     />
+                    {/* Add a secondary YAxis with the "right" yAxisId */}
+                    <YAxis 
+                      yAxisId="right" 
+                      orientation="right"
+                      tickFormatter={(value) => `${value}%`}
+                    />
                     <ChartTooltip 
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
@@ -228,6 +234,12 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       tickFormatter={(value) => `$${Math.abs(value) >= 1000 
                         ? `${(value / 1000).toFixed(1)}k` 
                         : value}`}
+                    />
+                    {/* Add a secondary YAxis with the "right" yAxisId */}
+                    <YAxis 
+                      yAxisId="right" 
+                      orientation="right"
+                      tickFormatter={(value) => `${value}%`}
                     />
                     <ChartTooltip 
                       content={({ active, payload }) => {
