@@ -11,7 +11,7 @@ import InsightsList from "./InsightsList";
 import UploadSummary from "./UploadSummary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock, ArrowUp, ArrowDown, ArrowRight, ChartBarIcon, ChartLineUp } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock, ArrowUp, ArrowDown, ArrowRight, ChartBar, ChartLine } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import ComparisonIndicator from "./ComparisonIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
