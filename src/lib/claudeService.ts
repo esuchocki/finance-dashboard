@@ -1,4 +1,3 @@
-
 import { Transaction } from "./types";
 
 // Check if the Claude API key is available (stored in localStorage)
@@ -60,6 +59,15 @@ const validateCategoryType = (type: string): "income" | "expense" | "transfer" |
   }
 };
 
+// Add a simple function to validate if a transaction is categorized meaningfully
+const hasDetailedCategorization = (transaction: Transaction): boolean => {
+  if (!transaction.category || transaction.category === "Uncategorized" || 
+      transaction.category === "Other Income" || transaction.category === "Miscellaneous") {
+    return false;
+  }
+  return true;
+};
+
 // Function to enhance transactions with Claude categorization
 export const enhanceTransactionsWithClaude = async (transactions: Transaction[]): Promise<Transaction[]> => {
   if (!hasClaudeApiKey()) {
@@ -72,7 +80,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
     // Process in larger batches to improve throughput
-    const BATCH_SIZE = 50; // Using a large batch size for better throughput
+    const BATCH_SIZE = 20; // Smaller batch size to improve quality
     let enhancedTransactions: Transaction[] = [];
     
     // Calculate total batches for logging
@@ -100,57 +108,53 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
       );
 
       // Enhanced prompt focusing on rich, hierarchical categorization
-      const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement.
-      
-YOUR MOST CRITICAL TASK is to process EVERY transaction in the input. Each transaction MUST receive:
-1. A specific main category (NOT just "Income" or "Expenses" - be much more specific)
-2. A specific subcategory
-3. A much more descriptive, human-readable version of the transaction name/description that is COMPLETELY DIFFERENT from the original
+      const systemPrompt = `You are a financial data analyst specialized in transaction categorization and classification.
+
+YOUR TASK is to analyze each financial transaction and provide:
+1. A SPECIFIC main category - do NOT use generic labels like "Income" or "Expenses" or "Uncategorized"
+2. A specific subcategory that relates to the main category
+3. A clear, human-readable description that explains what the transaction actually is
 4. A confidence rating (high, medium, low)
 5. A category type (income, expense, transfer, or other)
 
-PROCESS 100% OF TRANSACTIONS, even if your confidence is low. It's better to make an educated guess than to skip categorization.
+CATEGORIZATION GUIDELINES:
+- Every transaction MUST receive a specific, meaningful category based on its nature
+- NEVER use "Income" or "Expenses" as a top-level category
+- For expenses, use specific categories like "Food", "Housing", "Transportation", etc.
+- For income, use categories like "Salary", "Investment Income", "Freelance Work", etc.
+- Create NEW appropriate categories when needed - DON'T force transactions into ill-fitting categories
+- Be descriptive and specific with category names
+- Make categories easily understandable to regular people
 
-Here's a rich taxonomy of potential categories as a guide: ${JSON.stringify(CATEGORIZATION_TAXONOMY)}
+For the HUMAN-READABLE DESCRIPTION:
+- Your generated description MUST be different from the original
+- Make it conversational and clear (e.g., "Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE")
+- Remove cryptic codes, abbreviations and numbers
+- Aim for clarity over brevity
+- Be descriptive enough that someone can understand what the transaction was for
 
-CRITICAL GUIDELINES FOR CATEGORIZATION:
-- NEVER use generic "Income" or "Expenses" as the main category
-- For income transactions, use specific categories like "Salary", "Freelance Income", "Investment Income"
-- For expense transactions, use specific categories like "Food", "Housing", "Transportation", "Shopping"
-- BE SPECIFIC AND DESCRIPTIVE with categories - they should clearly indicate the nature of the transaction
-- Create new categories if none of the suggested ones fit
-- Determine if something should be a main category vs. a subcategory based on its importance and frequency
-- Group related transactions under the same categories to create meaningful clusters
-- Use a consistent naming convention for categories (Title Case)
-- Ensure categories are human-readable and intuitive
-- NEVER use category names that are too technical, cryptic, or confusing
-- Create a hierarchical structure where appropriate (main category → subcategory)
+Here's a taxonomy of potential categories as a guide: ${JSON.stringify(CATEGORIZATION_TAXONOMY)}
 
-For the verbose description (CRITICAL REQUIREMENT):
-- NEVER return the original description unchanged - always create a completely new human-readable version
-- Create a clear, human-readable description that explains what the transaction actually is
-- The verbose description MUST be noticeably different from the original description
-- Focus on making it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
-- Remove cryptic codes, abbreviations and numbers while keeping informative details
-- Keep it concise - ideally under 40 characters
-- Make it descriptive enough that a person can understand what the transaction was for
-
+RESPONSE FORMAT:
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
-- category: The specific, descriptive main category (NOT generic "Income" or "Expenses")
-- subCategory: The specific subcategory
-- verboseDescription: A clearer, more human-readable version of the transaction that is DIFFERENT from the original
-- confidence: Your confidence level in this categorization (high, medium, low)
-- categoryType: One of "income", "expense", "transfer", or "other"`;
+- category: Specific, descriptive main category 
+- subCategory: Specific subcategory
+- verboseDescription: Clear, human-readable version of the transaction
+- confidence: Your confidence level (high, medium, low)
+- categoryType: One of: "income", "expense", "transfer", or "other"`;
 
-      const userMessage = `Here are the transactions to analyze: ${batchJSON}
+      const userMessage = `Here are the financial transactions to categorize: ${batchJSON}
 
-Please categorize each transaction with SPECIFIC, DESCRIPTIVE categories (NOT just generic "Income" or "Expenses").
-Create meaningful, intuitive categories that help understand the nature of each transaction (e.g., "Food", "Shopping", "Transportation", "Salary").
-You MUST process EVERY transaction, even if your confidence is low.
-The verboseDescription MUST be significantly different from the original - make it truly human-readable.
-CRITICAL: Do not return the same description as the original. If you don't know what a transaction is, make your best guess.
-Feel free to create NEW appropriate categories if the existing ones don't fit well.`;
+For EACH transaction:
+1. Assign a SPECIFIC category (NOT generic "Income" or "Expenses")
+2. Assign a relevant subcategory
+3. Create a human-readable description that's different from the original
+4. Add confidence level (high/medium/low)
+5. Classify as income/expense/transfer/other
+
+Use the guidelines I provided. EVERY transaction must have ALL five elements.
+DO NOT skip any transactions or use generic categories like "Uncategorized", "Miscellaneous", "Income", or "Expenses".`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
@@ -191,6 +195,9 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
         const content = data.content?.[0]?.text || "";
         console.log(`Received response from Claude API for batch ${Math.floor(i / BATCH_SIZE) + 1}`);
         
+        // Log a sample of the response for debugging
+        console.log("Sample of Claude response:", content.substring(0, 500));
+        
         // Improved JSON extraction from Claude's response
         let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
                         content.match(/```\n([\s\S]*?)\n```/) ||
@@ -217,6 +224,11 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
         try {
           const enhancedBatch = JSON.parse(jsonStr);
           console.log(`Successfully parsed JSON for batch ${Math.floor(i / BATCH_SIZE) + 1}`);
+          
+          // Log a sample of the parsed JSON for debugging
+          if (enhancedBatch.length > 0) {
+            console.log("Sample parsed transaction:", JSON.stringify(enhancedBatch[0], null, 2));
+          }
           
           // Map the enhanced data back to the original transactions
           const batchWithEnhancements = batch.map(t => {
@@ -272,55 +284,89 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
                 }
               }
               
-              // Ensure we have a valid specific category (not just "Income" or "Expenses")
+              // Ensure we have a specific, meaningful category (not just "Income", "Expenses", "Uncategorized", etc.)
               let category = enhancement.category;
+              let subCategory = enhancement.subCategory;
               
               // Validate categoryType to ensure it's one of the allowed literal types
               const categoryType = validateCategoryType(enhancement.categoryType || 
                   (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "expense" : 
                   t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST" ? "income" : "other"));
               
-              if (!category || category === "Uncategorized" || category === "Income" || category === "Expenses") {
+              if (!category || 
+                  category === "Uncategorized" || 
+                  category === "Income" || 
+                  category === "Expenses" ||
+                  category === "Miscellaneous" ||
+                  category === "Other Income" ||
+                  category === "Other") {
+                
                 // Assign a more specific category based on transaction type and description
                 if (categoryType === "income") {
                   // More specific income categories
                   if (/payroll|salary|direct deposit/i.test(t.description)) {
                     category = "Salary & Wages";
+                    subCategory = "Regular Income";
                   } else if (/interest|dividend/i.test(t.description)) {
                     category = "Investment Income";
+                    subCategory = "Interest";
                   } else if (/refund|return/i.test(t.description)) {
                     category = "Refunds";
+                    subCategory = "Purchase Refunds";
                   } else {
-                    category = "Other Income";
+                    category = "Other Income Sources";
+                    subCategory = "Miscellaneous Income";
                   }
                 } else if (categoryType === "expense") {
                   // More specific expense categories based on common patterns
                   if (/restaurant|food|coffee|dining|cafe|mcdonald|burger|taco|pizza/i.test(t.description)) {
                     category = "Food & Dining";
+                    subCategory = "Restaurants";
                   } else if (/amazon|walmart|target|ebay|shopping/i.test(t.description)) {
                     category = "Shopping";
+                    subCategory = "Online Shopping";
                   } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
                     category = "Transportation";
+                    subCategory = "Rideshare & Transit";
                   } else if (/netflix|spotify|hulu|disney|entertainment/i.test(t.description)) {
                     category = "Entertainment";
+                    subCategory = "Streaming Services";
                   } else if (/rent|mortgage|home|apartment|property/i.test(t.description)) {
                     category = "Housing";
+                    subCategory = "Rent & Mortgage";
                   } else if (/doctor|medical|health|pharmacy|dental/i.test(t.description)) {
                     category = "Healthcare";
+                    subCategory = "Medical Services";
                   } else {
-                    category = "Miscellaneous";
+                    category = "Other Expenses";
+                    subCategory = "Uncategorized Spending";
                   }
                 } else if (categoryType === "transfer") {
                   category = "Transfers";
+                  subCategory = "Account Transfers";
                 } else {
-                  category = "Uncategorized";
+                  category = "Uncategorized Transactions";
+                  subCategory = "Other";
+                }
+              }
+              
+              // Ensure the subcategory is not empty
+              if (!subCategory || subCategory === "Uncategorized" || subCategory === "Other") {
+                // Generate a reasonable subcategory based on the main category
+                const potentialSubcategories = CATEGORIZATION_TAXONOMY[category as keyof typeof CATEGORIZATION_TAXONOMY];
+                if (potentialSubcategories && potentialSubcategories.length > 0) {
+                  // If we have subcategories for this category in our taxonomy, use the first one as a default
+                  subCategory = potentialSubcategories[0];
+                } else {
+                  // Otherwise create a generic subcategory based on the main category
+                  subCategory = `${category} - General`;
                 }
               }
               
               return {
                 ...t,
                 category: category,
-                subCategory: enhancement.subCategory || "",
+                subCategory: subCategory,
                 verboseDescription: verboseDescription,
                 confidence: enhancement.confidence || "low",
                 categoryType: categoryType
@@ -332,24 +378,60 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
             const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
             const isTransfer = t.type === "TRANSFER";
             
-            let fallbackCategory = "Uncategorized";
+            let fallbackCategory = "Uncategorized Transactions";
+            let fallbackSubCategory = "Other";
             let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
-              fallbackCategory = "Other Income";
+              if (/payroll|salary|direct deposit/i.test(t.description)) {
+                fallbackCategory = "Salary & Wages";
+                fallbackSubCategory = "Regular Income";
+              } else if (/interest|dividend/i.test(t.description)) {
+                fallbackCategory = "Investment Income";
+                fallbackSubCategory = "Interest";
+              } else if (/refund|return/i.test(t.description)) {
+                fallbackCategory = "Refunds";
+                fallbackSubCategory = "Purchase Refunds";
+              } else {
+                fallbackCategory = "Other Income Sources";
+                fallbackSubCategory = "Miscellaneous Income";
+              }
               fallbackCategoryType = "income";
             } else if (isExpense) {
-              fallbackCategory = "Miscellaneous Expenses";
+              // Try to determine a more specific category from the description
+              if (/restaurant|food|coffee|dining|cafe|mcdonald|burger|taco|pizza/i.test(t.description)) {
+                fallbackCategory = "Food & Dining";
+                fallbackSubCategory = "Restaurants";
+              } else if (/amazon|walmart|target|ebay/i.test(t.description)) {
+                fallbackCategory = "Shopping";
+                fallbackSubCategory = "Online Shopping";
+              } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
+                fallbackCategory = "Transportation";
+                fallbackSubCategory = "Rideshare & Transit";
+              } else if (/netflix|spotify|hulu|disney/i.test(t.description)) {
+                fallbackCategory = "Entertainment";
+                fallbackSubCategory = "Streaming Services";
+              } else if (/rent|mortgage|home|apartment|property/i.test(t.description)) {
+                fallbackCategory = "Housing";
+                fallbackSubCategory = "Rent & Mortgage";
+              } else if (/doctor|medical|health|pharmacy|dental/i.test(t.description)) {
+                fallbackCategory = "Healthcare";
+                fallbackSubCategory = "Medical Services";
+              } else {
+                fallbackCategory = "Other Expenses";
+                fallbackSubCategory = "Uncategorized Spending";
+              }
               fallbackCategoryType = "expense";
             } else if (isTransfer) {
               fallbackCategory = "Transfers";
+              fallbackSubCategory = "Account Transfers";
               fallbackCategoryType = "transfer";
             }
             
             return {
               ...t,
               category: fallbackCategory,
-              subCategory: isIncome ? "Other Income" : isExpense ? "Other Expenses" : "Other",
+              subCategory: fallbackSubCategory,
               verboseDescription: t.description ? 
                 `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
                 `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
@@ -361,8 +443,12 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
           enhancedTransactions = [...enhancedTransactions, ...batchWithEnhancements];
           
           // Log information about categorization progress
-          const categorizedCount = batchWithEnhancements.filter(t => t.category && t.category !== "Uncategorized").length;
+          const categorizedCount = batchWithEnhancements.filter(t => hasDetailedCategorization(t)).length;
           console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Categorized ${categorizedCount} of ${batch.length} transactions (${Math.round((categorizedCount/batch.length) * 100)}%)`);
+          
+          // Log the unique categories that were created
+          const uniqueCategories = [...new Set(batchWithEnhancements.map(t => t.category))];
+          console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} categories: ${uniqueCategories.join(', ')}`);
           
         } catch (jsonError) {
           console.error("Error parsing JSON from Claude response:", jsonError);
@@ -374,8 +460,8 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
             const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
             const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
             
-            let fallbackCategory = "Uncategorized";
-            let fallbackSubCategory = "";
+            let fallbackCategory = "Uncategorized Transactions";
+            let fallbackSubCategory = "Other";
             let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
@@ -383,7 +469,7 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
                 fallbackCategory = "Salary & Wages";
                 fallbackSubCategory = "Regular Income";
               } else {
-                fallbackCategory = "Other Income";
+                fallbackCategory = "Other Income Sources";
                 fallbackSubCategory = "Miscellaneous Income";
               }
               fallbackCategoryType = "income";
@@ -399,8 +485,8 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
                 fallbackCategory = "Transportation";
                 fallbackSubCategory = "Rideshare & Transit";
               } else {
-                fallbackCategory = "Miscellaneous";
-                fallbackSubCategory = "Other Expenses";
+                fallbackCategory = "Other Expenses";
+                fallbackSubCategory = "Uncategorized Spending";
               }
               fallbackCategoryType = "expense";
             }
@@ -431,17 +517,17 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
           const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
           const isTransfer = t.type === "TRANSFER";
           
-          let fallbackCategory = "Uncategorized";
-          let fallbackSubCategory = "";
+          let fallbackCategory = "Uncategorized Transactions";
+          let fallbackSubCategory = "Other";
           let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
           
           if (isIncome) {
-            fallbackCategory = "Other Income";
+            fallbackCategory = "Other Income Sources";
             fallbackSubCategory = "Miscellaneous Income";
             fallbackCategoryType = "income";
           } else if (isExpense) {
-            fallbackCategory = "Miscellaneous";
-            fallbackSubCategory = "Other Expenses";
+            fallbackCategory = "Other Expenses";
+            fallbackSubCategory = "Uncategorized Spending";
             fallbackCategoryType = "expense";
           } else if (isTransfer) {
             fallbackCategory = "Transfers";
@@ -468,10 +554,8 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    // Count how many transactions were successfully categorized
-    const categorizedCount = enhancedTransactions.filter(
-      t => t.category && t.category !== "Uncategorized"
-    ).length;
+    // Count how many transactions were successfully categorized with meaningful categories
+    const categorizedCount = enhancedTransactions.filter(t => hasDetailedCategorization(t)).length;
     
     const categorizedPercent = Math.round((categorizedCount / transactions.length) * 100);
     console.log(`Successfully categorized ${categorizedCount} out of ${transactions.length} transactions (${categorizedPercent}%)`);
