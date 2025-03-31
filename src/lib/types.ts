@@ -65,4 +65,8 @@ export interface FinancialSummary {
   topExpenseCategories: { category: string; amount: number }[];
   recurringExpensesTotal: number;
   largestTransaction: Transaction;
+  // New fields
+  monthlyBreakdown: { month: string; income: number; expenses: number }[];
+  transactionCount: number;
+  dateRange: { start: Date; end: Date };
 }

@@ -8,6 +8,7 @@ import { Transaction } from "@/lib/types";
 import FileUploader from "./FileUploader";
 import TransactionList from "./TransactionList";
 import InsightsList from "./InsightsList";
+import UploadSummary from "./UploadSummary";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 
@@ -44,6 +45,9 @@ const Dashboard = () => {
         <FileUploader />
       ) : (
         <>
+          {/* Show Upload Summary first when data is loaded */}
+          <UploadSummary />
+          
           {/* Summary Cards */}
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold">Financial Dashboard</h2>

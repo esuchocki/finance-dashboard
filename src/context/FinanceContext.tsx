@@ -57,20 +57,60 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     // Find largest transaction
     const largestTransaction = [...txns].sort((a, b) => b.amount - a.amount)[0];
     
+    // Calculate monthly breakdown (for trends)
+    const monthlyBreakdown = calculateMonthlyBreakdown(txns);
+    
     return {
       totalIncome,
       totalExpenses,
       netCashflow: totalIncome - totalExpenses,
       topExpenseCategories,
       recurringExpensesTotal,
-      largestTransaction
+      largestTransaction,
+      monthlyBreakdown,
+      transactionCount: txns.length,
+      dateRange: calculateDateRange(txns)
+    };
+  };
+
+  // New helper functions for enhanced insights
+  const calculateMonthlyBreakdown = (txns: Transaction[]) => {
+    const breakdown: Record<string, { income: number; expenses: number }> = {};
+    
+    txns.forEach(t => {
+      const monthYear = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!breakdown[monthYear]) {
+        breakdown[monthYear] = { income: 0, expenses: 0 };
+      }
+      
+      if (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST") {
+        breakdown[monthYear].income += t.amount;
+      } else if (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE") {
+        breakdown[monthYear].expenses += t.amount;
+      }
+    });
+    
+    return Object.entries(breakdown)
+      .map(([month, data]) => ({ month, ...data }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  };
+  
+  const calculateDateRange = (txns: Transaction[]) => {
+    if (txns.length === 0) return { start: new Date(), end: new Date() };
+    
+    // Clone the array to avoid mutating the original
+    const sortedByDate = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
+    return {
+      start: sortedByDate[0].date,
+      end: sortedByDate[sortedByDate.length - 1].date
     };
   };
 
   const generateInsights = (txns: Transaction[], summary: FinancialSummary): FinancialInsight[] => {
     const insights: FinancialInsight[] = [];
     
-    // Add basic insights
+    // Basic cash flow insights
     if (summary.netCashflow < 0) {
       insights.push({
         id: "negative-cashflow",
@@ -78,6 +118,16 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         description: "Your expenses exceed your income for this period.",
         type: "warning"
       });
+    } else {
+      const savingsRate = (summary.netCashflow / summary.totalIncome) * 100;
+      if (savingsRate > 20) {
+        insights.push({
+          id: "high-savings",
+          title: "Great Savings Rate",
+          description: `You're saving ${savingsRate.toFixed(1)}% of your income, which is excellent!`,
+          type: "info"
+        });
+      }
     }
     
     // Look for potential duplicate transactions
@@ -105,15 +155,73 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     
     // Add subscription insight if relevant
     if (summary.recurringExpensesTotal > 0) {
+      const recurringPercentage = (summary.recurringExpensesTotal / summary.totalExpenses) * 100;
       insights.push({
         id: "subscription-spending",
         title: "Subscription Spending",
-        description: `You're spending approximately $${summary.recurringExpensesTotal.toFixed(2)} on recurring items.`,
+        description: `You're spending approximately $${summary.recurringExpensesTotal.toFixed(2)} (${recurringPercentage.toFixed(1)}% of expenses) on recurring items.`,
         type: "info"
       });
     }
     
+    // Analyze spending trends
+    const trendInsight = analyzeMonthlyTrends(summary.monthlyBreakdown);
+    if (trendInsight) insights.push(trendInsight);
+    
+    // Large transactions insight
+    const largeTransactions = findLargeTransactions(txns, summary.totalExpenses);
+    if (largeTransactions.length > 0) {
+      insights.push({
+        id: "large-transactions",
+        title: "Large Transactions Detected",
+        description: `Found ${largeTransactions.length} unusually large transactions that represent significant portions of your spending.`,
+        type: "warning",
+        relatedTransactions: largeTransactions
+      });
+    }
+    
     return insights;
+  };
+
+  // New helper functions for enhanced insights
+  const analyzeMonthlyTrends = (monthlyData: { month: string; income: number; expenses: number }[]) => {
+    if (monthlyData.length < 2) return null;
+    
+    // Look at the most recent 3 months (or fewer if not available)
+    const recentMonths = monthlyData.slice(-Math.min(3, monthlyData.length));
+    
+    // Check if expenses are consistently increasing
+    let isIncreasing = true;
+    for (let i = 1; i < recentMonths.length; i++) {
+      if (recentMonths[i].expenses <= recentMonths[i-1].expenses) {
+        isIncreasing = false;
+        break;
+      }
+    }
+    
+    if (isIncreasing && recentMonths.length > 1) {
+      const oldestMonth = recentMonths[0];
+      const newestMonth = recentMonths[recentMonths.length - 1];
+      const percentIncrease = ((newestMonth.expenses - oldestMonth.expenses) / oldestMonth.expenses) * 100;
+      
+      return {
+        id: "increasing-expenses",
+        title: "Increasing Expenses Trend",
+        description: `Your monthly expenses have increased by ${percentIncrease.toFixed(1)}% over the last ${recentMonths.length} months.`,
+        type: "warning"
+      };
+    }
+    
+    return null;
+  };
+  
+  const findLargeTransactions = (txns: Transaction[], totalExpenses: number): string[] => {
+    // Consider a transaction "large" if it's more than 10% of total expenses
+    const threshold = totalExpenses * 0.1;
+    return txns
+      .filter(t => (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE") && 
+                   t.amount > threshold)
+      .map(t => t.id);
   };
 
   // Simple duplicate detection
@@ -164,10 +272,28 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         const newInsights = generateInsights(parsedTransactions, newSummary);
         setInsights(newInsights);
         
-        toast.success(`Imported ${transactionCount} transactions successfully.`);
+        const dateRange = newSummary.dateRange;
+        const formattedStartDate = dateRange.start.toLocaleDateString();
+        const formattedEndDate = dateRange.end.toLocaleDateString();
+        
+        toast.success(
+          `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`
+        );
+        
+        // Show key insights as toasts for immediate feedback
+        if (newInsights.length > 0) {
+          setTimeout(() => {
+            // Only show one key insight for now to avoid overwhelming the user
+            const keyInsight = newInsights.find(i => i.type === "warning") || newInsights[0];
+            if (keyInsight) {
+              toast.info(`${keyInsight.title}: ${keyInsight.description}`);
+            }
+          }, 1000);
+        }
       } else {
         setSummary(null);
         setInsights([]);
+        toast.error("No transactions found in the file. Please check the file format.");
       }
       
       return transactionCount;
