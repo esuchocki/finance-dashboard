@@ -1,3 +1,4 @@
+
 export enum TransactionType {
   DEBIT = "DEBIT",
   CREDIT = "CREDIT",
@@ -27,6 +28,7 @@ export interface Transaction {
   // New fields for enhanced categorization
   subSubCategory?: string;
   confidence?: string; // high, medium, low
+  verboseDescription?: string; // Enhanced readable description
 }
 
 export interface TransactionFilterOptions {

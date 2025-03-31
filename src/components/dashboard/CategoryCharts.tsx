@@ -20,16 +20,29 @@ const COLORS = [
 // Map categories to specific colors for consistency
 const CATEGORY_COLORS: Record<string, string> = {
   "Food": "#00C49F",
+  "Groceries": "#4CAF50",
+  "Dining": "#8BC34A",
   "Housing": "#0088FE",
+  "Rent": "#2196F3",
+  "Mortgage": "#03A9F4",
   "Transportation": "#FFBB28",
+  "Car": "#FFC107",
+  "Public Transit": "#FF9800",
   "Entertainment": "#FF8042",
   "Shopping": "#A4DE6C",
   "Healthcare": "#8884D8",
+  "Insurance": "#673AB7",
   "Personal": "#FF6B6B",
+  "Education": "#E91E63",
   "Travel": "#6A6AFF",
   "Finance": "#FFDDA1",
+  "Debt": "#795548",
   "Income": "#7FB069",
+  "Salary": "#4CAF50",
   "Business": "#D1495B",
+  "Donations": "#9E9E9E",
+  "Childcare": "#FF5722",
+  "Utilities": "#607D8B",
   "Other": "#9C6644",
   "Uncategorized": "#AAAAAA" // Gray for uncategorized (should be minimal)
 };
@@ -141,7 +154,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   // Filter drilldown transactions by search query
   const filteredDrilldownTransactions = drilldownTransactions 
     ? drilldownTransactions.filter(t => 
-        t.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.verboseDescription || t.description).toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.payee && t.payee.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (t.memo && t.memo.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -250,7 +263,9 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
                         {filteredDrilldownTransactions.slice(0, 20).map((t) => (
                           <li key={t.id} className="text-xs p-2 border rounded-md">
                             <div className="flex justify-between">
-                              <div className="truncate max-w-[70%]">{t.payee || t.description}</div>
+                              <div className="truncate max-w-[70%]">
+                                {t.verboseDescription || t.payee || t.description}
+                              </div>
                               <div className="font-medium">{formatCurrency(t.amount)}</div>
                             </div>
                             <div className="text-muted-foreground mt-1 flex justify-between">
@@ -367,7 +382,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Transactions are hierarchically organized into main categories and subcategories
-                  for detailed analysis.
+                  for detailed analysis. Claude AI has also generated more descriptive transaction names.
                 </p>
               </div>
             </HoverCardContent>

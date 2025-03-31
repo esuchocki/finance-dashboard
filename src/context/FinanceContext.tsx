@@ -286,6 +286,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
               description: `Only ${categorizedPercent}% of transactions were successfully categorized`,
               duration: 5000
             });
+          } else {
+            toast.success("Transactions categorized successfully", {
+              description: `${categorizedPercent}% of transactions were categorized`,
+              duration: 5000
+            });
           }
         } catch (error) {
           console.error("Error enhancing transactions with Claude:", error);
@@ -306,6 +311,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       // Safety check to ensure we have valid transactions
       if (!Array.isArray(parsedTransactions) || parsedTransactions.length === 0) {
         throw new Error("No valid transactions found in the file");
+      }
+      
+      // Log a sample transaction to debug categorization issues
+      if (parsedTransactions.length > 0) {
+        console.log("Sample transaction:", JSON.stringify(parsedTransactions[0], null, 2));
       }
       
       console.log(`Setting ${parsedTransactions.length} transactions`);

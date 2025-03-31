@@ -1,407 +1,206 @@
 
-import { Transaction, TransactionType } from "./types";
-import { toast } from "sonner";
+import { Transaction } from "./types";
 
-interface ClaudeRequestMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-}
-
-interface ClaudeResponse {
-  content: Array<{
-    type: string;
-    text: string;
-  }>;
-}
-
-// API endpoint for Claude
-const CLAUDE_API_ENDPOINT = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-3-sonnet-20240229";
-const CLAUDE_API_TIMEOUT = 60000; // 60 seconds timeout
-
-/**
- * Get the stored Claude API key from localStorage
- */
-export const getClaudeApiKey = (): string | null => {
-  return localStorage.getItem("claude_api_key");
+// Check if the Claude API key is available (stored in localStorage)
+export const hasClaudeApiKey = () => {
+  return !!localStorage.getItem("claude-api-key");
 };
 
-/**
- * Check if a Claude API key is available
- */
-export const hasClaudeApiKey = (): boolean => {
-  const key = getClaudeApiKey();
-  return key !== null && key.trim() !== "";
+// Get the Claude API key from localStorage
+export const getClaudeApiKey = () => {
+  return localStorage.getItem("claude-api-key") || "";
 };
 
-/**
- * Makes a request to Claude API with privacy protections
- * - Batch requests to minimize API calls
- * - Only send necessary transaction data
- * - Remove sensitive transaction details
- */
-export const enhanceTransactionsWithClaude = async (
-  transactions: Transaction[],
-  batchSize = 10
-): Promise<Transaction[]> => {
-  const apiKey = getClaudeApiKey();
-  
-  if (!apiKey) {
-    console.log("No Claude API key available, skipping enhancement");
+// Set the Claude API key in localStorage
+export const setClaudeApiKey = (apiKey: string) => {
+  localStorage.setItem("claude-api-key", apiKey);
+};
+
+// Clear the Claude API key from localStorage
+export const clearClaudeApiKey = () => {
+  localStorage.removeItem("claude-api-key");
+};
+
+// Define predefined categories to guide Claude
+const PREDEFINED_CATEGORIES = {
+  Income: [
+    "Salary", "Freelance", "Investments", "Dividends", "Rental", "Business", "Gifts", "Tax Refund", "Other Income"
+  ],
+  Expenses: [
+    "Food", "Groceries", "Dining", "Housing", "Rent", "Mortgage", "Utilities", "Transportation", 
+    "Car", "Public Transit", "Entertainment", "Shopping", "Healthcare", "Insurance", "Personal", 
+    "Education", "Travel", "Finance", "Debt", "Savings", "Business", "Donations", "Childcare"
+  ]
+};
+
+// Function to enhance transactions with Claude categorization
+export const enhanceTransactionsWithClaude = async (transactions: Transaction[]): Promise<Transaction[]> => {
+  if (!hasClaudeApiKey()) {
+    console.log("No Claude API key available");
     return transactions;
   }
-  
-  // Show toast to indicate categorization has started
-  toast.info("Enhancing transactions with Claude AI...", {
-    description: "Categorizing your transactions for better insights",
-    duration: 5000
-  });
-  
-  const results: Transaction[] = [];
-  let processedCount = 0;
-  const totalTransactions = transactions.length;
-  
-  // Get existing categories from transactions to maintain consistency
-  const existingCategories = new Set<string>();
-  transactions.forEach(t => {
-    if (t.category && t.category !== "Uncategorized") {
-      existingCategories.add(t.category);
-    }
-  });
-  
-  // Process in batches to reduce API calls
-  for (let i = 0; i < transactions.length; i += batchSize) {
-    const batch = transactions.slice(i, Math.min(i + batchSize, transactions.length));
-    
-    try {
-      // Add a timeout protection to each batch request
-      const enhancedBatchPromise = processBatchWithClaude(batch, apiKey, Array.from(existingCategories));
-      
-      // Create a timeout promise that rejects after CLAUDE_API_TIMEOUT
-      const timeoutPromise = new Promise<Transaction[]>((_, reject) => {
-        setTimeout(() => reject(new Error("Claude API request timed out")), CLAUDE_API_TIMEOUT);
-      });
-      
-      // Race the batch processing against the timeout
-      const enhancedBatch = await Promise.race([enhancedBatchPromise, timeoutPromise]);
-      
-      // Update existing categories with any new ones from this batch
-      enhancedBatch.forEach(t => {
-        if (t.category && t.category !== "Uncategorized") {
-          existingCategories.add(t.category);
-        }
-      });
-      
-      results.push(...enhancedBatch);
-      
-      // Update progress
-      processedCount += batch.length;
-      const progress = Math.round((processedCount / totalTransactions) * 100);
-      
-      if (processedCount % (batchSize * 3) === 0 || processedCount === totalTransactions) {
-        toast.info(`Categorizing transactions: ${progress}% complete`, {
-          description: `Processed ${processedCount} of ${totalTransactions} transactions`,
-          duration: 3000
-        });
-      }
-      
-    } catch (error) {
-      console.error("Error enhancing transactions with Claude:", error);
-      
-      // Determine if it's a timeout error
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      if (errorMessage.includes("timed out")) {
-        toast.error("Claude AI categorization timed out", {
-          description: "Using basic categorization for some transactions"
-        });
-      } else {
-        toast.error("Error categorizing some transactions", {
-          description: "Falling back to basic categorization for some items"
-        });
-      }
-      
-      // Fall back to original transactions for this batch
-      results.push(...batch);
-    }
-  }
-  
-  // Count how many got properly categorized
-  const categorizedCount = results.filter(t => t.category && t.category !== "Uncategorized").length;
-  const categorizedPercent = Math.round((categorizedCount / totalTransactions) * 100);
-  
-  toast.success(`Transaction categorization complete!`, {
-    description: `${categorizedPercent}% of transactions categorized successfully`,
-    duration: 5000
-  });
-  
-  console.log("Enhanced transactions with Claude:", results);
-  return results;
-};
 
-/**
- * Process a batch of transactions with Claude
- */
-const processBatchWithClaude = async (
-  batch: Transaction[],
-  apiKey: string,
-  existingCategories: string[] = []
-): Promise<Transaction[]> => {
-  // Only send minimal transaction data to Claude
-  const sanitizedBatch = batch.map(transaction => ({
-    description: transaction.description,
-    name: transaction.name,
-    memo: transaction.memo,
-    amount: transaction.amount,
-    type: transaction.type,
-    date: transaction.date.toISOString().split('T')[0],
-  }));
-  
-  // Build a better prompt that instructs Claude to use existing categories when possible
-  // and create new ones when necessary, avoiding "Uncategorized" unless absolutely impossible
-  const existingCategoriesText = existingCategories.length > 0 
-    ? `Previously used categories in this dataset include: ${existingCategories.join(", ")}.
-       Try to use these existing categories when appropriate to maintain consistency, but feel free to 
-       create new categories when these don't fit.`
-    : "";
-  
-  const systemPrompt = `
-    You are a financial transaction categorization expert. Your job is to analyze financial transactions and provide:
-    1. A detailed category hierarchy (main category, subcategory)
-    2. The full merchant name when only abbreviations are provided
-    3. A determination if this is likely a recurring transaction
-    
-    ${existingCategoriesText}
-    
-    Common financial categories include:
-    - Housing: Mortgage, Rent, Property Tax, Home Insurance, Home Repairs, Utilities
-    - Food: Groceries, Restaurants, Fast Food, Coffee Shops, Food Delivery
-    - Transportation: Car Payment, Gas, Public Transit, Rideshare, Car Insurance, Car Maintenance
-    - Healthcare: Insurance, Doctor, Pharmacy, Dental, Vision, Therapy
-    - Entertainment: Streaming Services, Movies, Events, Hobbies, Subscriptions
-    - Shopping: Clothing, Electronics, Household Items, Online Shopping, Department Stores
-    - Personal: Grooming, Gym, Education, Gifts, Donations
-    - Travel: Flights, Hotels, Rental Cars, Vacation
-    - Finance: Credit Card Payment, Loan Payment, Bank Fees, Investments, Savings
-    - Income: Salary, Bonus, Interest, Dividends, Refunds
-    - Business: Office Supplies, Software, Professional Services
-    
-    IMPORTANT: NEVER return "Uncategorized" as a category unless it's completely impossible to determine from the transaction details. 
-    Make your best informed guess based on transaction name, description and amount.
-    
-    For subcategories, create hierarchical relationships that make logical sense. For example, "Netflix" should be 
-    categorized as "Entertainment > Streaming Services" not as separate categories.
-    
-    For each transaction, provide a JSON response with the following fields:
-    - merchantName: The full merchant name you've identified
-    - category: The main category for this transaction (NEVER use "Uncategorized" unless absolutely impossible to determine)
-    - subCategory: A more specific subcategory 
-    - isRecurring: Whether this appears to be a recurring transaction (true/false)
-    - confidence: Your confidence level in this categorization (high, medium, low)
-    
-    Respond with an array of JSON objects matching the order of transactions provided.
-  `;
-  
-  const userPrompt = `
-    Please categorize these financial transactions. For each, provide the full JSON object as specified.
-    
-    IMPORTANT: Each transaction MUST have a specific category other than "Uncategorized" unless absolutely impossible to determine.
-    If you're unsure, make your best guess based on the transaction details.
-    
-    Transactions:
-    ${JSON.stringify(sanitizedBatch, null, 2)}
-  `;
-  
   try {
-    const messages: ClaudeRequestMessage[] = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ];
+    const apiKey = getClaudeApiKey();
+    const apiUrl = "https://api.anthropic.com/v1/messages";
     
-    console.log("Sending request to Claude API...");
+    // Batch processing to avoid overwhelming the API
+    const BATCH_SIZE = 50;
+    let enhancedTransactions: Transaction[] = [];
     
-    const response = await fetch(CLAUDE_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-api-key": apiKey
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        messages,
-        max_tokens: 4000,
-        temperature: 0.2
-      })
-    });
-    
-    if (!response.ok) {
-      console.error(`Claude API error: ${response.status}`);
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    // Extract the results from Claude's response
-    const claudeText = data.content[0].text;
-    console.log("Claude response:", claudeText);
-    
-    // Parse the JSON response from Claude
-    const jsonStartIndex = claudeText.indexOf('[');
-    const jsonEndIndex = claudeText.lastIndexOf(']') + 1;
-    
-    if (jsonStartIndex === -1 || jsonEndIndex === -1) {
-      console.error("Could not parse JSON from Claude response");
-      throw new Error("Could not parse JSON from Claude response");
-    }
-    
-    const jsonStr = claudeText.substring(jsonStartIndex, jsonEndIndex);
-    const claudeResults = JSON.parse(jsonStr);
-    console.log("Parsed Claude results:", claudeResults);
-    
-    // Ensure every result has categories that aren't "Uncategorized"
-    const processedResults = claudeResults.map((result: any) => {
-      if (!result.category || result.category === "Uncategorized") {
-        // Fallback categorization based on transaction type and name
-        return {
-          ...result,
-          category: getFallbackCategory(batch[claudeResults.indexOf(result)])
-        };
-      }
-      return result;
-    });
-    
-    // Merge Claude's insights with the original transactions
-    return batch.map((transaction, index) => {
-      if (index < processedResults.length) {
-        const enhancement = processedResults[index];
+    // Create batches of transactions
+    for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
+      const batch = transactions.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(transactions.length / BATCH_SIZE)}`);
+      
+      // Prepare batch for Claude API
+      const batchJSON = JSON.stringify(
+        batch.map(t => ({
+          id: t.id,
+          date: t.date.toISOString(),
+          amount: t.amount,
+          type: t.type,
+          name: t.name,
+          description: t.description,
+          memo: t.memo,
+          payee: t.payee || ""
+        }))
+      );
+
+      // Create the prompt to analyze the batch
+      const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement. 
+      
+Your task is to:
+1. Categorize each transaction into a main category
+2. Determine a specific subcategory 
+3. Provide a more descriptive/verbose version of the transaction name/description
+4. Rate your confidence in the categorization (high, medium, low)
+
+Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORIES)}
+
+However, if a transaction clearly belongs to a different category not listed above, create a new appropriate category. Be careful not to over-create categories - try to use existing ones when possible.
+
+Rules for categorization:
+- For deposits, paychecks, etc., use "Income" as the main category
+- For transactions with negative values, categorize based on the spending type
+- Be specific with subcategories, but keep them general enough to be useful for grouping
+- Never use "Uncategorized" unless absolutely necessary
+- Analyze each transaction's name, description, memo, and amount for context clues
+- For businesses, research the business type if needed
+- For recurring transactions to the same payee, maintain consistent categorization
+
+For the verbose description:
+- Create a clearer, more descriptive name for what the transaction actually is
+- Include the business name if available
+- Remove unnecessary codes or abbreviations
+- Make it concise but more informative than the original
+
+Return a JSON array of objects with these fields:
+- id: The original transaction ID
+- category: The main category
+- subCategory: The specific subcategory
+- verboseDescription: A clearer, more descriptive version of the transaction
+- confidence: Your confidence level in this categorization (high, medium, low)`;
+
+      const userMessage = `Here are the transactions to analyze: ${batchJSON}
+
+Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence.`;
+
+      // Call Claude API with a timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01"
+          },
+          body: JSON.stringify({
+            model: "claude-3-opus-20240229",
+            max_tokens: 4000,
+            system: systemPrompt,
+            messages: [
+              {
+                role: "user",
+                content: userMessage
+              }
+            ]
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
         
-        return {
-          ...transaction,
-          payee: enhancement.merchantName || transaction.payee,
-          category: enhancement.category || transaction.category || "Other",
-          subCategory: enhancement.subCategory || transaction.subCategory || "",
-          isRecurring: enhancement.isRecurring || transaction.isRecurring,
-          confidence: enhancement.confidence || "medium"
-        };
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Claude API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = data.content?.[0]?.text || "";
+        
+        // Extract JSON from Claude's response
+        let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
+                       content.match(/```\n([\s\S]*?)\n```/) ||
+                       content.match(/\[([\s\S]*?)\]/);
+        
+        if (!jsonMatch) {
+          console.error("Failed to parse Claude response:", content);
+          throw new Error("Invalid response format from Claude API");
+        }
+        
+        let jsonStr = jsonMatch[1];
+        // If we captured just the inner content without brackets, add them back
+        if (!jsonStr.trim().startsWith('[')) {
+          jsonStr = `[${jsonStr}]`;
+        }
+        
+        const enhancedBatch = JSON.parse(jsonStr);
+        
+        // Map the enhanced data back to the original transactions
+        const batchWithEnhancements = batch.map(t => {
+          const enhancement = enhancedBatch.find((e: any) => e.id === t.id);
+          
+          if (enhancement) {
+            return {
+              ...t,
+              category: enhancement.category || t.category || "Uncategorized",
+              subCategory: enhancement.subCategory || t.subCategory || "",
+              verboseDescription: enhancement.verboseDescription || t.description,
+              confidence: enhancement.confidence || "low"
+            };
+          }
+          
+          return t;
+        });
+        
+        enhancedTransactions = [...enhancedTransactions, ...batchWithEnhancements];
+        
+      } catch (error) {
+        clearTimeout(timeoutId);
+        console.error(`Error processing batch starting at index ${i}:`, error);
+        // Add the unenhanced batch to the result to avoid data loss
+        enhancedTransactions = [...enhancedTransactions, ...batch];
       }
-      return transaction;
-    });
+      
+      // Add a small delay between batches to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    // Count how many transactions were successfully categorized
+    const categorizedCount = enhancedTransactions.filter(
+      t => t.category && t.category !== "Uncategorized"
+    ).length;
+    
+    console.log(`Successfully categorized ${categorizedCount} out of ${transactions.length} transactions`);
+    
+    return enhancedTransactions;
+    
   } catch (error) {
-    console.error("Error calling Claude API:", error);
-    return batch; // Return original transactions if API call fails
-  }
-};
-
-/**
- * Provide a reasonable fallback category when Claude fails to categorize
- */
-const getFallbackCategory = (transaction: Transaction): string => {
-  const description = (transaction.description || "").toLowerCase();
-  const name = (transaction.name || "").toLowerCase();
-  const memo = (transaction.memo || "").toLowerCase();
-  const type = transaction.type;
-  
-  // Common patterns for categorization
-  if (type === "CREDIT" || type === "DEPOSIT" || type === "INTEREST") {
-    if (description.includes("payroll") || description.includes("direct dep") || 
-        name.includes("salary") || name.includes("wage")) {
-      return "Income";
-    }
-    return "Income";
-  }
-  
-  // Look for common keywords in the transaction description
-  if (description.includes("restaurant") || description.includes("cafe") || 
-      description.includes("coffee") || name.includes("food")) {
-    return "Food";
-  }
-  
-  if (description.includes("gas") || description.includes("fuel") || 
-      description.includes("transit") || description.includes("parking")) {
-    return "Transportation";
-  }
-  
-  if (description.includes("doctor") || description.includes("pharmacy") || 
-      description.includes("medical") || description.includes("health")) {
-    return "Healthcare";
-  }
-  
-  if (description.includes("rent") || description.includes("mortgage") || 
-      description.includes("electric") || description.includes("water") ||
-      description.includes("utility")) {
-    return "Housing";
-  }
-  
-  // Default to "Other" instead of "Uncategorized"
-  return "Other";
-};
-
-/**
- * Enhanced merchant resolution using Claude
- * This can be called for individual difficult transactions
- */
-export const resolveMerchantWithClaude = async (
-  transactionDescription: string,
-  location: string
-): Promise<{ merchantName: string; confidence: string } | null> => {
-  const apiKey = getClaudeApiKey();
-  
-  if (!apiKey) {
-    return null;
-  }
-  
-  const systemPrompt = `
-    You are a financial transaction merchant identification expert. Your job is to analyze a transaction description and location data to identify the most likely merchant.
-    
-    For the provided transaction, return a JSON response with:
-    - merchantName: The full merchant name you've identified
-    - confidence: Your confidence level in this identification (high, medium, low)
-  `;
-  
-  const userPrompt = `
-    Please identify the merchant from this transaction description and location.
-    
-    Transaction: "${transactionDescription}"
-    Location: "${location}"
-  `;
-  
-  try {
-    const messages: ClaudeRequestMessage[] = [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ];
-    
-    const response = await fetch(CLAUDE_API_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        "x-api-key": apiKey
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        messages,
-        max_tokens: 1000,
-        temperature: 0.2
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    const claudeText = data.content[0].text;
-    
-    // Extract JSON from response
-    const jsonMatch = claudeText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not parse JSON from Claude response");
-    }
-    
-    return JSON.parse(jsonMatch[0]);
-  } catch (error) {
-    console.error("Error resolving merchant with Claude:", error);
-    return null;
+    console.error("Error in enhanceTransactionsWithClaude:", error);
+    return transactions; // Return original transactions if enhancement fails
   }
 };
