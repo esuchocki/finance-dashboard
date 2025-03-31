@@ -1,5 +1,5 @@
 
-import { CategoryPattern } from './types';
+import { CategoryPattern, LocationPattern } from './types';
 
 // Define common merchant patterns for better categorization
 export const categoryPatterns: CategoryPattern[] = [
