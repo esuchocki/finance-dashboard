@@ -257,10 +257,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       
       // Enhanced categorization with Claude if API key is available
       if (hasClaudeApiKey()) {
-        toast.info("Enhancing transactions with Claude AI...");
         try {
+          // This is the key part - we wait for Claude AI to enhance the transactions
+          // The toast notifications are now handled inside the enhanceTransactionsWithClaude function
           parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
-          toast.success("Transactions enhanced with Claude AI");
+          console.log("Transactions after Claude enhancement:", parsedTransactions);
         } catch (error) {
           console.error("Error enhancing transactions with Claude:", error);
           toast.error("Could not enhance transactions with Claude AI");

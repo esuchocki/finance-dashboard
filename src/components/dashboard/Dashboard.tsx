@@ -1,8 +1,8 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LineChart } from "lucide-react";
+import { RefreshCw, LineChart, Info } from "lucide-react";
 import FileUploader from "@/components/FileUploader";
 import TransactionList from "@/components/TransactionList";
 import InsightsList from "@/components/InsightsList";
@@ -12,39 +12,122 @@ import MonthlyTrendsChart from "./MonthlyTrendsChart";
 import BalanceChart from "./BalanceChart";
 import CategoryCharts from "./CategoryCharts";
 import { Transaction } from "@/lib/types";
+import { 
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 const Dashboard = () => {
-  const { transactions, filteredTransactions, summary, clearData } = useFinance();
+  const { transactions, filteredTransactions, summary, clearData, isLoading } = useFinance();
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [incomeData, setIncomeData] = useState<any[]>([]);
 
-  // Prepare chart data
+  // Process transaction data when filteredTransactions change
+  useEffect(() => {
+    if (filteredTransactions.length > 0) {
+      const expenseData = prepareChartData(filteredTransactions);
+      const incomeChartData = prepareIncomeChartData(filteredTransactions);
+      
+      setCategoryData(expenseData);
+      setIncomeData(incomeChartData);
+      
+      console.log("Category data prepared:", expenseData);
+      console.log("Income data prepared:", incomeChartData);
+    }
+  }, [filteredTransactions]);
+
+  // Prepare chart data with enhanced categorization
   const prepareChartData = (transactions: Transaction[]) => {
     // Group by category and sum amounts
-    const categoryMap = new Map<string, number>();
+    const categoryMap = new Map<string, { 
+      amount: number, 
+      subcategories: Map<string, number>,
+      transactions: Transaction[]
+    }>();
     
     transactions.filter(t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE")
       .forEach(t => {
-        const currentAmount = categoryMap.get(t.category) || 0;
-        categoryMap.set(t.category, currentAmount + t.amount);
+        // Use Claude's category if available, otherwise use default
+        const category = t.category || "Uncategorized";
+        const subCategory = t.subCategory || "Other";
+        
+        // Initialize category if it doesn't exist
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { 
+            amount: 0, 
+            subcategories: new Map<string, number>(),
+            transactions: []
+          });
+        }
+        
+        // Update category amounts
+        const categoryData = categoryMap.get(category)!;
+        categoryData.amount += t.amount;
+        categoryData.transactions.push(t);
+        
+        // Update subcategory amounts
+        const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
+        categoryData.subcategories.set(subCategory, currentSubAmount + t.amount);
       });
     
+    // Convert to chart data format
     return Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({
+        name,
+        value: data.amount,
+        subcategories: Array.from(data.subcategories.entries())
+          .map(([subName, amount]) => ({ name: subName, value: amount }))
+          .sort((a, b) => b.value - a.value),
+        transactions: data.transactions
+      }))
       .sort((a, b) => b.value - a.value);
   };
 
-  // Prepare income chart data
+  // Prepare income chart data with enhanced categorization
   const prepareIncomeChartData = (transactions: Transaction[]) => {
     // Group by category and sum amounts
-    const categoryMap = new Map<string, number>();
+    const categoryMap = new Map<string, { 
+      amount: number, 
+      subcategories: Map<string, number>,
+      transactions: Transaction[]
+    }>();
     
     transactions.filter(t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST")
       .forEach(t => {
-        const currentAmount = categoryMap.get(t.category) || 0;
-        categoryMap.set(t.category, currentAmount + t.amount);
+        // Use Claude's category if available, otherwise use default
+        const category = t.category || "Uncategorized";
+        const subCategory = t.subCategory || "Other";
+        
+        // Initialize category if it doesn't exist
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { 
+            amount: 0, 
+            subcategories: new Map<string, number>(),
+            transactions: []
+          });
+        }
+        
+        // Update category amounts
+        const categoryData = categoryMap.get(category)!;
+        categoryData.amount += t.amount;
+        categoryData.transactions.push(t);
+        
+        // Update subcategory amounts
+        const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
+        categoryData.subcategories.set(subCategory, currentSubAmount + t.amount);
       });
     
+    // Convert to chart data format
     return Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({
+        name,
+        value: data.amount,
+        subcategories: Array.from(data.subcategories.entries())
+          .map(([subName, amount]) => ({ name: subName, value: amount }))
+          .sort((a, b) => b.value - a.value),
+        transactions: data.transactions
+      }))
       .sort((a, b) => b.value - a.value);
   };
 
@@ -106,8 +189,6 @@ const Dashboard = () => {
     });
   };
 
-  const chartData = prepareChartData(filteredTransactions);
-  const incomeChartData = prepareIncomeChartData(filteredTransactions);
   const monthlyTrendData = prepareMonthlyTrendData();
   const balanceData = prepareBalanceData();
 
@@ -127,6 +208,17 @@ const Dashboard = () => {
   
   const trends = calculateCurrentTrends();
 
+  // Loading state when transactions are being processed by Claude
+  if (isLoading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-32 bg-gray-200 rounded-lg"></div>
+        <div className="h-64 bg-gray-200 rounded-lg"></div>
+        <div className="h-64 bg-gray-200 rounded-lg"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {transactions.length === 0 ? (
@@ -142,10 +234,29 @@ const Dashboard = () => {
           
           {/* Summary Cards */}
           <div className="flex justify-between items-center animate-fade-in">
-            <h2 className="text-2xl font-bold flex items-center">
-              <LineChart className="h-6 w-6 mr-2 text-finance-primary" />
-              Financial Dashboard
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-2xl font-bold flex items-center">
+                <LineChart className="h-6 w-6 mr-2 text-finance-primary" />
+                Financial Dashboard
+              </h2>
+              
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
+                  <div className="space-y-2">
+                    <h4 className="font-medium">AI-Enhanced Categories</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Your transactions have been analyzed and categorized using Claude AI to provide more accurate insights.
+                    </p>
+                  </div>
+                </HoverCardContent>
+              </HoverCard>
+            </div>
+            
             <Button 
               variant="outline" 
               className="flex items-center gap-2 hover:bg-muted" 
@@ -167,8 +278,8 @@ const Dashboard = () => {
           
           {/* Category Charts */}
           <CategoryCharts 
-            expenseData={chartData} 
-            incomeData={incomeChartData}
+            expenseData={categoryData} 
+            incomeData={incomeData}
             transactions={filteredTransactions} 
           />
           

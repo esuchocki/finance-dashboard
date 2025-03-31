@@ -1,5 +1,6 @@
 
 import { Transaction, TransactionType } from "./types";
+import { toast } from "sonner";
 
 interface ClaudeRequestMessage {
   role: "user" | "assistant" | "system";
@@ -49,7 +50,15 @@ export const enhanceTransactionsWithClaude = async (
     return transactions;
   }
   
+  // Show toast to indicate categorization has started
+  toast.info("Enhancing transactions with Claude AI...", {
+    description: "Categorizing your transactions for better insights",
+    duration: 5000
+  });
+  
   const results: Transaction[] = [];
+  let processedCount = 0;
+  const totalTransactions = transactions.length;
   
   // Process in batches to reduce API calls
   for (let i = 0; i < transactions.length; i += batchSize) {
@@ -58,13 +67,34 @@ export const enhanceTransactionsWithClaude = async (
     try {
       const enhancedBatch = await processBatchWithClaude(batch, apiKey);
       results.push(...enhancedBatch);
+      
+      // Update progress
+      processedCount += batch.length;
+      const progress = Math.round((processedCount / totalTransactions) * 100);
+      
+      if (processedCount % (batchSize * 3) === 0 || processedCount === totalTransactions) {
+        toast.info(`Categorizing transactions: ${progress}% complete`, {
+          description: `Processed ${processedCount} of ${totalTransactions} transactions`,
+          duration: 3000
+        });
+      }
+      
     } catch (error) {
       console.error("Error enhancing transactions with Claude:", error);
+      toast.error("Error categorizing some transactions", {
+        description: "Falling back to basic categorization for some items"
+      });
       // Fall back to original transactions for this batch
       results.push(...batch);
     }
   }
   
+  toast.success("Transaction categorization complete!", {
+    description: `All ${totalTransactions} transactions have been processed and categorized`,
+    duration: 5000
+  });
+  
+  console.log("Enhanced transactions with Claude:", results);
   return results;
 };
 
@@ -130,6 +160,8 @@ const processBatchWithClaude = async (
       { role: "user", content: userPrompt }
     ];
     
+    console.log("Sending request to Claude API...");
+    
     const response = await fetch(CLAUDE_API_ENDPOINT, {
       method: "POST",
       headers: {
@@ -146,6 +178,7 @@ const processBatchWithClaude = async (
     });
     
     if (!response.ok) {
+      console.error(`Claude API error: ${response.status}`);
       throw new Error(`Claude API error: ${response.status}`);
     }
     
@@ -153,17 +186,20 @@ const processBatchWithClaude = async (
     
     // Extract the results from Claude's response
     const claudeText = data.content[0].text;
+    console.log("Claude response:", claudeText);
     
     // Parse the JSON response from Claude
     const jsonStartIndex = claudeText.indexOf('[');
     const jsonEndIndex = claudeText.lastIndexOf(']') + 1;
     
     if (jsonStartIndex === -1 || jsonEndIndex === -1) {
+      console.error("Could not parse JSON from Claude response");
       throw new Error("Could not parse JSON from Claude response");
     }
     
     const jsonStr = claudeText.substring(jsonStartIndex, jsonEndIndex);
     const claudeResults = JSON.parse(jsonStr);
+    console.log("Parsed Claude results:", claudeResults);
     
     // Merge Claude's insights with the original transactions
     return batch.map((transaction, index) => {
