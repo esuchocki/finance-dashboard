@@ -166,7 +166,11 @@ const Dashboard = () => {
           <BalanceChart balanceData={balanceData} />
           
           {/* Category Charts */}
-          <CategoryCharts expenseData={chartData} incomeData={incomeChartData} />
+          <CategoryCharts 
+            expenseData={chartData} 
+            incomeData={incomeChartData}
+            transactions={filteredTransactions} 
+          />
           
           {/* Insights */}
           <div className="animate-fade-in stagger-1">
