@@ -1,27 +1,50 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import Transactions from "./pages/Transactions";
-import NotFound from "./pages/NotFound";
-import MainLayout from "./layouts/MainLayout";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { FinanceProvider } from "./context/FinanceContext";
+import { ThemeProvider } from "@/components/ui/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import MainLayout from "@/layouts/MainLayout";
+import IndexPage from "@/pages/Index";
+import TransactionsPage from "@/pages/Transactions";
+import NotFoundPage from "@/pages/NotFound";
+import ClaudeDebugPage from "@/components/ClaudeDebugPage";
 
-const queryClient = new QueryClient();
+import "./App.css";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
-      <Routes>
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/transactions" element={<Transactions />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-      <Toaster />
-    </BrowserRouter>
-  </QueryClientProvider>
-);
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <MainLayout />,
+    children: [
+      {
+        index: true,
+        element: <IndexPage />,
+      },
+      {
+        path: "transactions",
+        element: <TransactionsPage />,
+      },
+      {
+        path: "claude-debug",
+        element: <ClaudeDebugPage />,
+      },
+      {
+        path: "*",
+        element: <NotFoundPage />,
+      },
+    ],
+  },
+]);
+
+function App() {
+  return (
+    <ThemeProvider defaultTheme="system" storageKey="finance-dash-theme">
+      <FinanceProvider>
+        <RouterProvider router={router} />
+        <Toaster position="top-right" />
+      </FinanceProvider>
+    </ThemeProvider>
+  );
+}
 
 export default App;
