@@ -1,6 +1,5 @@
-
 import React, { useEffect, useState } from "react";
-import { Dashboard } from "@/components/dashboard";
+import { Dashboard, ClaudeEnhancedCategories } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
@@ -86,6 +85,13 @@ const Index = () => {
   return (
     <div className="max-w-7xl mx-auto">
       <Dashboard />
+      
+      {/* Add the Claude Enhanced Categories section if we have transactions */}
+      {transactions.length > 0 && (
+        <div className="mt-8 animate-fade-in">
+          <ClaudeEnhancedCategories transactions={transactions} />
+        </div>
+      )}
       
       {transactions.length > 0 && (
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
