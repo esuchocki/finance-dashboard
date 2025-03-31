@@ -30,21 +30,24 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
 
   const calculateSummary = (txns: Transaction[]): FinancialSummary => {
+    // Determine income and expense transactions, using categoryType if available
     const incomeTransactions = txns.filter(t => 
-      t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"
+      t.categoryType === "income" || 
+      (!t.categoryType && (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"))
     );
     
     const expenseTransactions = txns.filter(t => 
-      t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"
+      t.categoryType === "expense" || 
+      (!t.categoryType && (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"))
     );
     
     const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
     const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
     
-    // Calculate top expense categories
+    // Calculate top expense categories using Claude's enhanced categorization
     const categoryMap = new Map<string, number>();
     for (const t of expenseTransactions) {
-      // Prioritize Claude's categorization by using t.category directly
+      // Use Claude's categorization, which should now be more specific than just "Expenses"
       const category = t.category || "Uncategorized";
       const currentAmount = categoryMap.get(category) || 0;
       categoryMap.set(category, currentAmount + t.amount);
@@ -281,6 +284,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           
           const categorizedPercent = Math.round((categorizedCount / parsedTransactions.length) * 100);
           
+          // Count unique categories for better feedback
+          const uniqueCategories = new Set(parsedTransactions.map(t => t.category)).size;
+          
           if (categorizedPercent < 50) {
             toast.warning("Limited categorization success", {
               description: `Only ${categorizedPercent}% of transactions were successfully categorized`,
@@ -288,7 +294,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
             });
           } else {
             toast.success("Transactions categorized successfully", {
-              description: `${categorizedPercent}% of transactions were categorized`,
+              description: `${categorizedPercent}% of transactions were categorized into ${uniqueCategories} categories`,
               duration: 5000
             });
           }

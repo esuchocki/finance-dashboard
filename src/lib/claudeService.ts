@@ -21,16 +21,29 @@ export const clearClaudeApiKey = () => {
   localStorage.removeItem("claude_api_key");
 };
 
-// Define predefined categories to guide Claude
-const PREDEFINED_CATEGORIES = {
-  Income: [
-    "Salary", "Freelance", "Investments", "Dividends", "Rental", "Business", "Gifts", "Tax Refund", "Other Income"
-  ],
-  Expenses: [
-    "Food", "Groceries", "Dining", "Housing", "Rent", "Mortgage", "Utilities", "Transportation", 
-    "Car", "Public Transit", "Entertainment", "Shopping", "Healthcare", "Insurance", "Personal", 
-    "Education", "Travel", "Finance", "Debt", "Savings", "Business", "Donations", "Childcare"
-  ]
+// Define rich categorization taxonomy to guide Claude
+// These are suggestions, Claude is encouraged to create more specific ones as needed
+const CATEGORIZATION_TAXONOMY = {
+  "Housing": ["Mortgage", "Rent", "Property Tax", "Home Insurance", "HOA Fees", "Home Repairs", "Home Improvement", "Utilities", "Internet", "Cable", "Phone", "Furniture"],
+  "Transportation": ["Car Payment", "Auto Insurance", "Gas", "Public Transit", "Parking", "Tolls", "Ride Sharing", "Car Repairs", "Car Registration", "Car Wash"],
+  "Food": ["Groceries", "Restaurants", "Fast Food", "Coffee Shops", "Food Delivery", "Alcohol", "Snacks"],
+  "Shopping": ["Clothing", "Electronics", "Home Goods", "Online Shopping", "Department Stores", "Jewelry", "Accessories", "Books"],
+  "Entertainment": ["Movies", "Concerts", "Sports", "Streaming Services", "Games", "Hobbies", "Subscription Boxes", "Music"],
+  "Health & Wellness": ["Health Insurance", "Doctor", "Dentist", "Pharmacy", "Gym", "Fitness Classes", "Vitamins", "Mental Health", "Vision"],
+  "Personal Care": ["Hair", "Cosmetics", "Spa", "Massage", "Grooming", "Skincare"],
+  "Education": ["Tuition", "Student Loans", "Books", "Courses", "School Supplies", "Tutoring", "Educational Apps", "Professional Development"],
+  "Travel": ["Flights", "Hotels", "Vacation Packages", "Rental Cars", "Travel Insurance", "Cruises", "Souvenirs", "Luggage"],
+  "Pets": ["Pet Food", "Vet", "Pet Insurance", "Pet Supplies", "Grooming", "Boarding", "Pet Sitting"],
+  "Financial": ["Banking Fees", "Credit Card Interest", "Investment Fees", "Financial Advisor", "Cryptocurrency", "Loans", "Insurance"],
+  "Subscriptions": ["Software", "Media", "Memberships", "Digital Services", "Cloud Storage", "Newsletters", "Websites"],
+  "Gifts & Donations": ["Charity", "Gifts", "Fundraisers", "Religious Donations", "Political Contributions"],
+  "Taxes": ["Income Tax", "Property Tax", "Sales Tax", "Tax Preparation", "Tax Payments"],
+  "Business": ["Office Supplies", "Software", "Marketing", "Professional Services", "Client Meetings", "Coworking Space"],
+  "Income": ["Salary", "Freelance", "Investment Income", "Dividends", "Interest", "Rental Income", "Side Hustle", "Gifts Received", "Tax Refund", "Benefits", "Reimbursements"],
+  "Transfers": ["Account Transfer", "Investment Transfer", "Savings Transfer", "Loan Payment", "Credit Card Payment"],
+  "Cash & ATM": ["ATM Withdrawal", "Cash Deposit", "Check Deposit", "Currency Exchange"],
+  "Digital Services": ["Apps", "Online Services", "Cloud Storage", "Digital Goods", "Software Subscriptions"],
+  "Children": ["Childcare", "Child Support", "School Expenses", "Toys", "Activities", "Clothing", "Baby Supplies"]
 };
 
 // Function to enhance transactions with Claude categorization
@@ -72,78 +85,58 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
         }))
       );
 
-      // Enhanced prompt focusing on dynamic categorization and distinct descriptions
+      // Enhanced prompt focusing on rich, hierarchical categorization
       const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement.
       
 YOUR MOST CRITICAL TASK is to process EVERY transaction in the input. Each transaction MUST receive:
-1. A main category
-2. A specific subcategory 
+1. A specific main category (NOT just "Income" or "Expenses" - be much more specific)
+2. A specific subcategory
 3. A much more descriptive, human-readable version of the transaction name/description that is COMPLETELY DIFFERENT from the original
 4. A confidence rating (high, medium, low)
+5. A category type (income, expense, transfer, or other)
 
 PROCESS 100% OF TRANSACTIONS, even if your confidence is low. It's better to make an educated guess than to skip categorization.
 
-Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORIES)}
+Here's a rich taxonomy of potential categories as a guide: ${JSON.stringify(CATEGORIZATION_TAXONOMY)}
 
-IMPORTANTLY: If a transaction clearly doesn't fit the predefined categories, CREATE A NEW APPROPRIATE CATEGORY. Take a dynamic approach where you can iteratively create new categories as needed.
+CRITICAL GUIDELINES FOR CATEGORIZATION:
+- NEVER use generic "Income" or "Expenses" as the main category
+- For income transactions, use specific categories like "Salary", "Freelance Income", "Investment Income"
+- For expense transactions, use specific categories like "Food", "Housing", "Transportation", "Shopping"
+- BE SPECIFIC AND DESCRIPTIVE with categories - they should clearly indicate the nature of the transaction
+- Create new categories if none of the suggested ones fit
+- Determine if something should be a main category vs. a subcategory based on its importance and frequency
+- Group related transactions under the same categories to create meaningful clusters
+- Use a consistent naming convention for categories (Title Case)
+- Ensure categories are human-readable and intuitive
+- NEVER use category names that are too technical, cryptic, or confusing
+- Create a hierarchical structure where appropriate (main category → subcategory)
 
-Consider when categories should be hierarchical (using main category + subcategory) versus creating entirely new categories. For example:
-- If you see "Amazon" transactions, use "Shopping" as main category and "Online Shopping" as subcategory
-- If you see "Uber" or "Lyft", use "Transportation" as main category and "Rideshare" as subcategory
-- But if you see many pet-related expenses, create a new main category "Pets" with appropriate subcategories
-
-Rules for categorization:
-- CRITICAL: Process and categorize EVERY transaction in the input. None should be left uncategorized.
-- For deposits, paychecks, etc., use "Income" as the main category and appropriate subcategories
-- For transactions with negative values, categorize based on the spending type
-- Be specific with subcategories, but keep them general enough to be useful for grouping
-- Never use "Uncategorized" unless absolutely necessary
-- Use clues from all available fields: name, description, memo, amount, date, etc.
-- For businesses, determine what type of business it likely is, even with minimal data
-- For recurring transactions to the same payee, maintain consistent categorization
-
-For the verbose description (THIS IS THE MOST IMPORTANT PART):
+For the verbose description (CRITICAL REQUIREMENT):
 - NEVER return the original description unchanged - always create a completely new human-readable version
 - Create a clear, human-readable description that explains what the transaction actually is
 - The verbose description MUST be noticeably different from the original description
-- Use multiple strategies to deduce what the transaction is:
-  1. Business name recognition (identify common merchants, "AMZN" → "Amazon")
-  2. Pattern matching (recognize payment patterns like "ACH" for direct deposits)
-  3. Context from transaction amount (large amounts may be rent/mortgage, small amounts may be coffee shops)
-  4. Context from memo field (contains valuable information about purpose)
-  5. Location data if available (city/state can help identify local businesses)
-  6. Industry knowledge about common transaction format patterns
-  7. Seasonality and timing (holiday-related purchases in December, etc.)
-- Examples of good verbose descriptions:
-  - "CHECK #123" → "Check Payment #123"
-  - "AMZN MKTP US*1234" → "Amazon Marketplace Purchase"
-  - "STARBUCKS STORE #1234" → "Starbucks Coffee"
-  - "ACH DEPOSIT PAYROLL 123456" → "Salary Deposit from Employer"
-  - "POS PURCHASE KROGER #1234" → "Groceries at Kroger"
-  - "POS DEBIT SPOTIFY USA" → "Spotify Monthly Subscription"
-  - "VENMO PAYMENT 1234567890" → "Venmo Payment"
-  - "DEBIT PURCHASE VISA ONLINE PMT" → "Credit Card Payment"
-  - "POS PURCHASE TARGET 12345" → "Target Shopping"
-  - "ACH DEBIT INSURANCE PREMIUM" → "Insurance Premium Payment"
+- Focus on making it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
 - Remove cryptic codes, abbreviations and numbers while keeping informative details
-- Make it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
 - Keep it concise - ideally under 40 characters
-- NEVER return the exact same string as the original description or name - always make it more readable
+- Make it descriptive enough that a person can understand what the transaction was for
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
-- category: The main category (use your judgment to create new ones if needed)
+- category: The specific, descriptive main category (NOT generic "Income" or "Expenses")
 - subCategory: The specific subcategory
 - verboseDescription: A clearer, more human-readable version of the transaction that is DIFFERENT from the original
-- confidence: Your confidence level in this categorization (high, medium, low)`;
+- confidence: Your confidence level in this categorization (high, medium, low)
+- categoryType: One of "income", "expense", "transfer", or "other"`;
 
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
-Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. 
+Please categorize each transaction with SPECIFIC, DESCRIPTIVE categories (NOT just generic "Income" or "Expenses").
+Create meaningful, intuitive categories that help understand the nature of each transaction (e.g., "Food", "Shopping", "Transportation", "Salary").
 You MUST process EVERY transaction, even if your confidence is low.
 The verboseDescription MUST be significantly different from the original - make it truly human-readable.
 CRITICAL: Do not return the same description as the original. If you don't know what a transaction is, make your best guess.
-If a transaction doesn't fit the predefined categories, feel free to create a NEW appropriate category.`;
+Feel free to create NEW appropriate categories if the existing ones don't fit well.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
@@ -265,16 +258,46 @@ If a transaction doesn't fit the predefined categories, feel free to create a NE
                 }
               }
               
-              // Ensure we have a valid category (never use "Uncategorized")
+              // Ensure we have a valid specific category (not just "Income" or "Expenses")
               let category = enhancement.category;
-              if (!category || category === "Uncategorized") {
-                // Assign a category based on transaction type rather than leaving uncategorized
-                if (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE") {
-                  category = "Expenses";
-                } else if (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST") {
-                  category = "Income";
+              let categoryType = enhancement.categoryType || 
+                                 (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "expense" : 
+                                  t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST" ? "income" : "other");
+              
+              if (!category || category === "Uncategorized" || category === "Income" || category === "Expenses") {
+                // Assign a more specific category based on transaction type and description
+                if (categoryType === "income") {
+                  // More specific income categories
+                  if (/payroll|salary|direct deposit/i.test(t.description)) {
+                    category = "Salary & Wages";
+                  } else if (/interest|dividend/i.test(t.description)) {
+                    category = "Investment Income";
+                  } else if (/refund|return/i.test(t.description)) {
+                    category = "Refunds";
+                  } else {
+                    category = "Other Income";
+                  }
+                } else if (categoryType === "expense") {
+                  // More specific expense categories based on common patterns
+                  if (/restaurant|food|coffee|dining|cafe|mcdonald|burger|taco|pizza/i.test(t.description)) {
+                    category = "Food & Dining";
+                  } else if (/amazon|walmart|target|ebay|shopping/i.test(t.description)) {
+                    category = "Shopping";
+                  } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
+                    category = "Transportation";
+                  } else if (/netflix|spotify|hulu|disney|entertainment/i.test(t.description)) {
+                    category = "Entertainment";
+                  } else if (/rent|mortgage|home|apartment|property/i.test(t.description)) {
+                    category = "Housing";
+                  } else if (/doctor|medical|health|pharmacy|dental/i.test(t.description)) {
+                    category = "Healthcare";
+                  } else {
+                    category = "Miscellaneous";
+                  }
+                } else if (categoryType === "transfer") {
+                  category = "Transfers";
                 } else {
-                  category = "Other";
+                  category = "Uncategorized";
                 }
               }
               
@@ -283,19 +306,39 @@ If a transaction doesn't fit the predefined categories, feel free to create a NE
                 category: category,
                 subCategory: enhancement.subCategory || "",
                 verboseDescription: verboseDescription,
-                confidence: enhancement.confidence || "low"
+                confidence: enhancement.confidence || "low",
+                categoryType: categoryType
               };
             }
             
-            // If no enhancement found, create a basic categorization
+            // If no enhancement found, create a more specific categorization than just "Income" or "Expenses"
+            const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
+            const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
+            const isTransfer = t.type === "TRANSFER";
+            
+            let fallbackCategory = "Uncategorized";
+            let fallbackCategoryType = "other";
+            
+            if (isIncome) {
+              fallbackCategory = "Other Income";
+              fallbackCategoryType = "income";
+            } else if (isExpense) {
+              fallbackCategory = "Miscellaneous Expenses";
+              fallbackCategoryType = "expense";
+            } else if (isTransfer) {
+              fallbackCategory = "Transfers";
+              fallbackCategoryType = "transfer";
+            }
+            
             return {
               ...t,
-              category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
-              subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
+              category: fallbackCategory,
+              subCategory: isIncome ? "Other Income" : isExpense ? "Other Expenses" : "Other",
               verboseDescription: t.description ? 
-                `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
-                `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
-              confidence: "low"
+                `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
+                `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
+              confidence: "low",
+              categoryType: fallbackCategoryType
             };
           });
           
@@ -309,17 +352,52 @@ If a transaction doesn't fit the predefined categories, feel free to create a NE
           console.error("Error parsing JSON from Claude response:", jsonError);
           console.error("Raw content:", content);
           
-          // Add fallback enhancements to the batch to avoid data loss
+          // Add fallback enhancements with more specific categories than just "Income" or "Expenses"
           const batchWithFallbackEnhancements = batch.map(t => {
-            // Create basic fallback enhancements
+            // Create more specific fallback categories
+            const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
+            const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
+            
+            let fallbackCategory = "Uncategorized";
+            let fallbackSubCategory = "";
+            let fallbackCategoryType = "other";
+            
+            if (isIncome) {
+              if (/payroll|salary|direct deposit/i.test(t.description)) {
+                fallbackCategory = "Salary & Wages";
+                fallbackSubCategory = "Regular Income";
+              } else {
+                fallbackCategory = "Other Income";
+                fallbackSubCategory = "Miscellaneous Income";
+              }
+              fallbackCategoryType = "income";
+            } else if (isExpense) {
+              // Try to determine a more specific category from the description
+              if (/restaurant|food|coffee|dining|cafe/i.test(t.description)) {
+                fallbackCategory = "Food & Dining";
+                fallbackSubCategory = "Restaurants";
+              } else if (/amazon|walmart|target|ebay/i.test(t.description)) {
+                fallbackCategory = "Shopping";
+                fallbackSubCategory = "Online Shopping";
+              } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
+                fallbackCategory = "Transportation";
+                fallbackSubCategory = "Rideshare & Transit";
+              } else {
+                fallbackCategory = "Miscellaneous";
+                fallbackSubCategory = "Other Expenses";
+              }
+              fallbackCategoryType = "expense";
+            }
+            
             return {
               ...t,
-              category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
-              subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
+              category: fallbackCategory,
+              subCategory: fallbackSubCategory,
               verboseDescription: t.description ? 
-                `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
-                `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
-              confidence: "low"
+                `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
+                `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
+              confidence: "low",
+              categoryType: fallbackCategoryType
             };
           });
           
@@ -330,17 +408,40 @@ If a transaction doesn't fit the predefined categories, feel free to create a NE
         clearTimeout(timeoutId);
         console.error(`Error processing batch starting at index ${i}:`, error);
         
-        // Add fallback enhancements to the batch to avoid data loss
+        // Add fallback enhancements with specific categories
         const batchWithFallbackEnhancements = batch.map(t => {
-          // Create basic fallback enhancements
+          // Create more specific fallback categories
+          const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
+          const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
+          const isTransfer = t.type === "TRANSFER";
+          
+          let fallbackCategory = "Uncategorized";
+          let fallbackSubCategory = "";
+          let fallbackCategoryType = "other";
+          
+          if (isIncome) {
+            fallbackCategory = "Other Income";
+            fallbackSubCategory = "Miscellaneous Income";
+            fallbackCategoryType = "income";
+          } else if (isExpense) {
+            fallbackCategory = "Miscellaneous";
+            fallbackSubCategory = "Other Expenses";
+            fallbackCategoryType = "expense";
+          } else if (isTransfer) {
+            fallbackCategory = "Transfers";
+            fallbackSubCategory = "Account Transfers";
+            fallbackCategoryType = "transfer";
+          }
+          
           return {
             ...t,
-            category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
-            subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
+            category: fallbackCategory,
+            subCategory: fallbackSubCategory,
             verboseDescription: t.description ? 
-              `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
-              `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
-            confidence: "low"
+              `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
+              `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
+            confidence: "low",
+            categoryType: fallbackCategoryType
           };
         });
         
@@ -364,6 +465,10 @@ If a transaction doesn't fit the predefined categories, feel free to create a NE
     if (unenhancedCount > 0) {
       console.warn(`Warning: ${unenhancedCount} transactions did not receive verbose descriptions`);
     }
+    
+    // Log category distribution for debugging
+    const categories = new Set(enhancedTransactions.map(t => t.category));
+    console.log(`Generated ${categories.size} unique categories:`, Array.from(categories));
     
     return enhancedTransactions;
     

@@ -5,16 +5,20 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } fro
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Info, LineChart, BadgeCheck, Loader2 } from "lucide-react";
+import { ChevronLeft, Info, LineChart, BadgeCheck, Loader2, Filter } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SelectSeparator } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Custom colors for the chart - using a different palette from main charts
 const COLORS = [
   "#8B5CF6", "#D946EF", "#F97316", "#0EA5E9", "#10B981", 
   "#F59E0B", "#EC4899", "#6366F1", "#84CC16", "#14B8A6",
-  "#EF4444", "#64748B", "#9333EA", "#0369A1", "#15803D"
+  "#EF4444", "#64748B", "#9333EA", "#0369A1", "#15803D",
+  "#6D28D9", "#DB2777", "#059669", "#D97706", "#7C3AED",
+  "#0284C7", "#0F766E", "#4338CA", "#A21CAF", "#0F172A"
 ];
 
 interface ClaudeEnhancedCategoriesProps {
@@ -26,7 +30,8 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTransactions, setSelectedTransactions] = useState<Transaction[] | null>(null);
   const [view, setView] = useState<"pie" | "list">("pie");
-
+  const [activeTab, setActiveTab] = useState<string>("all");
+  
   // Custom tooltip for the PieChart
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -70,12 +75,32 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
   // Prepare data for visualization based on Claude-enhanced categories
   const prepareClaudeData = () => {
     // Filter to include all transactions with Claude-generated data
-    // Since we're using a fallback system in the Claude service, all transactions should have categories
     const enhancedTransactions = transactions.filter(t => t.category);
     
     const totalTransactions = transactions.length;
     const enhancedCount = enhancedTransactions.length;
     const percentCategorized = Math.round((enhancedCount / totalTransactions) * 100);
+    
+    // Filter transactions based on active tab
+    let filteredTransactions = enhancedTransactions;
+    if (activeTab === "expenses") {
+      filteredTransactions = enhancedTransactions.filter(
+        t => t.categoryType === "expense" || 
+            (t.categoryType === undefined && 
+              (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE"))
+      );
+    } else if (activeTab === "income") {
+      filteredTransactions = enhancedTransactions.filter(
+        t => t.categoryType === "income" || 
+            (t.categoryType === undefined && 
+              (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"))
+      );
+    } else if (activeTab === "transfers") {
+      filteredTransactions = enhancedTransactions.filter(
+        t => t.categoryType === "transfer" || 
+            (t.categoryType === undefined && t.type === "TRANSFER")
+      );
+    }
     
     // Group transactions by category
     const categoryMap = new Map<string, { 
@@ -89,9 +114,9 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       }>
     }>();
     
-    enhancedTransactions.forEach(t => {
-      // Always use Claude's assigned category, excluding "Uncategorized"
-      const category = t.category !== "Uncategorized" ? t.category : "Other";
+    filteredTransactions.forEach(t => {
+      // Use Claude's assigned category, defaulting to "Other" for any uncategorized
+      const category = t.category && t.category !== "Uncategorized" ? t.category : "Other";
       const subCategory = t.subCategory || "Other";
       
       // Initialize category if it doesn't exist
@@ -153,7 +178,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
           }))
           .sort((a, b) => b.value - a.value),
         transactions: data.transactions,
-        totalValue: enhancedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+        totalValue: filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
       }))
       .sort((a, b) => b.value - a.value);
     
@@ -161,11 +186,13 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       chartData,
       totalTransactions,
       enhancedCount,
-      percentCategorized
+      percentCategorized,
+      filteredCount: filteredTransactions.length,
+      categoriesCount: categoryMap.size
     };
   };
 
-  const { chartData, totalTransactions, enhancedCount, percentCategorized } = prepareClaudeData();
+  const { chartData, totalTransactions, enhancedCount, percentCategorized, filteredCount, categoriesCount } = prepareClaudeData();
 
   // Handle pie slice click to show transactions
   const handlePieClick = (data: any) => {
@@ -225,7 +252,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
               Claude AI Categorization
             </CardTitle>
             <CardDescription>
-              Transactions enhanced by Claude AI ({percentCategorized}% categorized)
+              {categoriesCount} categories created across {enhancedCount} transactions
             </CardDescription>
           </div>
           
@@ -250,10 +277,11 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
               </HoverCardTrigger>
               <HoverCardContent className="w-80">
                 <div className="space-y-2">
-                  <h4 className="font-medium">AI-Enhanced Data</h4>
+                  <h4 className="font-medium">AI-Enhanced Categories</h4>
                   <p className="text-sm text-muted-foreground">
-                    This chart shows the {enhancedCount} transactions ({percentCategorized}%) 
-                    that Claude AI successfully categorized out of {totalTransactions} total transactions.
+                    Claude AI has analyzed your transactions and created {categoriesCount} specific 
+                    categories for better financial insights. Switch between tabs to view different 
+                    transaction types.
                   </p>
                   <p className="text-sm text-muted-foreground">
                     Transactions with higher confidence ratings have been better categorized. 
@@ -267,6 +295,15 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       </CardHeader>
       
       <CardContent>
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-4">
+          <TabsList>
+            <TabsTrigger value="all">All Categories</TabsTrigger>
+            <TabsTrigger value="expenses">Expenses</TabsTrigger>
+            <TabsTrigger value="income">Income</TabsTrigger>
+            <TabsTrigger value="transfers">Transfers</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {enhancedCount === 0 ? (
           <div className="flex flex-col items-center justify-center h-[200px] gap-4">
             <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
@@ -275,6 +312,16 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
               <AlertDescription>
                 Claude AI hasn't categorized any transactions yet. This may be because the enhancement 
                 process is still running or there was an issue with the Claude API connection.
+              </AlertDescription>
+            </Alert>
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[200px] gap-4">
+            <Alert>
+              <AlertTitle>No data for selected filter</AlertTitle>
+              <AlertDescription>
+                There are no transactions in the currently selected category type.
+                Try selecting a different tab to view other transaction categories.
               </AlertDescription>
             </Alert>
           </div>
@@ -331,8 +378,14 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
               </Button>
               
               {selectedCategory && (
-                <h3 className="text-sm font-medium">
-                  {selectedCategory} ({selectedTransactions?.length || 0} transactions)
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <span>{selectedCategory}</span>
+                  <Badge variant="outline" className="ml-2">
+                    {selectedTransactions?.length || 0} transactions
+                  </Badge>
+                  <Badge variant="secondary">
+                    {formatCurrency(selectedTransactions?.reduce((sum, t) => sum + Math.abs(t.amount), 0) || 0)}
+                  </Badge>
                 </h3>
               )}
             </div>
@@ -367,6 +420,15 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                             {t.confidence} confidence
                           </Badge>
                         )}
+                        {t.categoryType && (
+                          <Badge variant={
+                            t.categoryType === "income" ? "default" : 
+                            t.categoryType === "expense" ? "destructive" : 
+                            t.categoryType === "transfer" ? "secondary" : "outline"
+                          } className="text-xs">
+                            {t.categoryType}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
@@ -390,7 +452,11 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
         
         {enhancedCount > 0 && (
           <div className="mt-4 text-xs text-muted-foreground text-center">
-            Showing {enhancedCount} of {totalTransactions} total transactions ({percentCategorized}% categorized)
+            {activeTab === "all" ? (
+              <p>Showing {filteredCount} of {totalTransactions} total transactions ({percentCategorized}% categorized)</p>
+            ) : (
+              <p>Filtered to {filteredCount} {activeTab} transactions across {categoriesCount} categories</p>
+            )}
           </div>
         )}
       </CardContent>

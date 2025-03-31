@@ -1,4 +1,3 @@
-
 export enum TransactionType {
   DEBIT = "DEBIT",
   CREDIT = "CREDIT",
@@ -25,10 +24,11 @@ export interface Transaction {
   isRecurring: boolean;
   payee: string;
   tags: string[];
-  // New fields for enhanced categorization
+  // Enhanced categorization fields
   subSubCategory?: string;
   confidence?: string; // high, medium, low
   verboseDescription?: string; // Enhanced readable description
+  categoryType?: "income" | "expense" | "transfer" | "other"; // Meta-category
 }
 
 export interface TransactionFilterOptions {

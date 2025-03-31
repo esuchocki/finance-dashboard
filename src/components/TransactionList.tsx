@@ -50,6 +50,28 @@ const TransactionList: React.FC<TransactionListProps> = ({
     return transaction.name;
   };
 
+  // Get appropriate badge variant based on category type
+  const getCategoryBadgeVariant = (transaction: Transaction) => {
+    if (!transaction.categoryType) {
+      return transaction.type === "CREDIT" || transaction.type === "DEPOSIT" || transaction.type === "INTEREST"
+        ? "default"
+        : transaction.type === "DEBIT" || transaction.type === "WITHDRAWAL" || transaction.type === "CHECK" || transaction.type === "FEE"
+        ? "destructive"
+        : "outline";
+    }
+    
+    switch (transaction.categoryType) {
+      case "income":
+        return "default";
+      case "expense":
+        return "destructive";
+      case "transfer":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -80,29 +102,42 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   {transaction.category && transaction.category !== "Uncategorized" && (
                     <>
                       <span>•</span>
-                      <span>{transaction.category}</span>
+                      <Badge 
+                        variant={getCategoryBadgeVariant(transaction)} 
+                        className="text-xs"
+                      >
+                        {transaction.category}
+                      </Badge>
                     </>
                   )}
                   {transaction.subCategory && (
                     <>
                       <span>•</span>
-                      <span>{transaction.subCategory}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {transaction.subCategory}
+                      </Badge>
                     </>
                   )}
                   {transaction.description && 
                    transaction.description !== getDisplayName(transaction) && (
                     <>
                       <span>•</span>
-                      <span className="text-xs opacity-70">{transaction.description}</span>
+                      <span className="text-xs opacity-70 max-w-[150px] truncate" title={transaction.description}>
+                        {transaction.description}
+                      </span>
                     </>
                   )}
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 <span className={`font-mono font-medium tabular-nums ${
-                  transaction.type === "CREDIT" || transaction.type === "DEPOSIT" || transaction.type === "INTEREST"
+                  transaction.categoryType === "income" || 
+                  (!transaction.categoryType && (transaction.type === "CREDIT" || transaction.type === "DEPOSIT" || transaction.type === "INTEREST"))
                     ? "text-finance-positive"
-                    : "text-finance-negative"
+                    : transaction.categoryType === "expense" || 
+                      (!transaction.categoryType && (transaction.type === "DEBIT" || transaction.type === "CHECK" || transaction.type === "WITHDRAWAL" || transaction.type === "FEE"))
+                    ? "text-finance-negative"
+                    : ""
                 }`}>
                   {formatCurrency(transaction.amount)}
                 </span>
@@ -110,7 +145,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   <Badge variant={
                     transaction.confidence === "high" ? "default" : 
                     transaction.confidence === "medium" ? "secondary" : "outline"
-                  } className="text-xs">
+                  } className="text-xs hidden sm:inline-flex">
                     {transaction.confidence}
                   </Badge>
                 )}
