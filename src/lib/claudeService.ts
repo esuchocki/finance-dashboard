@@ -45,13 +45,17 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
     // Process in smaller batches to get more detailed results
-    const BATCH_SIZE = 15; // Reduced batch size for more detailed processing
+    const BATCH_SIZE = 10; // Reduced batch size for more detailed processing
     let enhancedTransactions: Transaction[] = [];
+    
+    // Calculate total batches for logging
+    const totalBatches = Math.ceil(transactions.length / BATCH_SIZE);
+    console.log(`Processing ${transactions.length} transactions in ${totalBatches} batches of ${BATCH_SIZE}`);
     
     // Create batches of transactions
     for (let i = 0; i < transactions.length; i += BATCH_SIZE) {
       const batch = transactions.slice(i, i + BATCH_SIZE);
-      console.log(`Processing batch ${i / BATCH_SIZE + 1} of ${Math.ceil(transactions.length / BATCH_SIZE)}`);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1} of ${totalBatches} (${batch.length} transactions)`);
       
       // Prepare batch for Claude API
       const batchJSON = JSON.stringify(
@@ -70,13 +74,13 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
       // Enhanced prompt for better categorization and more readable descriptions
       const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement. 
       
-Your task is to:
-1. Categorize EVERY transaction into a main category
-2. Determine a specific subcategory 
-3. Provide a much more descriptive, human-readable version of the transaction name/description
-4. Rate your confidence in the categorization (high, medium, low)
+YOUR MOST CRITICAL TASK is to process EVERY transaction in the input. Each transaction MUST receive:
+1. A main category
+2. A specific subcategory 
+3. A much more descriptive, human-readable version of the transaction name/description
+4. A confidence rating (high, medium, low)
 
-MOST IMPORTANT: You MUST process ALL transactions in the input. Do not skip any transactions.
+PROCESS 100% OF TRANSACTIONS, even if your confidence is low. It's better to make an educated guess than to skip categorization.
 
 Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORIES)}
 
@@ -84,21 +88,21 @@ However, if a transaction clearly belongs to a different category not listed abo
 
 Rules for categorization:
 - CRITICAL: Process and categorize EVERY transaction in the input. None should be left uncategorized.
-- For deposits, paychecks, etc., use "Income" as the main category
+- For deposits, paychecks, etc., use "Income" as the main category and appropriate subcategories
 - For transactions with negative values, categorize based on the spending type
 - Be specific with subcategories, but keep them general enough to be useful for grouping
 - Never use "Uncategorized" unless absolutely necessary
-- Analyze each transaction's name, description, memo, amount and date for context clues
-- For businesses, determine what type of business it is based on name or context clues
+- Use clues from all available fields: name, description, memo, amount, date, etc.
+- For businesses, determine what type of business it likely is, even with minimal data
 - For recurring transactions to the same payee, maintain consistent categorization
 
 For the verbose description (THIS IS THE MOST IMPORTANT PART):
 - Create a clear, human-readable description that explains what the transaction actually is
 - Use multiple strategies to deduce what the transaction is:
-  1. Business name recognition (identify common merchants like "AMZN" as "Amazon")
+  1. Business name recognition (identify common merchants, "AMZN" → "Amazon")
   2. Pattern matching (recognize payment patterns like "ACH" for direct deposits)
   3. Context from transaction amount (large amounts may be rent/mortgage, small amounts may be coffee shops)
-  4. Context from memo field (often contains valuable information about purpose)
+  4. Context from memo field (contains valuable information about purpose)
   5. Location data if available (city/state can help identify local businesses)
   6. Industry knowledge about common transaction format patterns
   7. Seasonality and timing (holiday-related purchases in December, etc.)
@@ -163,9 +167,9 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         
         // Improved JSON extraction from Claude's response
         let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                         content.match(/```\n([\s\S]*?)\n```/) ||
-                         content.match(/\[([\s\S]*?)\]/) ||
-                         content.match(/(\[.*\])/s);
+                        content.match(/```\n([\s\S]*?)\n```/) ||
+                        content.match(/\[([\s\S]*?)\]/) ||
+                        content.match(/(\[.*\])/s);
         
         if (!jsonMatch) {
           console.error("Failed to parse Claude response:", content);
@@ -178,26 +182,38 @@ Please categorize each transaction, determine a subcategory, create a verbose de
           jsonStr = `[${jsonStr}]`;
         }
         
-        const enhancedBatch = JSON.parse(jsonStr);
-        
-        // Map the enhanced data back to the original transactions
-        const batchWithEnhancements = batch.map(t => {
-          const enhancement = enhancedBatch.find((e: any) => e.id === t.id);
+        try {
+          const enhancedBatch = JSON.parse(jsonStr);
           
-          if (enhancement) {
-            return {
-              ...t,
-              category: enhancement.category || t.category || "Uncategorized",
-              subCategory: enhancement.subCategory || t.subCategory || "",
-              verboseDescription: enhancement.verboseDescription || t.description,
-              confidence: enhancement.confidence || "low"
-            };
-          }
+          // Map the enhanced data back to the original transactions
+          const batchWithEnhancements = batch.map(t => {
+            const enhancement = enhancedBatch.find((e: any) => e.id === t.id);
+            
+            if (enhancement) {
+              return {
+                ...t,
+                category: enhancement.category || t.category || "Uncategorized",
+                subCategory: enhancement.subCategory || t.subCategory || "",
+                verboseDescription: enhancement.verboseDescription || t.description,
+                confidence: enhancement.confidence || "low"
+              };
+            }
+            
+            return t;
+          });
           
-          return t;
-        });
-        
-        enhancedTransactions = [...enhancedTransactions, ...batchWithEnhancements];
+          enhancedTransactions = [...enhancedTransactions, ...batchWithEnhancements];
+          
+          // Log information about categorization progress
+          const categorizedCount = batchWithEnhancements.filter(t => t.category && t.category !== "Uncategorized").length;
+          console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Categorized ${categorizedCount} of ${batch.length} transactions (${Math.round((categorizedCount/batch.length) * 100)}%)`);
+          
+        } catch (jsonError) {
+          console.error("Error parsing JSON from Claude response:", jsonError);
+          console.error("Raw content:", content);
+          // Add the unenhanced batch to the result to avoid data loss
+          enhancedTransactions = [...enhancedTransactions, ...batch];
+        }
         
       } catch (error) {
         clearTimeout(timeoutId);
@@ -215,7 +231,8 @@ Please categorize each transaction, determine a subcategory, create a verbose de
       t => t.category && t.category !== "Uncategorized"
     ).length;
     
-    console.log(`Successfully categorized ${categorizedCount} out of ${transactions.length} transactions`);
+    const categorizedPercent = Math.round((categorizedCount / transactions.length) * 100);
+    console.log(`Successfully categorized ${categorizedCount} out of ${transactions.length} transactions (${categorizedPercent}%)`);
     
     return enhancedTransactions;
     
