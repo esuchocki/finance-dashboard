@@ -2,7 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
-import { formatCurrency } from "@/lib/formatters";
+import { formatCurrency, formatPercentage } from "@/lib/formatters";
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar, LineChart, Line } from "recharts";
 import { Transaction } from "@/lib/types";
 import FileUploader from "./FileUploader";
@@ -11,8 +11,9 @@ import InsightsList from "./InsightsList";
 import UploadSummary from "./UploadSummary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock, ArrowUp, ArrowDown, ArrowRight } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import ComparisonIndicator from "./ComparisonIndicator";
 
 const Dashboard = () => {
   const { transactions, filteredTransactions, summary, clearData } = useFinance();
@@ -53,17 +54,33 @@ const Dashboard = () => {
   const prepareMonthlyTrendData = () => {
     if (!summary || !summary.monthlyBreakdown) return [];
     
-    return summary.monthlyBreakdown.map(item => {
+    return summary.monthlyBreakdown.map((item, index, array) => {
       // Format the month for display (e.g., "2023-01" to "Jan 2023")
       const [year, month] = item.month.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
       const formattedMonth = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       
+      // Calculate month-over-month change percentages
+      let incomeChange = 0;
+      let expensesChange = 0;
+      
+      if (index > 0) {
+        const prevMonth = array[index - 1];
+        incomeChange = prevMonth.income > 0 
+          ? ((item.income - prevMonth.income) / prevMonth.income) * 100 
+          : 0;
+        expensesChange = prevMonth.expenses > 0 
+          ? ((item.expenses - prevMonth.expenses) / prevMonth.expenses) * 100 
+          : 0;
+      }
+      
       return {
         name: formattedMonth,
         income: item.income,
         expenses: item.expenses,
-        balance: item.income - item.expenses
+        balance: item.income - item.expenses,
+        incomeChange,
+        expensesChange
       };
     });
   };
@@ -73,7 +90,7 @@ const Dashboard = () => {
     if (!summary || !summary.monthlyBreakdown) return [];
     
     let runningBalance = 0;
-    return summary.monthlyBreakdown.map(item => {
+    return summary.monthlyBreakdown.map((item, index) => {
       // Format the month for display
       const [year, month] = item.month.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
@@ -85,7 +102,8 @@ const Dashboard = () => {
       
       return {
         name: formattedMonth,
-        balance: runningBalance
+        balance: runningBalance,
+        monthlyChange: monthlyBalance
       };
     });
   };
@@ -101,12 +119,34 @@ const Dashboard = () => {
     "#8B5CF6", "#A855F7", "#EC4899", "#F472B6", "#FB7185"
   ];
   
-  // Configuration for charts
+  // Configuration for charts - properly typed to fix the errors
   const chartConfig = {
-    expense: { color: "#F97316", theme: { light: "#F97316", dark: "#F97316" } },
-    income: { color: "#10B981", theme: { light: "#10B981", dark: "#10B981" } },
-    balance: { color: "#8B5CF6", theme: { light: "#8B5CF6", dark: "#8B5CF6" } },
+    expense: { 
+      theme: { light: "#F97316", dark: "#F97316" } 
+    },
+    income: { 
+      theme: { light: "#10B981", dark: "#10B981" } 
+    },
+    balance: { 
+      theme: { light: "#8B5CF6", dark: "#8B5CF6" } 
+    },
   };
+
+  // Calculate basic stats for the current period
+  const calculateCurrentTrends = () => {
+    if (!monthlyTrendData || monthlyTrendData.length < 2) return null;
+    
+    const currentMonth = monthlyTrendData[monthlyTrendData.length - 1];
+    const previousMonth = monthlyTrendData[monthlyTrendData.length - 2];
+    
+    return {
+      incomeChange: ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100,
+      expensesChange: ((currentMonth.expenses - previousMonth.expenses) / previousMonth.expenses) * 100,
+      balanceChange: currentMonth.balance - previousMonth.balance
+    };
+  };
+  
+  const trends = calculateCurrentTrends();
 
   return (
     <div className="space-y-6">
@@ -139,11 +179,20 @@ const Dashboard = () => {
                 <div className="text-2xl font-bold text-finance-positive">
                   {summary ? formatCurrency(summary.totalIncome) : "$0.00"}
                 </div>
-                <div className="flex items-center mt-1">
-                  <TrendingUp className="text-finance-positive h-4 w-4 mr-1" />
-                  <span className="text-xs text-muted-foreground">
-                    {summary?.transactionCount || 0} transactions
-                  </span>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center">
+                    <TrendingUp className="text-finance-positive h-4 w-4 mr-1" />
+                    <span className="text-xs text-muted-foreground">
+                      {summary?.transactionCount || 0} transactions
+                    </span>
+                  </div>
+                  {trends && (
+                    <ComparisonIndicator 
+                      value={trends.incomeChange} 
+                      suffix="%" 
+                      positiveIsGood={true}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -156,11 +205,20 @@ const Dashboard = () => {
                 <div className="text-2xl font-bold text-finance-negative">
                   {summary ? formatCurrency(summary.totalExpenses) : "$0.00"}
                 </div>
-                <div className="flex items-center mt-1">
-                  <TrendingDown className="text-finance-negative h-4 w-4 mr-1" />
-                  <span className="text-xs text-muted-foreground">
-                    {chartData.length || 0} categories
-                  </span>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center">
+                    <TrendingDown className="text-finance-negative h-4 w-4 mr-1" />
+                    <span className="text-xs text-muted-foreground">
+                      {chartData.length || 0} categories
+                    </span>
+                  </div>
+                  {trends && (
+                    <ComparisonIndicator 
+                      value={trends.expensesChange} 
+                      suffix="%" 
+                      positiveIsGood={false}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -173,14 +231,21 @@ const Dashboard = () => {
                 <div className={`text-2xl font-bold ${summary && summary.netCashflow >= 0 ? "text-finance-positive" : "text-finance-negative"}`}>
                   {summary ? formatCurrency(summary.netCashflow) : "$0.00"}
                 </div>
-                <div className="flex items-center mt-1">
-                  <CalendarClock className="h-4 w-4 mr-1 text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">
-                    {summary && summary.dateRange ? 
-                      `${summary.dateRange.start.toLocaleDateString()} - ${summary.dateRange.end.toLocaleDateString()}` : 
-                      "No date range"
-                    }
-                  </span>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center">
+                    <CalendarClock className="h-4 w-4 mr-1 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {summary && summary.dateRange ? 
+                        `${summary.dateRange.start.toLocaleDateString()} - ${summary.dateRange.end.toLocaleDateString()}` : 
+                        "No date range"
+                      }
+                    </span>
+                  </div>
+                  {trends && trends.balanceChange !== 0 && (
+                    <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2">
+                      {trends.balanceChange > 0 ? "+" : ""}{formatCurrency(trends.balanceChange)}
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -216,45 +281,27 @@ const Dashboard = () => {
                           ? `${(value / 1000).toFixed(1)}k` 
                           : value}`}
                       />
-                      <Tooltip 
+                      <ChartTooltip 
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
-                              <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                      Income
-                                    </span>
-                                    <span className="font-bold text-finance-positive">
-                                      {formatCurrency(payload[0].value as number)}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                      Expenses
-                                    </span>
-                                    <span className="font-bold text-finance-negative">
-                                      {formatCurrency(payload[1].value as number)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
+                              <ChartTooltipContent
+                                active={active}
+                                payload={payload}
+                                formatter={(value) => formatCurrency(value as number)}
+                              />
                             );
                           }
-                        
                           return null;
                         }}
                       />
                       <Bar 
                         dataKey="income" 
-                        fill="var(--color-income)" 
-                        name="Income" 
+                        name="income" 
                       />
                       <Bar 
                         dataKey="expenses" 
-                        fill="var(--color-expense)" 
-                        name="Expenses" 
+                        name="expense" 
                       />
                     </BarChart>
                   </ChartContainer>
@@ -303,13 +350,24 @@ const Dashboard = () => {
                           ? `${(value / 1000).toFixed(1)}k` 
                           : value}`}
                       />
-                      <Tooltip 
-                        formatter={(value) => formatCurrency(value as number)}
-                        labelFormatter={(label) => `Month: ${label}`}
+                      <ChartTooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <ChartTooltipContent
+                                active={active}
+                                payload={payload}
+                                formatter={(value) => formatCurrency(value as number)}
+                              />
+                            );
+                          }
+                          return null;
+                        }}
                       />
                       <Area 
                         type="monotone" 
                         dataKey="balance" 
+                        name="balance" 
                         stroke="#8B5CF6" 
                         fillOpacity={1} 
                         fill="url(#balanceGradient)" 
