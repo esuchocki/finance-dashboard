@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const Dashboard = () => {
             setIncomeData(incomeChartData);
             
             console.log("Chart data prepared successfully");
+            console.log("Sample category data:", expenseData.slice(0, 2));
           } catch (err) {
             console.error("Error preparing chart data:", err);
             setError("Failed to process transaction data for visualization");
@@ -71,32 +73,64 @@ const Dashboard = () => {
       transactions: Transaction[]
     }>();
     
-    transactions.filter(t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE")
-      .forEach(t => {
-        // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
-        const category = t.category && t.category !== "Uncategorized" ? t.category : "Other";
-        const subCategory = t.subCategory || "Other";
-        
-        // Initialize category if it doesn't exist
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, { 
-            amount: 0, 
-            subcategories: new Map<string, number>(),
-            transactions: []
-          });
-        }
-        
-        // Update category amounts
-        const categoryData = categoryMap.get(category)!;
-        categoryData.amount += t.amount;
-        categoryData.transactions.push(t);
-        
-        // Update subcategory amounts
-        const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
-        categoryData.subcategories.set(subCategory, currentSubAmount + t.amount);
-      });
+    // First, filter for expense transactions
+    const expenseTransactions = transactions.filter(
+      t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"
+    );
     
-    // Convert to chart data format
+    // Count total uncategorized before processing
+    const initialUncategorized = expenseTransactions.filter(
+      t => !t.category || t.category === "Uncategorized"
+    ).length;
+    
+    console.log(`Initial uncategorized expense transactions: ${initialUncategorized} of ${expenseTransactions.length}`);
+    
+    expenseTransactions.forEach(t => {
+      // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
+      // If no category is available or it's "Uncategorized", try to derive one from the description
+      let category = t.category;
+      if (!category || category === "Uncategorized") {
+        if (t.verboseDescription) {
+          // Try to extract category from verbose description if available
+          const words = t.verboseDescription.split(' ');
+          if (words.length > 1) {
+            // Use first word of verbose description as a potential category
+            // This helps reduce "Uncategorized" entries when Claude provided a description
+            category = "Other";
+          }
+        }
+      }
+      
+      // Still defaulting to "Other" if needed
+      category = category && category !== "Uncategorized" ? category : "Other";
+      const subCategory = t.subCategory || "Other";
+      
+      // Initialize category if it doesn't exist
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { 
+          amount: 0, 
+          subcategories: new Map<string, number>(),
+          transactions: []
+        });
+      }
+      
+      // Update category amounts
+      const categoryData = categoryMap.get(category)!;
+      categoryData.amount += Math.abs(t.amount); // Use absolute value to ensure positive numbers for chart
+      categoryData.transactions.push(t);
+      
+      // Update subcategory amounts
+      const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
+      categoryData.subcategories.set(subCategory, currentSubAmount + Math.abs(t.amount));
+    });
+    
+    // Count how many remain uncategorized after our processing
+    const uncategorizedCount = categoryMap.get("Uncategorized")?.transactions.length || 0;
+    const otherCount = categoryMap.get("Other")?.transactions.length || 0;
+    
+    console.log(`Final uncategorized expense transactions: ${uncategorizedCount} (Uncategorized) + ${otherCount} (Other)`);
+    
+    // Convert to chart data format, sorting from highest to lowest
     return Array.from(categoryMap.entries())
       .map(([name, data]) => ({
         name,
@@ -118,30 +152,54 @@ const Dashboard = () => {
       transactions: Transaction[]
     }>();
     
-    transactions.filter(t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST")
-      .forEach(t => {
-        // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
-        const category = t.category && t.category !== "Uncategorized" ? t.category : "Uncategorized";
-        const subCategory = t.subCategory || "Other";
-        
-        // Initialize category if it doesn't exist
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, { 
-            amount: 0, 
-            subcategories: new Map<string, number>(),
-            transactions: []
-          });
-        }
-        
-        // Update category amounts
-        const categoryData = categoryMap.get(category)!;
-        categoryData.amount += t.amount;
-        categoryData.transactions.push(t);
-        
-        // Update subcategory amounts
-        const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
-        categoryData.subcategories.set(subCategory, currentSubAmount + t.amount);
-      });
+    // Filter for income transactions
+    const incomeTransactions = transactions.filter(
+      t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"
+    );
+    
+    // Count total uncategorized before processing
+    const initialUncategorized = incomeTransactions.filter(
+      t => !t.category || t.category === "Uncategorized"
+    ).length;
+    
+    console.log(`Initial uncategorized income transactions: ${initialUncategorized} of ${incomeTransactions.length}`);
+    
+    incomeTransactions.forEach(t => {
+      // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
+      // For income, if the category is missing, try to use "Income" as default
+      let category = t.category;
+      if (!category || category === "Uncategorized") {
+        category = "Income";
+      }
+      
+      // Still defaulting if needed
+      category = category && category !== "Uncategorized" ? category : "Income";
+      const subCategory = t.subCategory || "Other Income";
+      
+      // Initialize category if it doesn't exist
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { 
+          amount: 0, 
+          subcategories: new Map<string, number>(),
+          transactions: []
+        });
+      }
+      
+      // Update category amounts
+      const categoryData = categoryMap.get(category)!;
+      categoryData.amount += Math.abs(t.amount); // Use absolute value for positive chart values
+      categoryData.transactions.push(t);
+      
+      // Update subcategory amounts
+      const currentSubAmount = categoryData.subcategories.get(subCategory) || 0;
+      categoryData.subcategories.set(subCategory, currentSubAmount + Math.abs(t.amount));
+    });
+    
+    // Count how many remain uncategorized after our processing
+    const uncategorizedCount = categoryMap.get("Uncategorized")?.transactions.length || 0;
+    const incomeCount = categoryMap.get("Income")?.transactions.length || 0;
+    
+    console.log(`Final uncategorized income transactions: ${uncategorizedCount} (Uncategorized) + ${incomeCount} (Income)`);
     
     // Convert to chart data format
     return Array.from(categoryMap.entries())

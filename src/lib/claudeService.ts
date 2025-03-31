@@ -86,14 +86,18 @@ Rules for categorization:
 - Be specific with subcategories, but keep them general enough to be useful for grouping
 - Never use "Uncategorized" unless absolutely necessary
 - Analyze each transaction's name, description, memo, and amount for context clues
-- For businesses, research the business type if needed
+- For businesses, try to determine what type of business it is based on name, location, or other context
 - For recurring transactions to the same payee, maintain consistent categorization
 
 For the verbose description:
-- Create a clearer, more descriptive name for what the transaction actually is
-- Include the business name if available
-- Remove unnecessary codes or abbreviations
-- Make it concise but more informative than the original
+- Create a clearer, more informative description that expands the often cryptic transaction names
+- Include the business name and what was likely purchased if possible
+- For online purchases or subscriptions, identify the service (like "Netflix Subscription" instead of "NETFLIX.COM")
+- For transfers or financial transactions, identify the type clearly (like "ATM Withdrawal" or "Credit Card Payment")
+- For retail purchases, include the store name and general type (like "Target - Household Items")
+- Remove unnecessary codes, abbreviations, or numbers while keeping informative details
+- Make it conversational and human-readable (like "Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
+- Keep it concise - ideally under 50 characters
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID

@@ -58,9 +58,9 @@ const TransactionList: React.FC<TransactionListProps> = ({
                 <span className="font-medium">
                   {transaction.verboseDescription || transaction.payee || transaction.description}
                 </span>
-                <div className="text-xs text-muted-foreground flex items-center space-x-2">
+                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2">
                   <span>{new Date(transaction.date).toLocaleDateString()}</span>
-                  {transaction.category && (
+                  {transaction.category && transaction.category !== "Uncategorized" && (
                     <>
                       <span>•</span>
                       <span>{transaction.category}</span>
@@ -70,6 +70,12 @@ const TransactionList: React.FC<TransactionListProps> = ({
                     <>
                       <span>•</span>
                       <span>{transaction.subCategory}</span>
+                    </>
+                  )}
+                  {transaction.description !== transaction.verboseDescription && transaction.description && (
+                    <>
+                      <span>•</span>
+                      <span className="text-xs opacity-70">{transaction.description}</span>
                     </>
                   )}
                 </div>
