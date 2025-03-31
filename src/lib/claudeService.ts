@@ -91,6 +91,21 @@ const processBatchWithClaude = async (
     2. The full merchant name when only abbreviations are provided
     3. A determination if this is likely a recurring transaction
     
+    Common financial categories include:
+    - Housing: Mortgage, Rent, Property Tax, Home Insurance, Home Repairs, Utilities
+    - Food: Groceries, Restaurants, Fast Food, Coffee Shops, Food Delivery
+    - Transportation: Car Payment, Gas, Public Transit, Rideshare, Car Insurance, Car Maintenance
+    - Healthcare: Insurance, Doctor, Pharmacy, Dental, Vision, Therapy
+    - Entertainment: Streaming Services, Movies, Events, Hobbies, Subscriptions
+    - Shopping: Clothing, Electronics, Household Items, Online Shopping, Department Stores
+    - Personal: Grooming, Gym, Education, Gifts, Donations
+    - Travel: Flights, Hotels, Rental Cars, Vacation
+    - Finance: Credit Card Payment, Loan Payment, Bank Fees, Investments, Savings
+    - Income: Salary, Bonus, Interest, Dividends, Refunds
+    - Business: Office Supplies, Software, Professional Services
+    
+    NEVER leave the category as "Uncategorized" unless it's impossible to determine. Make your best educated guess.
+    
     For each transaction, provide a JSON response with the following fields:
     - merchantName: The full merchant name you've identified
     - category: The main category for this transaction
