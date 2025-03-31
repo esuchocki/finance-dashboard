@@ -154,14 +154,24 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   // Filter drilldown transactions by search query
   const filteredDrilldownTransactions = drilldownTransactions 
     ? drilldownTransactions.filter(t => 
-        (t.verboseDescription || t.description).toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.payee && t.payee.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (t.memo && t.memo.toLowerCase().includes(searchQuery.toLowerCase()))
+        (t.verboseDescription || t.description || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.payee || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.memo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.category || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.subCategory || "").toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
-  // Prepare the data for rendering
+  // Debug logging to verify the data we're receiving from Claude
+  console.log("Expense category data:", expenseData.map(d => ({ 
+    name: d.name, 
+    value: d.value,
+    transactionCount: d.transactions?.length || 0,
+    subcategoryCount: d.subcategories?.length || 0
+  })));
+
+  // Prepare the data for rendering - ensure we're using Claude's categorizations
   const currentExpenseData = expenseData
     .filter(item => item.name !== "Uncategorized" || item.value > 0) // Only show Uncategorized if it has value
     .map(item => ({
@@ -348,7 +358,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
     const totalExpenseCount = expenseData.reduce((sum, category) => 
       sum + (category.transactions?.length || 0), 0);
     
-    const uncategorizedCount = expenseData.find(c => c.name === "Uncategorized")?.transactions?.length || 0;
+    const uncategorizedCount = expenseData.find(c => c.name === "Uncategorized" || c.name === "Other")?.transactions?.length || 0;
     
     if (totalExpenseCount === 0) return 100;
     return Math.round(((totalExpenseCount - uncategorizedCount) / totalExpenseCount) * 100);

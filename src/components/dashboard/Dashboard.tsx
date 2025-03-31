@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
@@ -94,8 +93,8 @@ const Dashboard = () => {
           // Try to extract category from verbose description if available
           const words = t.verboseDescription.split(' ');
           if (words.length > 1) {
-            // Use first word of verbose description as a potential category
-            // This helps reduce "Uncategorized" entries when Claude provided a description
+            // For transactions with verbose descriptions but no category, 
+            // set them to "Other" instead of "Uncategorized" for better organization
             category = "Other";
           }
         }
@@ -124,11 +123,14 @@ const Dashboard = () => {
       categoryData.subcategories.set(subCategory, currentSubAmount + Math.abs(t.amount));
     });
     
-    // Count how many remain uncategorized after our processing
-    const uncategorizedCount = categoryMap.get("Uncategorized")?.transactions.length || 0;
-    const otherCount = categoryMap.get("Other")?.transactions.length || 0;
-    
-    console.log(`Final uncategorized expense transactions: ${uncategorizedCount} (Uncategorized) + ${otherCount} (Other)`);
+    // Log category distribution
+    console.log("Category distribution:", 
+      Array.from(categoryMap.entries()).map(([name, data]) => ({
+        name,
+        count: data.transactions.length,
+        amount: data.amount
+      }))
+    );
     
     // Convert to chart data format, sorting from highest to lowest
     return Array.from(categoryMap.entries())
@@ -180,7 +182,7 @@ const Dashboard = () => {
       if (!categoryMap.has(category)) {
         categoryMap.set(category, { 
           amount: 0, 
-          subcategories: new Map<string, number>(),
+          subcategories: new Map<string, number>,
           transactions: []
         });
       }
@@ -195,11 +197,14 @@ const Dashboard = () => {
       categoryData.subcategories.set(subCategory, currentSubAmount + Math.abs(t.amount));
     });
     
-    // Count how many remain uncategorized after our processing
-    const uncategorizedCount = categoryMap.get("Uncategorized")?.transactions.length || 0;
-    const incomeCount = categoryMap.get("Income")?.transactions.length || 0;
-    
-    console.log(`Final uncategorized income transactions: ${uncategorizedCount} (Uncategorized) + ${incomeCount} (Income)`);
+    // Log category distribution
+    console.log("Income category distribution:", 
+      Array.from(categoryMap.entries()).map(([name, data]) => ({
+        name,
+        count: data.transactions.length,
+        amount: data.amount
+      }))
+    );
     
     // Convert to chart data format
     return Array.from(categoryMap.entries())
