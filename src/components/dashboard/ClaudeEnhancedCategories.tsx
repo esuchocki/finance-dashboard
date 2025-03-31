@@ -67,44 +67,76 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     );
   };
 
-  // Extract Claude-enhanced categories to ensure we show the Claude-generated ones
+  // Prepare data for visualization based on Claude-enhanced categories
   const prepareClaudeData = () => {
-    // Look for transactions that have Claude-generated categories or descriptions
-    const enhancedTransactions = transactions.filter(t => 
-      t.category || 
-      t.verboseDescription || 
-      t.confidence || 
-      t.subCategory
-    );
+    // Filter to include all transactions with Claude-generated data
+    // Since we're using a fallback system in the Claude service, all transactions should have categories
+    const enhancedTransactions = transactions.filter(t => t.category);
     
     const totalTransactions = transactions.length;
     const enhancedCount = enhancedTransactions.length;
     const percentCategorized = Math.round((enhancedCount / totalTransactions) * 100);
     
-    // Count transactions by category, using Claude's categories
+    // Group transactions by category
     const categoryMap = new Map<string, { 
       amount: number,
       count: number,
-      transactions: Transaction[]
+      transactions: Transaction[],
+      subcategories: Map<string, {
+        amount: number,
+        count: number,
+        transactions: Transaction[]
+      }>
     }>();
     
     enhancedTransactions.forEach(t => {
-      // Always use the Claude-assigned category, never default to "Other"
-      const category = t.category || "Uncategorized";
+      // Always use Claude's assigned category, excluding "Uncategorized"
+      const category = t.category !== "Uncategorized" ? t.category : "Other";
+      const subCategory = t.subCategory || "Other";
       
+      // Initialize category if it doesn't exist
       if (!categoryMap.has(category)) {
         categoryMap.set(category, { 
           amount: 0, 
+          count: 0,
+          transactions: [],
+          subcategories: new Map()
+        });
+      }
+      
+      // Get current category data
+      const categoryData = categoryMap.get(category)!;
+      
+      // Update category data
+      categoryData.amount += Math.abs(t.amount);
+      categoryData.count += 1;
+      categoryData.transactions.push(t);
+      
+      // Initialize subcategory if it doesn't exist
+      if (!categoryData.subcategories.has(subCategory)) {
+        categoryData.subcategories.set(subCategory, {
+          amount: 0,
           count: 0,
           transactions: []
         });
       }
       
-      const categoryData = categoryMap.get(category)!;
-      categoryData.amount += Math.abs(t.amount);
-      categoryData.count += 1;
-      categoryData.transactions.push(t);
+      // Update subcategory data
+      const subCategoryData = categoryData.subcategories.get(subCategory)!;
+      subCategoryData.amount += Math.abs(t.amount);
+      subCategoryData.count += 1;
+      subCategoryData.transactions.push(t);
     });
+    
+    // Log category and subcategory distribution
+    console.log("Category distribution:", 
+      Array.from(categoryMap.entries()).map(([name, data]) => ({
+        name,
+        count: data.count,
+        amount: data.amount,
+        subcategories: Array.from(data.subcategories.keys())
+      }))
+    );
     
     // Convert to chart data format
     const chartData = Array.from(categoryMap.entries())
@@ -112,6 +144,14 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
         name,
         value: data.amount,
         count: data.count,
+        subcategories: Array.from(data.subcategories.entries())
+          .map(([subName, subData]) => ({ 
+            name: subName, 
+            value: subData.amount,
+            count: subData.count,
+            transactions: subData.transactions
+          }))
+          .sort((a, b) => b.value - a.value),
         transactions: data.transactions,
         totalValue: enhancedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
       }))
@@ -307,12 +347,12 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                       </p>
                       {(t.description && t.description !== getTransactionDisplayName(t)) && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Original: {t.description}
+                          Original: {t.description || t.name}
                         </p>
                       )}
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
-                          {t.category || "Uncategorized"}
+                          {t.category}
                         </Badge>
                         {t.subCategory && (
                           <Badge variant="outline" className="text-xs bg-muted/50">

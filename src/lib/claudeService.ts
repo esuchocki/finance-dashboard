@@ -45,7 +45,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
     // Process in larger batches to improve throughput
-    const BATCH_SIZE = 50; // Increased from 20 to 50 for better throughput
+    const BATCH_SIZE = 50; // Using a large batch size for better throughput
     let enhancedTransactions: Transaction[] = [];
     
     // Calculate total batches for logging
@@ -72,7 +72,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
         }))
       );
 
-      // Enhanced prompt focusing on 100% categorization and much better descriptions
+      // Enhanced prompt focusing on dynamic categorization and distinct descriptions
       const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement.
       
 YOUR MOST CRITICAL TASK is to process EVERY transaction in the input. Each transaction MUST receive:
@@ -85,7 +85,12 @@ PROCESS 100% OF TRANSACTIONS, even if your confidence is low. It's better to mak
 
 Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORIES)}
 
-However, if a transaction clearly belongs to a different category not listed above, create a new appropriate category. Be careful not to over-create categories - try to use existing ones when possible.
+IMPORTANTLY: If a transaction clearly doesn't fit the predefined categories, CREATE A NEW APPROPRIATE CATEGORY. Take a dynamic approach where you can iteratively create new categories as needed.
+
+Consider when categories should be hierarchical (using main category + subcategory) versus creating entirely new categories. For example:
+- If you see "Amazon" transactions, use "Shopping" as main category and "Online Shopping" as subcategory
+- If you see "Uber" or "Lyft", use "Transportation" as main category and "Rideshare" as subcategory
+- But if you see many pet-related expenses, create a new main category "Pets" with appropriate subcategories
 
 Rules for categorization:
 - CRITICAL: Process and categorize EVERY transaction in the input. None should be left uncategorized.
@@ -127,7 +132,7 @@ For the verbose description (THIS IS THE MOST IMPORTANT PART):
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
-- category: The main category
+- category: The main category (use your judgment to create new ones if needed)
 - subCategory: The specific subcategory
 - verboseDescription: A clearer, more human-readable version of the transaction that is DIFFERENT from the original
 - confidence: Your confidence level in this categorization (high, medium, low)`;
@@ -135,13 +140,14 @@ Return a JSON array of objects with these fields:
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
 Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. 
-You MUST process EVERY transaction, even if your confidence is low. 
+You MUST process EVERY transaction, even if your confidence is low.
 The verboseDescription MUST be significantly different from the original - make it truly human-readable.
-CRITICAL: Do not return the same description as the original. If you don't know what a transaction is, make your best guess.`;
+CRITICAL: Do not return the same description as the original. If you don't know what a transaction is, make your best guess.
+If a transaction doesn't fit the predefined categories, feel free to create a NEW appropriate category.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout (increased)
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
       
       try {
         console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1} to Claude API...`);
@@ -218,54 +224,74 @@ CRITICAL: Do not return the same description as the original. If you don't know 
                   verboseDescription === t.description || 
                   verboseDescription === t.name) {
                 
-                // Generate a fallback description based on the transaction type
+                // Generate a fallback description using more creative transformation
+                const baseText = t.description || t.name || "Unknown Transaction";
                 let prefix = "";
+                
+                // More descriptive prefixes based on transaction type
                 if (t.type === "DEBIT") {
-                  prefix = "Payment to ";
+                  prefix = ["Payment to ", "Purchase at ", "Bought from "][Math.floor(Math.random() * 3)];
                 } else if (t.type === "CREDIT") {
-                  prefix = "Deposit from ";
+                  prefix = ["Deposit from ", "Payment received from ", "Income from "][Math.floor(Math.random() * 3)];
                 } else if (t.type === "CHECK") {
-                  prefix = "Check payment ";
+                  prefix = ["Check payment ", "Wrote check for ", "Check paid to "][Math.floor(Math.random() * 3)];
                 } else if (t.type === "WITHDRAWAL") {
-                  prefix = "Withdrawal - ";
+                  prefix = ["Withdrawal - ", "Cash withdrawal at ", "ATM withdrawal "][Math.floor(Math.random() * 3)];
                 } else if (t.type === "FEE") {
-                  prefix = "Fee - ";
+                  prefix = ["Fee - ", "Service charge for ", "Fee charged by "][Math.floor(Math.random() * 3)];
                 } else if (t.type === "INTEREST") {
-                  prefix = "Interest from ";
+                  prefix = ["Interest from ", "Interest earned on ", "Interest credit "][Math.floor(Math.random() * 3)];
                 }
                 
-                // Get the most descriptive text from the transaction
-                const baseText = t.description || t.name || "Unknown Transaction";
+                // Transform abbreviated text if needed
+                const transformedText = baseText
+                  .replace(/^(ACH|EFT|POS|WEB)(\s+|_)/, '') // Remove common prefixes
+                  .replace(/(\d{4,})/g, '****') // Replace long numbers with asterisks
+                  .replace(/\b([A-Z]{2,})\b/g, (word) => word.charAt(0) + word.slice(1).toLowerCase()); // Title case all-caps words
                 
-                // Convert to title case if it's all caps
-                const formattedText = baseText.toUpperCase() === baseText ? 
-                  baseText.toLowerCase().split(' ')
-                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                    .join(' ') : 
-                  baseText;
+                // Format the description
+                verboseDescription = prefix + transformedText;
                 
-                verboseDescription = prefix + formattedText;
-                
-                // Make sure it's actually different
+                // Final check to make sure it's different
                 if (verboseDescription === t.description || verboseDescription === t.name) {
-                  verboseDescription = "Transaction: " + formattedText;
+                  // Last resort, create a completely different description using general terms
+                  const generalDescriptions = [
+                    `${t.type === "DEBIT" ? "Payment" : "Deposit"} on ${new Date(t.date).toLocaleDateString()}`,
+                    `Financial transaction - ${Math.abs(t.amount).toFixed(2)}`,
+                    `${t.type === "DEBIT" ? "Expense" : "Income"} - ${new Date(t.date).toLocaleDateString()}`,
+                    `${t.type} transaction - Reference #${t.id.slice(-4)}`
+                  ];
+                  verboseDescription = generalDescriptions[Math.floor(Math.random() * generalDescriptions.length)];
+                }
+              }
+              
+              // Ensure we have a valid category (never use "Uncategorized")
+              let category = enhancement.category;
+              if (!category || category === "Uncategorized") {
+                // Assign a category based on transaction type rather than leaving uncategorized
+                if (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE") {
+                  category = "Expenses";
+                } else if (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST") {
+                  category = "Income";
+                } else {
+                  category = "Other";
                 }
               }
               
               return {
                 ...t,
-                category: enhancement.category || "Uncategorized",
+                category: category,
                 subCategory: enhancement.subCategory || "",
                 verboseDescription: verboseDescription,
                 confidence: enhancement.confidence || "low"
               };
             }
             
-            // If no enhancement found, create a basic categorization (shouldn't happen with proper prompt)
+            // If no enhancement found, create a basic categorization
             return {
               ...t,
-              category: "Uncategorized",
-              subCategory: "",
+              category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
+              subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
               verboseDescription: t.description ? 
                 `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
                 `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
@@ -288,8 +314,8 @@ CRITICAL: Do not return the same description as the original. If you don't know 
             // Create basic fallback enhancements
             return {
               ...t,
-              category: t.category || "Uncategorized",
-              subCategory: t.subCategory || "",
+              category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
+              subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
               verboseDescription: t.description ? 
                 `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
                 `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
@@ -309,8 +335,8 @@ CRITICAL: Do not return the same description as the original. If you don't know 
           // Create basic fallback enhancements
           return {
             ...t,
-            category: t.category || "Uncategorized",
-            subCategory: t.subCategory || "",
+            category: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Expenses" : "Income",
+            subCategory: t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "Other Expenses" : "Other Income",
             verboseDescription: t.description ? 
               `${t.type === "DEBIT" ? "Payment: " : "Deposit: "}${t.description}` : 
               `${t.type === "DEBIT" ? "Payment" : "Deposit"} - ${t.name || "Unknown"}`,
