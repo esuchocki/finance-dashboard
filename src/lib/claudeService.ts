@@ -1,3 +1,4 @@
+
 import { Transaction, TransactionType } from "./types";
 import { toast } from "sonner";
 
@@ -16,6 +17,7 @@ interface ClaudeResponse {
 // API endpoint for Claude
 const CLAUDE_API_ENDPOINT = "https://api.anthropic.com/v1/messages";
 const CLAUDE_MODEL = "claude-3-sonnet-20240229";
+const CLAUDE_API_TIMEOUT = 60000; // 60 seconds timeout
 
 /**
  * Get the stored Claude API key from localStorage
@@ -72,7 +74,16 @@ export const enhanceTransactionsWithClaude = async (
     const batch = transactions.slice(i, Math.min(i + batchSize, transactions.length));
     
     try {
-      const enhancedBatch = await processBatchWithClaude(batch, apiKey, Array.from(existingCategories));
+      // Add a timeout protection to each batch request
+      const enhancedBatchPromise = processBatchWithClaude(batch, apiKey, Array.from(existingCategories));
+      
+      // Create a timeout promise that rejects after CLAUDE_API_TIMEOUT
+      const timeoutPromise = new Promise<Transaction[]>((_, reject) => {
+        setTimeout(() => reject(new Error("Claude API request timed out")), CLAUDE_API_TIMEOUT);
+      });
+      
+      // Race the batch processing against the timeout
+      const enhancedBatch = await Promise.race([enhancedBatchPromise, timeoutPromise]);
       
       // Update existing categories with any new ones from this batch
       enhancedBatch.forEach(t => {
@@ -96,9 +107,19 @@ export const enhanceTransactionsWithClaude = async (
       
     } catch (error) {
       console.error("Error enhancing transactions with Claude:", error);
-      toast.error("Error categorizing some transactions", {
-        description: "Falling back to basic categorization for some items"
-      });
+      
+      // Determine if it's a timeout error
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("timed out")) {
+        toast.error("Claude AI categorization timed out", {
+          description: "Using basic categorization for some transactions"
+        });
+      } else {
+        toast.error("Error categorizing some transactions", {
+          description: "Falling back to basic categorization for some items"
+        });
+      }
+      
       // Fall back to original transactions for this batch
       results.push(...batch);
     }

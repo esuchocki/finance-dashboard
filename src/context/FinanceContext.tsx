@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Transaction, TransactionFilterOptions, FinancialSummary, FinancialInsight } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qboParser";
@@ -8,6 +9,7 @@ interface FinanceContextType {
   transactions: Transaction[];
   filteredTransactions: Transaction[];
   isLoading: boolean;
+  error: string | null;
   uploadQBOFile: (file: File) => Promise<number>;
   applyFilters: (filters: TransactionFilterOptions) => void;
   summary: FinancialSummary | null;
@@ -22,6 +24,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>({});
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
@@ -253,7 +256,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const uploadQBOFile = async (file: File): Promise<number> => {
     try {
       setIsLoading(true);
+      setError(null);
       
+      console.log("Starting QBO file upload and parsing");
       const content = await file.text();
       let parsedTransactions = parseQBOFile(content);
       
@@ -262,12 +267,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         try {
           toast.info("Starting transaction categorization with Claude AI", {
             description: "This may take a moment for larger datasets",
-            duration: 3000
+            duration: 5000
           });
           
           // Wait for Claude AI to enhance the transactions
           parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
-          console.log("Transactions after Claude enhancement:", parsedTransactions);
+          console.log(`Transactions enhanced: ${parsedTransactions.length}`);
           
           // Check if categorization was successful
           const categorizedCount = parsedTransactions.filter(t => 
@@ -284,9 +289,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error("Error enhancing transactions with Claude:", error);
-          toast.error("Could not enhance transactions with Claude AI", {
-            description: "Using basic categorization instead"
+          toast.error("Could not enhance all transactions with Claude AI", {
+            description: "Using basic categorization instead for some transactions"
           });
+          // We continue with partial results rather than failing completely
         }
       } else {
         toast.info("Add a Claude API key to enhance transaction categorization", {
@@ -297,6 +303,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       // Sort by date descending
       parsedTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
       
+      // Safety check to ensure we have valid transactions
+      if (!Array.isArray(parsedTransactions) || parsedTransactions.length === 0) {
+        throw new Error("No valid transactions found in the file");
+      }
+      
+      console.log(`Setting ${parsedTransactions.length} transactions`);
       setTransactions(parsedTransactions);
       setFilteredTransactions(parsedTransactions);
       
@@ -304,41 +316,52 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       
       // Only calculate summary and generate insights if we have transactions
       if (transactionCount > 0) {
-        // Calculate summary
-        const newSummary = calculateSummary(parsedTransactions);
-        setSummary(newSummary);
-        
-        // Generate insights
-        const newInsights = generateInsights(parsedTransactions, newSummary);
-        setInsights(newInsights);
-        
-        const dateRange = newSummary.dateRange;
-        const formattedStartDate = dateRange.start.toLocaleDateString();
-        const formattedEndDate = dateRange.end.toLocaleDateString();
-        
-        toast.success(
-          `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`
-        );
-        
-        // Show key insights as toasts for immediate feedback
-        if (newInsights.length > 0) {
-          setTimeout(() => {
-            // Only show one key insight for now to avoid overwhelming the user
-            const keyInsight = newInsights.find(i => i.type === "warning") || newInsights[0];
-            if (keyInsight) {
-              toast.info(`${keyInsight.title}: ${keyInsight.description}`);
-            }
-          }, 1000);
+        try {
+          // Calculate summary
+          console.log("Calculating financial summary");
+          const newSummary = calculateSummary(parsedTransactions);
+          setSummary(newSummary);
+          
+          // Generate insights
+          console.log("Generating financial insights");
+          const newInsights = generateInsights(parsedTransactions, newSummary);
+          setInsights(newInsights);
+          
+          const dateRange = newSummary.dateRange;
+          const formattedStartDate = dateRange.start.toLocaleDateString();
+          const formattedEndDate = dateRange.end.toLocaleDateString();
+          
+          toast.success(
+            `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`
+          );
+          
+          // Show key insights as toasts for immediate feedback
+          if (newInsights.length > 0) {
+            setTimeout(() => {
+              // Only show one key insight for now to avoid overwhelming the user
+              const keyInsight = newInsights.find(i => i.type === "warning") || newInsights[0];
+              if (keyInsight) {
+                toast.info(`${keyInsight.title}: ${keyInsight.description}`);
+              }
+            }, 1000);
+          }
+        } catch (error) {
+          console.error("Error processing transaction data:", error);
+          toast.error("Error processing transaction data", {
+            description: "The data was imported but could not be fully analyzed"
+          });
+          // We continue with the transactions, even if summary/insights failed
         }
       } else {
         setSummary(null);
         setInsights([]);
-        toast.error("No transactions found in the file. Please check the file format.");
+        throw new Error("No transactions found in the file. Please check the file format.");
       }
       
       return transactionCount;
     } catch (error) {
       console.error("Error uploading QBO file:", error);
+      setError((error as Error).message);
       toast.error(`Error uploading file: ${(error as Error).message}`);
       throw error;
     } finally {
@@ -410,6 +433,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     transactions,
     filteredTransactions,
     isLoading,
+    error,
     uploadQBOFile,
     applyFilters,
     summary,

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, LineChart, Info } from "lucide-react";
+import { RefreshCw, LineChart, Info, AlertCircle } from "lucide-react";
 import FileUploader from "@/components/FileUploader";
 import TransactionList from "@/components/TransactionList";
 import InsightsList from "@/components/InsightsList";
@@ -16,23 +16,49 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const Dashboard = () => {
   const { transactions, filteredTransactions, summary, clearData, isLoading } = useFinance();
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [incomeData, setIncomeData] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Process transaction data when filteredTransactions change
   useEffect(() => {
     if (filteredTransactions.length > 0) {
-      const expenseData = prepareChartData(filteredTransactions);
-      const incomeChartData = prepareIncomeChartData(filteredTransactions);
+      setIsProcessing(true);
+      setError(null);
       
-      setCategoryData(expenseData);
-      setIncomeData(incomeChartData);
-      
-      console.log("Category data prepared:", expenseData);
-      console.log("Income data prepared:", incomeChartData);
+      try {
+        console.log("Starting to prepare chart data");
+        // Use a small timeout to allow the UI to update before heavy processing
+        setTimeout(() => {
+          try {
+            const expenseData = prepareChartData(filteredTransactions);
+            const incomeChartData = prepareIncomeChartData(filteredTransactions);
+            
+            setCategoryData(expenseData);
+            setIncomeData(incomeChartData);
+            
+            console.log("Chart data prepared successfully");
+          } catch (err) {
+            console.error("Error preparing chart data:", err);
+            setError("Failed to process transaction data for visualization");
+          } finally {
+            setIsProcessing(false);
+          }
+        }, 100);
+      } catch (err) {
+        console.error("Error in chart data preparation:", err);
+        setError("Failed to process transaction data");
+        setIsProcessing(false);
+      }
+    } else {
+      setCategoryData([]);
+      setIncomeData([]);
+      setIsProcessing(false);
     }
   }, [filteredTransactions]);
 
@@ -48,7 +74,7 @@ const Dashboard = () => {
     transactions.filter(t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE")
       .forEach(t => {
         // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
-        const category = t.category && t.category !== "Uncategorized" ? t.category : "Uncategorized";
+        const category = t.category && t.category !== "Uncategorized" ? t.category : "Other";
         const subCategory = t.subCategory || "Other";
         
         // Initialize category if it doesn't exist
@@ -188,9 +214,6 @@ const Dashboard = () => {
     });
   };
 
-  const monthlyTrendData = prepareMonthlyTrendData();
-  const balanceData = prepareBalanceData();
-
   // Calculate basic stats for the current period
   const calculateCurrentTrends = () => {
     if (!monthlyTrendData || monthlyTrendData.length < 2) return null;
@@ -205,15 +228,63 @@ const Dashboard = () => {
     };
   };
   
-  const trends = calculateCurrentTrends();
+  // Pre-calculate the monthly trend and balance data using useMemo for performance
+  const monthlyTrendData = useMemo(() => {
+    if (!summary || !summary.monthlyBreakdown) return [];
+    return prepareMonthlyTrendData();
+  }, [summary]);
 
-  // Loading state when transactions are being processed by Claude
+  const balanceData = useMemo(() => {
+    if (!summary || !summary.monthlyBreakdown) return [];
+    return prepareBalanceData();
+  }, [summary]);
+
+  const trends = useMemo(() => {
+    return calculateCurrentTrends();
+  }, [monthlyTrendData]);
+
+  // If we're still loading from the FinanceContext, return loading state
   if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-32 bg-gray-200 rounded-lg"></div>
         <div className="h-64 bg-gray-200 rounded-lg"></div>
         <div className="h-64 bg-gray-200 rounded-lg"></div>
+      </div>
+    );
+  }
+
+  // If we're processing locally in the Dashboard component
+  if (isProcessing) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+          <p className="text-muted-foreground">Processing transaction data...</p>
+        </div>
+        <div className="h-64 bg-gray-200 rounded-lg"></div>
+        <div className="h-64 bg-gray-200 rounded-lg"></div>
+      </div>
+    );
+  }
+
+  // If we have an error in the Dashboard component
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2 hover:bg-muted" 
+          onClick={clearData}
+        >
+          <RefreshCw className="h-4 w-4" />
+          Try Again with Another File
+        </Button>
       </div>
     );
   }
