@@ -1,159 +1,22 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
-import { formatCurrency, formatPercentage } from "@/lib/formatters";
-import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar, LineChart, Line } from "recharts";
-import { Transaction } from "@/lib/types";
+import { formatCurrency } from "@/lib/formatters";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, BarChart, Bar, LineChart, Line } from "recharts";
 import FileUploader from "./FileUploader";
 import TransactionList from "./TransactionList";
 import InsightsList from "./InsightsList";
 import UploadSummary from "./UploadSummary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock, ArrowUp, ArrowDown, ArrowRight, ChartBar, ChartLine } from "lucide-react";
+import { RefreshCw, TrendingUp, TrendingDown, CalendarClock, ChartBar } from "lucide-react";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import ComparisonIndicator from "./ComparisonIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CategoryCharts from "./dashboard/CategoryCharts";
+import CategoryBreakdown from "./dashboard/CategoryBreakdown";
 
 const Dashboard = () => {
   const { transactions, filteredTransactions, summary, clearData } = useFinance();
-
-  // Prepare chart data with proper hierarchical categories
-  const prepareChartData = (transactions: Transaction[]) => {
-    // Only include expense transactions
-    const expenseTransactions = transactions.filter(
-      t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"
-    );
-    
-    // Group by category
-    const categoryMap = new Map<string, {
-      totalAmount: number;
-      transactions: Transaction[];
-      subcategories: Map<string, {
-        totalAmount: number;
-        transactions: Transaction[];
-      }>
-    }>();
-    
-    // Process each transaction
-    for (const transaction of expenseTransactions) {
-      // Always prefer Claude's categorization if available
-      const category = transaction.category || "Uncategorized";
-      const subCategory = transaction.subCategory || "Other";
-      
-      // If this category doesn't exist yet, initialize it
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, {
-          totalAmount: 0,
-          transactions: [],
-          subcategories: new Map()
-        });
-      }
-      
-      // Add to category total and transactions
-      const categoryData = categoryMap.get(category)!;
-      categoryData.totalAmount += transaction.amount;
-      categoryData.transactions.push(transaction);
-      
-      // If this subcategory doesn't exist yet, initialize it
-      if (!categoryData.subcategories.has(subCategory)) {
-        categoryData.subcategories.set(subCategory, {
-          totalAmount: 0,
-          transactions: []
-        });
-      }
-      
-      // Add to subcategory total and transactions
-      const subcategoryData = categoryData.subcategories.get(subCategory)!;
-      subcategoryData.totalAmount += transaction.amount;
-      subcategoryData.transactions.push(transaction);
-    }
-    
-    // Convert to the format needed for the chart
-    return Array.from(categoryMap.entries())
-      .map(([name, data]) => ({
-        name,
-        value: data.totalAmount,
-        transactions: data.transactions,
-        subcategories: Array.from(data.subcategories.entries())
-          .map(([name, subData]) => ({
-            name,
-            value: subData.totalAmount,
-            transactions: subData.transactions
-          }))
-          .sort((a, b) => b.value - a.value)
-      }))
-      .sort((a, b) => b.value - a.value);
-  };
-
-  // Prepare income chart data
-  const prepareIncomeChartData = (transactions: Transaction[]) => {
-    // Only include income transactions
-    const incomeTransactions = transactions.filter(
-      t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"
-    );
-    
-    // Group by category
-    const categoryMap = new Map<string, {
-      totalAmount: number;
-      transactions: Transaction[];
-      subcategories: Map<string, {
-        totalAmount: number;
-        transactions: Transaction[];
-      }>
-    }>();
-    
-    // Process each transaction
-    for (const transaction of incomeTransactions) {
-      // Always prefer Claude's categorization if available
-      const category = transaction.category || "Uncategorized";
-      const subCategory = transaction.subCategory || "Other";
-      
-      // If this category doesn't exist yet, initialize it
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, {
-          totalAmount: 0,
-          transactions: [],
-          subcategories: new Map()
-        });
-      }
-      
-      // Add to category total and transactions
-      const categoryData = categoryMap.get(category)!;
-      categoryData.totalAmount += transaction.amount;
-      categoryData.transactions.push(transaction);
-      
-      // If this subcategory doesn't exist yet, initialize it
-      if (!categoryData.subcategories.has(subCategory)) {
-        categoryData.subcategories.set(subCategory, {
-          totalAmount: 0,
-          transactions: []
-        });
-      }
-      
-      // Add to subcategory total and transactions
-      const subcategoryData = categoryData.subcategories.get(subCategory)!;
-      subcategoryData.totalAmount += transaction.amount;
-      subcategoryData.transactions.push(transaction);
-    }
-    
-    // Convert to the format needed for the chart
-    return Array.from(categoryMap.entries())
-      .map(([name, data]) => ({
-        name,
-        value: data.totalAmount,
-        transactions: data.transactions,
-        subcategories: Array.from(data.subcategories.entries())
-          .map(([name, subData]) => ({
-            name,
-            value: subData.totalAmount,
-            transactions: subData.transactions
-          }))
-          .sort((a, b) => b.value - a.value)
-      }))
-      .sort((a, b) => b.value - a.value);
-  };
 
   // Prepare monthly trend data
   const prepareMonthlyTrendData = () => {
@@ -195,7 +58,7 @@ const Dashboard = () => {
     if (!summary || !summary.monthlyBreakdown) return [];
     
     let runningBalance = 0;
-    return summary.monthlyBreakdown.map((item, index) => {
+    return summary.monthlyBreakdown.map((item) => {
       // Format the month for display
       const [year, month] = item.month.split('-');
       const date = new Date(parseInt(year), parseInt(month) - 1);
@@ -213,18 +76,10 @@ const Dashboard = () => {
     });
   };
 
-  const chartData = prepareChartData(filteredTransactions);
-  const incomeData = prepareIncomeChartData(filteredTransactions);
   const monthlyTrendData = prepareMonthlyTrendData();
   const balanceData = prepareBalanceData();
   
-  // Define chart colors
-  const CHART_COLORS = [
-    "#0EA5E9", "#06B6D4", "#14B8A6", "#10B981", "#34D399", 
-    "#8B5CF6", "#A855F7", "#EC4899", "#F472B6", "#FB7185"
-  ];
-  
-  // Configuration for charts - properly typed to fix the errors
+  // Configuration for charts
   const chartConfig = {
     expense: { 
       theme: { light: "#F97316", dark: "#F97316" } 
@@ -314,7 +169,7 @@ const Dashboard = () => {
                   <div className="flex items-center">
                     <TrendingDown className="text-finance-negative h-4 w-4 mr-1" />
                     <span className="text-xs text-muted-foreground">
-                      {chartData.length || 0} categories
+                      {summary ? summary.topExpenseCategories.length : 0} categories
                     </span>
                   </div>
                   {trends && (
@@ -653,14 +508,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          {/* Category Charts */}
+          {/* Category Breakdown */}
           <div className="grid grid-cols-1 gap-4">
-            {/* Use the improved CategoryCharts component */}
-            <CategoryCharts 
-              expenseData={chartData}
-              incomeData={incomeData}
-              transactions={filteredTransactions}
-            />
+            <CategoryBreakdown transactions={filteredTransactions} />
           </div>
           
           {/* Insights */}
