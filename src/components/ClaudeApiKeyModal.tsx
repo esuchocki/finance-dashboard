@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
       localStorage.removeItem("claude_api_key");
       toast.info("Claude API key has been removed");
     } else {
-      // Store only a truncated version for display, while keeping the full key for API calls
+      // Store the API key in localStorage
       localStorage.setItem("claude_api_key", apiKey);
       toast.success("Claude API key has been saved");
     }

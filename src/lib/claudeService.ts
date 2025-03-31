@@ -3,22 +3,22 @@ import { Transaction } from "./types";
 
 // Check if the Claude API key is available (stored in localStorage)
 export const hasClaudeApiKey = () => {
-  return !!localStorage.getItem("claude-api-key");
+  return !!localStorage.getItem("claude_api_key");
 };
 
 // Get the Claude API key from localStorage
 export const getClaudeApiKey = () => {
-  return localStorage.getItem("claude-api-key") || "";
+  return localStorage.getItem("claude_api_key") || "";
 };
 
 // Set the Claude API key in localStorage
 export const setClaudeApiKey = (apiKey: string) => {
-  localStorage.setItem("claude-api-key", apiKey);
+  localStorage.setItem("claude_api_key", apiKey);
 };
 
 // Clear the Claude API key from localStorage
 export const clearClaudeApiKey = () => {
-  localStorage.removeItem("claude-api-key");
+  localStorage.removeItem("claude_api_key");
 };
 
 // Define predefined categories to guide Claude
