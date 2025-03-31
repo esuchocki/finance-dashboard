@@ -26,14 +26,15 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
   }
   
   // Look for potential duplicate transactions
-  const potentialDuplicates = findPotentialDuplicates(txns);
-  if (potentialDuplicates.length > 0) {
+  const potentialDuplicateIds = findPotentialDuplicates(txns);
+  if (potentialDuplicateIds.length > 0) {
+    const duplicateTransactions = txns.filter(t => potentialDuplicateIds.includes(t.id));
     insights.push({
       id: "potential-duplicates",
       title: "Potential Duplicate Transactions",
-      description: `Found ${potentialDuplicates.length} potential duplicate transactions that may need review.`,
+      description: `Found ${potentialDuplicateIds.length} potential duplicate transactions that may need review.`,
       type: "warning",
-      relatedTransactions: potentialDuplicates
+      relatedTransactions: duplicateTransactions
     });
   }
   
@@ -64,12 +65,13 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
   if (trendInsight) insights.push(trendInsight);
   
   // Large transactions insight
-  const largeTransactions = findLargeTransactions(txns, summary.totalExpenses);
-  if (largeTransactions.length > 0) {
+  const largeTransactionIds = findLargeTransactions(txns, summary.totalExpenses);
+  if (largeTransactionIds.length > 0) {
+    const largeTransactions = txns.filter(t => largeTransactionIds.includes(t.id));
     insights.push({
       id: "large-transactions",
       title: "Large Transactions Detected",
-      description: `Found ${largeTransactions.length} unusually large transactions that represent significant portions of your spending.`,
+      description: `Found ${largeTransactionIds.length} unusually large transactions that represent significant portions of your spending.`,
       type: "warning",
       relatedTransactions: largeTransactions
     });

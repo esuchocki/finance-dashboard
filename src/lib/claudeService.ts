@@ -59,6 +59,18 @@ const validateCategoryType = (type: string): "income" | "expense" | "transfer" |
   }
 };
 
+// Function to validate the confidence value
+const validateConfidence = (confidence: string): "high" | "medium" | "low" => {
+  switch (confidence.toLowerCase()) {
+    case "high":
+      return "high";
+    case "medium":
+      return "medium";
+    default:
+      return "low";
+  }
+};
+
 // Add a simple function to validate if a transaction is categorized meaningfully
 const hasDetailedCategorization = (transaction: Transaction): boolean => {
   if (!transaction.category || transaction.category === "Uncategorized" || 
@@ -239,8 +251,8 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
             console.log("Sample parsed transaction:", JSON.stringify(enhancedBatch[0], null, 2));
           }
           
-          // Map the enhanced data back to the original transactions
-          const batchWithEnhancements = batch.map(t => {
+          // Map the enhanced data back to the original transactions with proper type handling
+          const batchWithEnhancements: Transaction[] = batch.map(t => {
             const enhancement = enhancedBatch.find((e: any) => e.id === t.id);
             
             if (enhancement) {
@@ -392,12 +404,15 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
                 }
               }
               
+              // Validate confidence to ensure it is one of the allowed values
+              const confidence = validateConfidence(enhancement.confidence || "low");
+              
               return {
                 ...t,
                 category: category,
                 subCategory: subCategory,
                 verboseDescription: verboseDescription,
-                confidence: enhancement.confidence || "low",
+                confidence: confidence,
                 categoryType: categoryType
               };
             }
@@ -412,13 +427,13 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
             let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
-              if (/payroll|salary|direct deposit/i.test(t.description)) {
+              if (/payroll|salary|direct deposit/i.test(t.description || "")) {
                 fallbackCategory = "Salary & Wages";
                 fallbackSubCategory = "Regular Income";
-              } else if (/interest|dividend/i.test(t.description)) {
+              } else if (/interest|dividend/i.test(t.description || "")) {
                 fallbackCategory = "Investment Income";
                 fallbackSubCategory = "Interest";
-              } else if (/refund|return/i.test(t.description)) {
+              } else if (/refund|return/i.test(t.description || "")) {
                 fallbackCategory = "Refunds";
                 fallbackSubCategory = "Purchase Refunds";
               } else {
@@ -428,22 +443,22 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
               fallbackCategoryType = "income";
             } else if (isExpense) {
               // Try to determine a more specific category from the description
-              if (/restaurant|food|coffee|dining|cafe/i.test(t.description)) {
+              if (/restaurant|food|coffee|dining|cafe/i.test(t.description || "")) {
                 fallbackCategory = "Food & Dining";
                 fallbackSubCategory = "Restaurants";
-              } else if (/amazon|walmart|target|ebay/i.test(t.description)) {
+              } else if (/amazon|walmart|target|ebay/i.test(t.description || "")) {
                 fallbackCategory = "Shopping";
                 fallbackSubCategory = "Online Shopping";
-              } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
+              } else if (/uber|lyft|gas|parking|transit/i.test(t.description || "")) {
                 fallbackCategory = "Transportation";
                 fallbackSubCategory = "Rideshare & Transit";
-              } else if (/netflix|spotify|hulu|disney/i.test(t.description)) {
+              } else if (/netflix|spotify|hulu|disney/i.test(t.description || "")) {
                 fallbackCategory = "Entertainment";
                 fallbackSubCategory = "Streaming Services";
-              } else if (/rent|mortgage|home|apartment|property/i.test(t.description)) {
+              } else if (/rent|mortgage|home|apartment|property/i.test(t.description || "")) {
                 fallbackCategory = "Housing";
                 fallbackSubCategory = "Rent & Mortgage";
-              } else if (/doctor|medical|health|pharmacy|dental/i.test(t.description)) {
+              } else if (/doctor|medical|health|pharmacy|dental/i.test(t.description || "")) {
                 fallbackCategory = "Healthcare";
                 fallbackSubCategory = "Medical Services";
               } else {
@@ -464,7 +479,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
               verboseDescription: t.description ? 
                 `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
                 `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
-              confidence: "low",
+              confidence: "low" as "high" | "medium" | "low",
               categoryType: fallbackCategoryType
             };
           });
@@ -484,7 +499,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
           console.error("Raw content:", content);
           
           // Add fallback enhancements with more specific categories than just "Income" or "Expenses"
-          const batchWithFallbackEnhancements = batch.map(t => {
+          const batchWithFallbackEnhancements: Transaction[] = batch.map(t => {
             // Create more specific fallback categories
             const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
             const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
@@ -494,7 +509,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
             let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
-              if (/payroll|salary|direct deposit/i.test(t.description)) {
+              if (/payroll|salary|direct deposit/i.test(t.description || "")) {
                 fallbackCategory = "Salary & Wages";
                 fallbackSubCategory = "Regular Income";
               } else {
@@ -504,13 +519,13 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
               fallbackCategoryType = "income";
             } else if (isExpense) {
               // Try to determine a more specific category from the description
-              if (/restaurant|food|coffee|dining|cafe/i.test(t.description)) {
+              if (/restaurant|food|coffee|dining|cafe/i.test(t.description || "")) {
                 fallbackCategory = "Food & Dining";
                 fallbackSubCategory = "Restaurants";
-              } else if (/amazon|walmart|target|ebay/i.test(t.description)) {
+              } else if (/amazon|walmart|target|ebay/i.test(t.description || "")) {
                 fallbackCategory = "Shopping";
                 fallbackSubCategory = "Online Shopping";
-              } else if (/uber|lyft|gas|parking|transit/i.test(t.description)) {
+              } else if (/uber|lyft|gas|parking|transit/i.test(t.description || "")) {
                 fallbackCategory = "Transportation";
                 fallbackSubCategory = "Rideshare & Transit";
               } else {
@@ -527,7 +542,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
               verboseDescription: t.description ? 
                 `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
                 `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
-              confidence: "low",
+              confidence: "low" as "high" | "medium" | "low",
               categoryType: fallbackCategoryType
             };
           });
@@ -540,7 +555,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
         console.error(`Error processing batch starting at index ${i}:`, error);
         
         // Add fallback enhancements with specific categories
-        const batchWithFallbackEnhancements = batch.map(t => {
+        const batchWithFallbackEnhancements: Transaction[] = batch.map(t => {
           // Create more specific fallback categories
           const isIncome = t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST";
           const isExpense = t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE";
@@ -571,7 +586,7 @@ DO NOT skip any transactions or use generic categories like "Uncategorized", "Mi
             verboseDescription: t.description ? 
               `${isExpense ? "Payment: " : isIncome ? "Deposit: " : ""}${t.description}` : 
               `${isExpense ? "Payment" : isIncome ? "Deposit" : "Transaction"} - ${t.name || "Unknown"}`,
-            confidence: "low",
+            confidence: "low" as "high" | "medium" | "low",
             categoryType: fallbackCategoryType
           };
         });

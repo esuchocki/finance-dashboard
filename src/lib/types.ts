@@ -16,7 +16,7 @@ export interface Transaction {
   tags?: string[];
   verboseDescription?: string;
   confidence?: "high" | "medium" | "low";
-  categoryType?: "income" | "expense" | "transfer";
+  categoryType?: "income" | "expense" | "transfer" | "other";
 }
 
 // Transaction types
@@ -34,17 +34,23 @@ export enum TransactionType {
 
 // Filter options for transactions
 export interface TransactionFilterOptions {
+  startDate?: Date;
+  endDate?: Date;
   dateRange?: {
     start?: Date;
     end?: Date;
   };
   types?: TransactionType[];
   categories?: string[];
+  minAmount?: number;
+  maxAmount?: number;
   amountRange?: {
     min?: number;
     max?: number;
   };
+  search?: string;
   searchTerm?: string;
+  isRecurring?: boolean;
 }
 
 // Financial summary

@@ -37,9 +37,9 @@ export const applyFilters = (transactions: Transaction[], filters: TransactionFi
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     filtered = filtered.filter(t => 
-      t.description.toLowerCase().includes(searchLower) || 
-      t.memo.toLowerCase().includes(searchLower) ||
-      t.name.toLowerCase().includes(searchLower)
+      (t.description?.toLowerCase().includes(searchLower) || false) || 
+      (t.memo?.toLowerCase().includes(searchLower) || false) ||
+      (t.name?.toLowerCase().includes(searchLower) || false)
     );
   }
   
