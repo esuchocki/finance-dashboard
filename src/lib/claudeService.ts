@@ -46,6 +46,20 @@ const CATEGORIZATION_TAXONOMY = {
   "Children": ["Childcare", "Child Support", "School Expenses", "Toys", "Activities", "Clothing", "Baby Supplies"]
 };
 
+// Function to ensure categoryType is one of the allowed values
+const validateCategoryType = (type: string): "income" | "expense" | "transfer" | "other" => {
+  switch (type.toLowerCase()) {
+    case "income":
+      return "income";
+    case "expense":
+      return "expense";
+    case "transfer":
+      return "transfer";
+    default:
+      return "other";
+  }
+};
+
 // Function to enhance transactions with Claude categorization
 export const enhanceTransactionsWithClaude = async (transactions: Transaction[]): Promise<Transaction[]> => {
   if (!hasClaudeApiKey()) {
@@ -260,9 +274,11 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
               
               // Ensure we have a valid specific category (not just "Income" or "Expenses")
               let category = enhancement.category;
-              let categoryType = enhancement.categoryType || 
-                                 (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "expense" : 
-                                  t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST" ? "income" : "other");
+              
+              // Validate categoryType to ensure it's one of the allowed literal types
+              const categoryType = validateCategoryType(enhancement.categoryType || 
+                  (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE" ? "expense" : 
+                  t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST" ? "income" : "other"));
               
               if (!category || category === "Uncategorized" || category === "Income" || category === "Expenses") {
                 // Assign a more specific category based on transaction type and description
@@ -317,7 +333,7 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
             const isTransfer = t.type === "TRANSFER";
             
             let fallbackCategory = "Uncategorized";
-            let fallbackCategoryType = "other";
+            let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
               fallbackCategory = "Other Income";
@@ -360,7 +376,7 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
             
             let fallbackCategory = "Uncategorized";
             let fallbackSubCategory = "";
-            let fallbackCategoryType = "other";
+            let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
             
             if (isIncome) {
               if (/payroll|salary|direct deposit/i.test(t.description)) {
@@ -417,7 +433,7 @@ Feel free to create NEW appropriate categories if the existing ones don't fit we
           
           let fallbackCategory = "Uncategorized";
           let fallbackSubCategory = "";
-          let fallbackCategoryType = "other";
+          let fallbackCategoryType: "income" | "expense" | "transfer" | "other" = "other";
           
           if (isIncome) {
             fallbackCategory = "Other Income";
