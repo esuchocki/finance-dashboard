@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
@@ -7,8 +7,14 @@ import { Upload, AlertCircle, FileText } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-const FileUploader = () => {
+interface FileUploaderProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const FileUploader: React.FC<FileUploaderProps> = ({ open, onOpenChange }) => {
   const { uploadQBOFile, isLoading } = useFinance();
   const { toast } = useToast();
   const [dragActive, setDragActive] = useState(false);
@@ -192,81 +198,85 @@ const FileUploader = () => {
   }, [processingTimeout]);
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Import Transactions</CardTitle>
-        <CardDescription>Upload a .qbo file from your bank or financial institution</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {error && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            dragActive ? "border-primary bg-primary/5" : "border-gray-300"
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-          onClick={handleButtonClick}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".qbo"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          
-          {isLoading || progress > 0 ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-center space-x-2">
-                <FileText className="h-8 w-8 text-primary animate-pulse" />
-                {fileName && (
-                  <div className="text-left">
-                    <p className="font-medium text-sm">{fileName}</p>
-                    <p className="text-xs text-muted-foreground">{fileSize}</p>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-xl">
+        <Card className="w-full border-0 shadow-none">
+          <CardHeader>
+            <CardTitle>Import Transactions</CardTitle>
+            <CardDescription>Upload a .qbo file from your bank or financial institution</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                dragActive ? "border-primary bg-primary/5" : "border-gray-300"
+              }`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={handleButtonClick}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".qbo"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              
+              {isLoading || progress > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center space-x-2">
+                    <FileText className="h-8 w-8 text-primary animate-pulse" />
+                    {fileName && (
+                      <div className="text-left">
+                        <p className="font-medium text-sm">{fileName}</p>
+                        <p className="text-xs text-muted-foreground">{fileSize}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <Progress value={progress} className="h-2 w-full max-w-md mx-auto" />
-              <p className="text-sm text-muted-foreground">Processing file...</p>
+                  <Progress value={progress} className="h-2 w-full max-w-md mx-auto" />
+                  <p className="text-sm text-muted-foreground">Processing file...</p>
+                </div>
+              ) : (
+                <>
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2 text-sm text-gray-600">
+                    Drag and drop your .qbo file here, or click to browse
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Your data stays on your device and is not uploaded to any server
+                  </p>
+                </>
+              )}
             </div>
-          ) : (
-            <>
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-600">
-                Drag and drop your .qbo file here, or click to browse
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Your data stays on your device and is not uploaded to any server
-              </p>
-            </>
-          )}
-        </div>
 
-        <div className="mt-4 text-xs text-muted-foreground">
-          <p className="font-medium mb-1">Supported formats and tips:</p>
-          <ul className="list-disc list-inside space-y-1">
-            <li>QBO files exported from your bank or financial institution</li>
-            <li>Files containing transaction data (date, amount, description, etc.)</li>
-            <li>For large files (500KB+), please give the app a moment to process</li>
-            <li>Files with multiple months or years of data are supported</li>
-          </ul>
-        </div>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <Button onClick={handleButtonClick} disabled={isLoading || progress > 0}>
-          {isLoading || progress > 0 ? "Processing..." : "Select QBO File"}
-        </Button>
-      </CardFooter>
-    </Card>
+            <div className="mt-4 text-xs text-muted-foreground">
+              <p className="font-medium mb-1">Supported formats and tips:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>QBO files exported from your bank or financial institution</li>
+                <li>Files containing transaction data (date, amount, description, etc.)</li>
+                <li>For large files (500KB+), please give the app a moment to process</li>
+                <li>Files with multiple months or years of data are supported</li>
+              </ul>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <Button onClick={handleButtonClick} disabled={isLoading || progress > 0}>
+              {isLoading || progress > 0 ? "Processing..." : "Select QBO File"}
+            </Button>
+          </CardFooter>
+        </Card>
+      </DialogContent>
+    </Dialog>
   );
 };
 
