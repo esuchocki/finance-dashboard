@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, CalendarClock } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import ComparisonIndicator from "@/components/ComparisonIndicator";
-import { FinanceSummary } from "@/lib/types";
+import { FinancialSummary } from "@/lib/types";
 
 interface DashboardSummaryCardsProps {
-  summary: FinanceSummary | null;
+  summary: FinancialSummary | null;
   trends: {
     incomeChange: number;
     expensesChange: number;
@@ -57,7 +57,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <div className="flex items-center">
               <TrendingDown className="text-finance-negative h-4 w-4 mr-1" />
               <span className="text-xs text-muted-foreground">
-                {summary ? summary.categories?.length || 0 : 0} categories
+                {summary ? summary.topExpenseCategories?.length || 0 : 0} categories
               </span>
             </div>
             {trends && (
