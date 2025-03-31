@@ -1,47 +1,53 @@
+
+// Base Transaction type
+export interface Transaction {
+  id: string;
+  date: Date;
+  amount: number;
+  type: TransactionType;
+  name?: string;
+  description?: string;
+  memo?: string;
+  category?: string;
+  subCategory?: string;
+  location?: string;
+  payee?: string;
+  isRecurring?: boolean;
+  tags?: string[];
+  verboseDescription?: string;
+  confidence?: "high" | "medium" | "low";
+  categoryType?: "income" | "expense" | "transfer";
+}
+
+// Transaction types
 export enum TransactionType {
-  DEBIT = "DEBIT",
   CREDIT = "CREDIT",
+  DEBIT = "DEBIT",
   CHECK = "CHECK",
   DEPOSIT = "DEPOSIT",
   WITHDRAWAL = "WITHDRAWAL",
   FEE = "FEE",
   INTEREST = "INTEREST",
   TRANSFER = "TRANSFER",
-  OTHER = "OTHER",
+  OTHER = "OTHER"
 }
 
-export interface Transaction {
-  id: string;
-  date: Date;
-  amount: number;
-  type: TransactionType;
-  name: string;
-  description: string;
-  memo: string;
-  category: string;
-  subCategory: string;
-  location: string;
-  isRecurring: boolean;
-  payee: string;
-  tags: string[];
-  // Enhanced categorization fields
-  subSubCategory?: string;
-  confidence?: string; // high, medium, low
-  verboseDescription?: string; // Enhanced readable description
-  categoryType?: "income" | "expense" | "transfer" | "other"; // Meta-category
-}
-
+// Filter options for transactions
 export interface TransactionFilterOptions {
-  startDate?: Date;
-  endDate?: Date;
-  minAmount?: number;
-  maxAmount?: number;
+  dateRange?: {
+    start?: Date;
+    end?: Date;
+  };
   types?: TransactionType[];
   categories?: string[];
-  search?: string;
-  isRecurring?: boolean;
+  amountRange?: {
+    min?: number;
+    max?: number;
+  };
+  searchTerm?: string;
 }
 
+// Financial summary
 export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
@@ -51,13 +57,19 @@ export interface FinancialSummary {
   largestTransaction: Transaction;
   monthlyBreakdown: { month: string; income: number; expenses: number }[];
   transactionCount: number;
-  dateRange: { start: Date; end: Date };
+  dateRange: {
+    start: Date;
+    end: Date;
+  };
 }
 
+// Financial insights
 export interface FinancialInsight {
   id: string;
+  type: "info" | "warning" | "tip";
   title: string;
   description: string;
-  type: "info" | "warning" | "error";
-  relatedTransactions?: string[];
+  category?: string;
+  relatedTransactions?: Transaction[];
+  priority?: number;
 }
