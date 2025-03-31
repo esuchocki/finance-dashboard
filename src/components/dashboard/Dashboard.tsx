@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Button } from "@/components/ui/button";
@@ -48,8 +47,8 @@ const Dashboard = () => {
     
     transactions.filter(t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE")
       .forEach(t => {
-        // Use Claude's category if available, otherwise use default
-        const category = t.category || "Uncategorized";
+        // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
+        const category = t.category && t.category !== "Uncategorized" ? t.category : "Uncategorized";
         const subCategory = t.subCategory || "Other";
         
         // Initialize category if it doesn't exist
@@ -95,8 +94,8 @@ const Dashboard = () => {
     
     transactions.filter(t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST")
       .forEach(t => {
-        // Use Claude's category if available, otherwise use default
-        const category = t.category || "Uncategorized";
+        // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
+        const category = t.category && t.category !== "Uncategorized" ? t.category : "Uncategorized";
         const subCategory = t.subCategory || "Other";
         
         // Initialize category if it doesn't exist

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
@@ -5,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Info } from "lucide-react";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 
 // Custom colors for the chart
 const COLORS = [
@@ -85,6 +87,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [drilldownData, setDrilldownData] = useState<any[] | null>(null);
   const [drilldownTotal, setDrilldownTotal] = useState<number>(0);
+  const [drilldownTransactions, setDrilldownTransactions] = useState<Transaction[] | null>(null);
 
   // Function to get color for a category, with fallback
   const getCategoryColor = (category: string, index: number) => {
@@ -115,6 +118,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
       setSelectedCategory(data.name);
       setDrilldownData(enrichedData);
       setDrilldownTotal(total);
+      setDrilldownTransactions(data.transactions);
     }
   };
 
@@ -122,6 +126,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   const handleBackClick = () => {
     setSelectedCategory(null);
     setDrilldownData(null);
+    setDrilldownTransactions(null);
   };
 
   // Prepare the data for rendering
@@ -194,6 +199,33 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
               <p className="text-muted-foreground">No subcategories available</p>
             </div>
           )}
+          
+          {/* Show transactions for the selected category */}
+          {drilldownTransactions && drilldownTransactions.length > 0 && (
+            <div className="mt-4">
+              <h4 className="text-sm font-medium mb-2">Transactions in {selectedCategory}</h4>
+              <div className="max-h-40 overflow-y-auto">
+                <ul className="space-y-1">
+                  {drilldownTransactions.slice(0, 5).map((t) => (
+                    <li key={t.id} className="text-xs p-2 border rounded-md">
+                      <div className="flex justify-between">
+                        <div className="truncate max-w-[70%]">{t.description}</div>
+                        <div className="font-medium">{formatCurrency(t.amount)}</div>
+                      </div>
+                      <div className="text-muted-foreground mt-1">
+                        {new Date(t.date).toLocaleDateString()} · {t.subCategory}
+                      </div>
+                    </li>
+                  ))}
+                  {drilldownTransactions.length > 5 && (
+                    <li className="text-xs text-muted-foreground text-center">
+                      +{drilldownTransactions.length - 5} more transactions
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -234,13 +266,47 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
     );
   };
 
+  // Calculate the percentage of transactions that are categorized
+  const calculateCategorizedPercentage = () => {
+    const totalExpenseCount = expenseData.reduce((sum, category) => 
+      sum + (category.transactions?.length || 0), 0);
+    
+    const uncategorizedCount = expenseData.find(c => c.name === "Uncategorized")?.transactions?.length || 0;
+    
+    if (totalExpenseCount === 0) return 100;
+    return Math.round(((totalExpenseCount - uncategorizedCount) / totalExpenseCount) * 100);
+  };
+
+  const categorizedPercentage = calculateCategorizedPercentage();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Category Breakdown</CardTitle>
-        <CardDescription>
-          Your spending and income categorized by type
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Category Breakdown</CardTitle>
+            <CardDescription>
+              Your spending and income categorized by type
+            </CardDescription>
+          </div>
+          
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="font-medium">AI-Enhanced Categories</h4>
+                <p className="text-sm text-muted-foreground">
+                  {categorizedPercentage}% of your transactions have been categorized by Claude AI.
+                  Click on any category to see subcategories and transactions.
+                </p>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs 

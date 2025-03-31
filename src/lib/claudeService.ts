@@ -149,6 +149,7 @@ const processBatchWithClaude = async (
   
   const userPrompt = `
     Please categorize these financial transactions. For each, provide the full JSON object as specified.
+    Each transaction MUST have a specific category other than "Uncategorized" unless absolutely impossible to determine.
     
     Transactions:
     ${JSON.stringify(sanitizedBatch, null, 2)}
