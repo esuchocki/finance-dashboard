@@ -44,8 +44,8 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiKey = getClaudeApiKey();
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
-    // Batch processing to avoid overwhelming the API
-    const BATCH_SIZE = 25; // Reduced batch size to allow more detailed processing
+    // Process in smaller batches to get more detailed results
+    const BATCH_SIZE = 15; // Reduced batch size for more detailed processing
     let enhancedTransactions: Transaction[] = [];
     
     // Create batches of transactions
@@ -67,55 +67,67 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
         }))
       );
 
-      // Create the prompt to analyze the batch - enhanced prompt for better categorization and details
+      // Enhanced prompt for better categorization and more readable descriptions
       const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement. 
       
 Your task is to:
 1. Categorize EVERY transaction into a main category
 2. Determine a specific subcategory 
-3. Provide a more descriptive/verbose version of the transaction name/description
+3. Provide a much more descriptive, human-readable version of the transaction name/description
 4. Rate your confidence in the categorization (high, medium, low)
+
+MOST IMPORTANT: You MUST process ALL transactions in the input. Do not skip any transactions.
 
 Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORIES)}
 
 However, if a transaction clearly belongs to a different category not listed above, create a new appropriate category. Be careful not to over-create categories - try to use existing ones when possible.
 
 Rules for categorization:
-- IMPORTANT: Try to categorize EVERY transaction. Do not leave any transactions uncategorized.
+- CRITICAL: Process and categorize EVERY transaction in the input. None should be left uncategorized.
 - For deposits, paychecks, etc., use "Income" as the main category
 - For transactions with negative values, categorize based on the spending type
 - Be specific with subcategories, but keep them general enough to be useful for grouping
 - Never use "Uncategorized" unless absolutely necessary
-- Analyze each transaction's name, description, memo, and amount for context clues
-- For businesses, try to determine what type of business it is based on name, location, or other context
+- Analyze each transaction's name, description, memo, amount and date for context clues
+- For businesses, determine what type of business it is based on name or context clues
 - For recurring transactions to the same payee, maintain consistent categorization
 
-For the verbose description:
-- This is VERY IMPORTANT as it will be displayed to users directly
-- Create a clearer, more informative description that expands the often cryptic transaction names
-- Include the business name and what was likely purchased if possible
-- For online purchases or subscriptions, identify the service (like "Netflix Subscription" instead of "NETFLIX.COM")
-- For transfers or financial transactions, identify the type clearly (like "ATM Withdrawal" or "Credit Card Payment")
-- For retail purchases, include the store name and general type (like "Target - Household Items")
-- Remove unnecessary codes, abbreviations, or numbers while keeping informative details
-- Make it conversational and human-readable (like "Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
-- If you see a business name you don't recognize, attempt to infer what it might be based on context
-- Keep it concise - ideally under 50 characters
+For the verbose description (THIS IS THE MOST IMPORTANT PART):
+- Create a clear, human-readable description that explains what the transaction actually is
+- Use multiple strategies to deduce what the transaction is:
+  1. Business name recognition (identify common merchants like "AMZN" as "Amazon")
+  2. Pattern matching (recognize payment patterns like "ACH" for direct deposits)
+  3. Context from transaction amount (large amounts may be rent/mortgage, small amounts may be coffee shops)
+  4. Context from memo field (often contains valuable information about purpose)
+  5. Location data if available (city/state can help identify local businesses)
+  6. Industry knowledge about common transaction format patterns
+  7. Seasonality and timing (holiday-related purchases in December, etc.)
+- Examples of good verbose descriptions:
+  - "CHECK #123" → "Check Payment #123"
+  - "AMZN MKTP US*1234" → "Amazon Marketplace Purchase"
+  - "STARBUCKS STORE #1234" → "Starbucks Coffee"
+  - "ACH DEPOSIT PAYROLL 123456" → "Salary Deposit from Employer"
+  - "POS PURCHASE KROGER #1234" → "Groceries at Kroger"
+  - "POS DEBIT SPOTIFY USA" → "Spotify Monthly Subscription"
+  - "VENMO PAYMENT 1234567890" → "Venmo Payment"
+- Remove cryptic codes, abbreviations and numbers while keeping informative details
+- Make it conversational and human-readable ("Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
+- Keep it concise - ideally under 40 characters
 
 Return a JSON array of objects with these fields:
 - id: The original transaction ID
 - category: The main category
 - subCategory: The specific subcategory
-- verboseDescription: A clearer, more descriptive version of the transaction
+- verboseDescription: A clearer, more human-readable version of the transaction
 - confidence: Your confidence level in this categorization (high, medium, low)`;
 
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
-Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember to attempt to categorize EVERY transaction, even if your confidence is low.`;
+Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember you MUST process EVERY transaction, even if your confidence is low.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout (increased from 2)
+      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout
       
       try {
         const response = await fetch(apiUrl, {
@@ -126,7 +138,7 @@ Please categorize each transaction, determine a subcategory, create a verbose de
             "anthropic-version": "2023-06-01"
           },
           body: JSON.stringify({
-            model: "claude-3-opus-20240229",
+            model: "claude-3-opus-20240229", // Using the most capable model
             max_tokens: 4000,
             system: systemPrompt,
             messages: [
@@ -149,10 +161,11 @@ Please categorize each transaction, determine a subcategory, create a verbose de
         const data = await response.json();
         const content = data.content?.[0]?.text || "";
         
-        // Extract JSON from Claude's response
+        // Improved JSON extraction from Claude's response
         let jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                       content.match(/```\n([\s\S]*?)\n```/) ||
-                       content.match(/\[([\s\S]*?)\]/);
+                         content.match(/```\n([\s\S]*?)\n```/) ||
+                         content.match(/\[([\s\S]*?)\]/) ||
+                         content.match(/(\[.*\])/s);
         
         if (!jsonMatch) {
           console.error("Failed to parse Claude response:", content);
@@ -194,7 +207,7 @@ Please categorize each transaction, determine a subcategory, create a verbose de
       }
       
       // Add a small delay between batches to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
     
     // Count how many transactions were successfully categorized

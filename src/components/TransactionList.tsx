@@ -33,6 +33,12 @@ const TransactionList: React.FC<TransactionListProps> = ({
     );
   }
 
+  // Helper function to get the best display name for a transaction
+  const getDisplayName = (transaction: Transaction) => {
+    // Always prioritize the verbose description if available
+    return transaction.verboseDescription || transaction.payee || transaction.description || transaction.name;
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -56,7 +62,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
             >
               <div className="flex flex-col">
                 <span className="font-medium">
-                  {transaction.verboseDescription || transaction.payee || transaction.description}
+                  {getDisplayName(transaction)}
                 </span>
                 <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2">
                   <span>{new Date(transaction.date).toLocaleDateString()}</span>
