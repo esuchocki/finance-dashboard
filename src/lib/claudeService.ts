@@ -1,4 +1,3 @@
-
 import { Transaction, TransactionType } from "./types";
 import { toast } from "sonner";
 
@@ -60,12 +59,28 @@ export const enhanceTransactionsWithClaude = async (
   let processedCount = 0;
   const totalTransactions = transactions.length;
   
+  // Get existing categories from transactions to maintain consistency
+  const existingCategories = new Set<string>();
+  transactions.forEach(t => {
+    if (t.category && t.category !== "Uncategorized") {
+      existingCategories.add(t.category);
+    }
+  });
+  
   // Process in batches to reduce API calls
   for (let i = 0; i < transactions.length; i += batchSize) {
     const batch = transactions.slice(i, Math.min(i + batchSize, transactions.length));
     
     try {
-      const enhancedBatch = await processBatchWithClaude(batch, apiKey);
+      const enhancedBatch = await processBatchWithClaude(batch, apiKey, Array.from(existingCategories));
+      
+      // Update existing categories with any new ones from this batch
+      enhancedBatch.forEach(t => {
+        if (t.category && t.category !== "Uncategorized") {
+          existingCategories.add(t.category);
+        }
+      });
+      
       results.push(...enhancedBatch);
       
       // Update progress
@@ -89,8 +104,12 @@ export const enhanceTransactionsWithClaude = async (
     }
   }
   
-  toast.success("Transaction categorization complete!", {
-    description: `All ${totalTransactions} transactions have been processed and categorized`,
+  // Count how many got properly categorized
+  const categorizedCount = results.filter(t => t.category && t.category !== "Uncategorized").length;
+  const categorizedPercent = Math.round((categorizedCount / totalTransactions) * 100);
+  
+  toast.success(`Transaction categorization complete!`, {
+    description: `${categorizedPercent}% of transactions categorized successfully`,
     duration: 5000
   });
   
@@ -103,7 +122,8 @@ export const enhanceTransactionsWithClaude = async (
  */
 const processBatchWithClaude = async (
   batch: Transaction[],
-  apiKey: string
+  apiKey: string,
+  existingCategories: string[] = []
 ): Promise<Transaction[]> => {
   // Only send minimal transaction data to Claude
   const sanitizedBatch = batch.map(transaction => ({
@@ -115,11 +135,21 @@ const processBatchWithClaude = async (
     date: transaction.date.toISOString().split('T')[0],
   }));
   
+  // Build a better prompt that instructs Claude to use existing categories when possible
+  // and create new ones when necessary, avoiding "Uncategorized" unless absolutely impossible
+  const existingCategoriesText = existingCategories.length > 0 
+    ? `Previously used categories in this dataset include: ${existingCategories.join(", ")}.
+       Try to use these existing categories when appropriate to maintain consistency, but feel free to 
+       create new categories when these don't fit.`
+    : "";
+  
   const systemPrompt = `
     You are a financial transaction categorization expert. Your job is to analyze financial transactions and provide:
-    1. A detailed category hierarchy (main category, subcategory, and sub-subcategory if applicable)
+    1. A detailed category hierarchy (main category, subcategory)
     2. The full merchant name when only abbreviations are provided
     3. A determination if this is likely a recurring transaction
+    
+    ${existingCategoriesText}
     
     Common financial categories include:
     - Housing: Mortgage, Rent, Property Tax, Home Insurance, Home Repairs, Utilities
@@ -134,13 +164,16 @@ const processBatchWithClaude = async (
     - Income: Salary, Bonus, Interest, Dividends, Refunds
     - Business: Office Supplies, Software, Professional Services
     
-    NEVER leave the category as "Uncategorized" unless it's impossible to determine. Make your best educated guess.
+    IMPORTANT: NEVER return "Uncategorized" as a category unless it's completely impossible to determine from the transaction details. 
+    Make your best informed guess based on transaction name, description and amount.
+    
+    For subcategories, create hierarchical relationships that make logical sense. For example, "Netflix" should be 
+    categorized as "Entertainment > Streaming Services" not as separate categories.
     
     For each transaction, provide a JSON response with the following fields:
     - merchantName: The full merchant name you've identified
-    - category: The main category for this transaction
+    - category: The main category for this transaction (NEVER use "Uncategorized" unless absolutely impossible to determine)
     - subCategory: A more specific subcategory 
-    - subSubCategory: An optional, even more specific category
     - isRecurring: Whether this appears to be a recurring transaction (true/false)
     - confidence: Your confidence level in this categorization (high, medium, low)
     
@@ -149,7 +182,9 @@ const processBatchWithClaude = async (
   
   const userPrompt = `
     Please categorize these financial transactions. For each, provide the full JSON object as specified.
-    Each transaction MUST have a specific category other than "Uncategorized" unless absolutely impossible to determine.
+    
+    IMPORTANT: Each transaction MUST have a specific category other than "Uncategorized" unless absolutely impossible to determine.
+    If you're unsure, make your best guess based on the transaction details.
     
     Transactions:
     ${JSON.stringify(sanitizedBatch, null, 2)}
@@ -202,19 +237,29 @@ const processBatchWithClaude = async (
     const claudeResults = JSON.parse(jsonStr);
     console.log("Parsed Claude results:", claudeResults);
     
+    // Ensure every result has categories that aren't "Uncategorized"
+    const processedResults = claudeResults.map((result: any) => {
+      if (!result.category || result.category === "Uncategorized") {
+        // Fallback categorization based on transaction type and name
+        return {
+          ...result,
+          category: getFallbackCategory(batch[claudeResults.indexOf(result)])
+        };
+      }
+      return result;
+    });
+    
     // Merge Claude's insights with the original transactions
     return batch.map((transaction, index) => {
-      if (index < claudeResults.length) {
-        const enhancement = claudeResults[index];
+      if (index < processedResults.length) {
+        const enhancement = processedResults[index];
         
         return {
           ...transaction,
           payee: enhancement.merchantName || transaction.payee,
-          category: enhancement.category || transaction.category,
-          subCategory: enhancement.subCategory || transaction.subCategory,
+          category: enhancement.category || transaction.category || "Other",
+          subCategory: enhancement.subCategory || transaction.subCategory || "",
           isRecurring: enhancement.isRecurring || transaction.isRecurring,
-          // Add new fields
-          subSubCategory: enhancement.subSubCategory || "",
           confidence: enhancement.confidence || "medium"
         };
       }
@@ -224,6 +269,50 @@ const processBatchWithClaude = async (
     console.error("Error calling Claude API:", error);
     return batch; // Return original transactions if API call fails
   }
+};
+
+/**
+ * Provide a reasonable fallback category when Claude fails to categorize
+ */
+const getFallbackCategory = (transaction: Transaction): string => {
+  const description = (transaction.description || "").toLowerCase();
+  const name = (transaction.name || "").toLowerCase();
+  const memo = (transaction.memo || "").toLowerCase();
+  const type = transaction.type;
+  
+  // Common patterns for categorization
+  if (type === "CREDIT" || type === "DEPOSIT" || type === "INTEREST") {
+    if (description.includes("payroll") || description.includes("direct dep") || 
+        name.includes("salary") || name.includes("wage")) {
+      return "Income";
+    }
+    return "Income";
+  }
+  
+  // Look for common keywords in the transaction description
+  if (description.includes("restaurant") || description.includes("cafe") || 
+      description.includes("coffee") || name.includes("food")) {
+    return "Food";
+  }
+  
+  if (description.includes("gas") || description.includes("fuel") || 
+      description.includes("transit") || description.includes("parking")) {
+    return "Transportation";
+  }
+  
+  if (description.includes("doctor") || description.includes("pharmacy") || 
+      description.includes("medical") || description.includes("health")) {
+    return "Healthcare";
+  }
+  
+  if (description.includes("rent") || description.includes("mortgage") || 
+      description.includes("electric") || description.includes("water") ||
+      description.includes("utility")) {
+    return "Housing";
+  }
+  
+  // Default to "Other" instead of "Uncategorized"
+  return "Other";
 };
 
 /**

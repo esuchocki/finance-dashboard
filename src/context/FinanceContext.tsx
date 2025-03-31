@@ -41,8 +41,10 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     // Calculate top expense categories
     const categoryMap = new Map<string, number>();
     for (const t of expenseTransactions) {
-      const currentAmount = categoryMap.get(t.category) || 0;
-      categoryMap.set(t.category, currentAmount + t.amount);
+      // Prioritize Claude's categorization by using t.category directly
+      const category = t.category || "Uncategorized";
+      const currentAmount = categoryMap.get(category) || 0;
+      categoryMap.set(category, currentAmount + t.amount);
     }
     
     const topExpenseCategories = Array.from(categoryMap.entries())
@@ -258,13 +260,33 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       // Enhanced categorization with Claude if API key is available
       if (hasClaudeApiKey()) {
         try {
-          // This is the key part - we wait for Claude AI to enhance the transactions
-          // The toast notifications are now handled inside the enhanceTransactionsWithClaude function
+          toast.info("Starting transaction categorization with Claude AI", {
+            description: "This may take a moment for larger datasets",
+            duration: 3000
+          });
+          
+          // Wait for Claude AI to enhance the transactions
           parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
           console.log("Transactions after Claude enhancement:", parsedTransactions);
+          
+          // Check if categorization was successful
+          const categorizedCount = parsedTransactions.filter(t => 
+            t.category && t.category !== "Uncategorized"
+          ).length;
+          
+          const categorizedPercent = Math.round((categorizedCount / parsedTransactions.length) * 100);
+          
+          if (categorizedPercent < 50) {
+            toast.warning("Limited categorization success", {
+              description: `Only ${categorizedPercent}% of transactions were successfully categorized`,
+              duration: 5000
+            });
+          }
         } catch (error) {
           console.error("Error enhancing transactions with Claude:", error);
-          toast.error("Could not enhance transactions with Claude AI");
+          toast.error("Could not enhance transactions with Claude AI", {
+            description: "Using basic categorization instead"
+          });
         }
       } else {
         toast.info("Add a Claude API key to enhance transaction categorization", {

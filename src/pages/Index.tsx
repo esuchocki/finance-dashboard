@@ -12,7 +12,7 @@ const Index = () => {
       
       {transactions.length > 0 && (
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
-          <p>Financial data visualization powered by QBO Parser</p>
+          <p>Financial data visualization powered by QBO Parser & Claude AI</p>
         </div>
       )}
     </div>

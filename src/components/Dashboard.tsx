@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
@@ -15,39 +14,144 @@ import { RefreshCw, TrendingUp, TrendingDown, DollarSign, CalendarClock, ArrowUp
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import ComparisonIndicator from "./ComparisonIndicator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CategoryCharts from "./dashboard/CategoryCharts";
 
 const Dashboard = () => {
   const { transactions, filteredTransactions, summary, clearData } = useFinance();
 
-  // Prepare chart data
+  // Prepare chart data with proper hierarchical categories
   const prepareChartData = (transactions: Transaction[]) => {
-    // Group by category and sum amounts
-    const categoryMap = new Map<string, number>();
+    // Only include expense transactions
+    const expenseTransactions = transactions.filter(
+      t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"
+    );
     
-    transactions.filter(t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE")
-      .forEach(t => {
-        const currentAmount = categoryMap.get(t.category) || 0;
-        categoryMap.set(t.category, currentAmount + t.amount);
-      });
+    // Group by category
+    const categoryMap = new Map<string, {
+      totalAmount: number;
+      transactions: Transaction[];
+      subcategories: Map<string, {
+        totalAmount: number;
+        transactions: Transaction[];
+      }>
+    }>();
     
+    // Process each transaction
+    for (const transaction of expenseTransactions) {
+      // Always prefer Claude's categorization if available
+      const category = transaction.category || "Uncategorized";
+      const subCategory = transaction.subCategory || "Other";
+      
+      // If this category doesn't exist yet, initialize it
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, {
+          totalAmount: 0,
+          transactions: [],
+          subcategories: new Map()
+        });
+      }
+      
+      // Add to category total and transactions
+      const categoryData = categoryMap.get(category)!;
+      categoryData.totalAmount += transaction.amount;
+      categoryData.transactions.push(transaction);
+      
+      // If this subcategory doesn't exist yet, initialize it
+      if (!categoryData.subcategories.has(subCategory)) {
+        categoryData.subcategories.set(subCategory, {
+          totalAmount: 0,
+          transactions: []
+        });
+      }
+      
+      // Add to subcategory total and transactions
+      const subcategoryData = categoryData.subcategories.get(subCategory)!;
+      subcategoryData.totalAmount += transaction.amount;
+      subcategoryData.transactions.push(transaction);
+    }
+    
+    // Convert to the format needed for the chart
     return Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({
+        name,
+        value: data.totalAmount,
+        transactions: data.transactions,
+        subcategories: Array.from(data.subcategories.entries())
+          .map(([name, subData]) => ({
+            name,
+            value: subData.totalAmount,
+            transactions: subData.transactions
+          }))
+          .sort((a, b) => b.value - a.value)
+      }))
       .sort((a, b) => b.value - a.value);
   };
 
   // Prepare income chart data
   const prepareIncomeChartData = (transactions: Transaction[]) => {
-    // Group by category and sum amounts
-    const categoryMap = new Map<string, number>();
+    // Only include income transactions
+    const incomeTransactions = transactions.filter(
+      t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"
+    );
     
-    transactions.filter(t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST")
-      .forEach(t => {
-        const currentAmount = categoryMap.get(t.category) || 0;
-        categoryMap.set(t.category, currentAmount + t.amount);
-      });
+    // Group by category
+    const categoryMap = new Map<string, {
+      totalAmount: number;
+      transactions: Transaction[];
+      subcategories: Map<string, {
+        totalAmount: number;
+        transactions: Transaction[];
+      }>
+    }>();
     
+    // Process each transaction
+    for (const transaction of incomeTransactions) {
+      // Always prefer Claude's categorization if available
+      const category = transaction.category || "Uncategorized";
+      const subCategory = transaction.subCategory || "Other";
+      
+      // If this category doesn't exist yet, initialize it
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, {
+          totalAmount: 0,
+          transactions: [],
+          subcategories: new Map()
+        });
+      }
+      
+      // Add to category total and transactions
+      const categoryData = categoryMap.get(category)!;
+      categoryData.totalAmount += transaction.amount;
+      categoryData.transactions.push(transaction);
+      
+      // If this subcategory doesn't exist yet, initialize it
+      if (!categoryData.subcategories.has(subCategory)) {
+        categoryData.subcategories.set(subCategory, {
+          totalAmount: 0,
+          transactions: []
+        });
+      }
+      
+      // Add to subcategory total and transactions
+      const subcategoryData = categoryData.subcategories.get(subCategory)!;
+      subcategoryData.totalAmount += transaction.amount;
+      subcategoryData.transactions.push(transaction);
+    }
+    
+    // Convert to the format needed for the chart
     return Array.from(categoryMap.entries())
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, data]) => ({
+        name,
+        value: data.totalAmount,
+        transactions: data.transactions,
+        subcategories: Array.from(data.subcategories.entries())
+          .map(([name, subData]) => ({
+            name,
+            value: subData.totalAmount,
+            transactions: subData.transactions
+          }))
+          .sort((a, b) => b.value - a.value)
+      }))
       .sort((a, b) => b.value - a.value);
   };
 
@@ -110,7 +214,7 @@ const Dashboard = () => {
   };
 
   const chartData = prepareChartData(filteredTransactions);
-  const incomeChartData = prepareIncomeChartData(filteredTransactions);
+  const incomeData = prepareIncomeChartData(filteredTransactions);
   const monthlyTrendData = prepareMonthlyTrendData();
   const balanceData = prepareBalanceData();
   
@@ -550,96 +654,13 @@ const Dashboard = () => {
           </Card>
           
           {/* Category Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Expense Categories Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Spending by Category</CardTitle>
-                <CardDescription>
-                  {chartData.length} categories
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={CHART_COLORS[index % CHART_COLORS.length]} 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      No expense data available
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Income Categories Chart */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Income Sources</CardTitle>
-                <CardDescription>
-                  {incomeChartData.length} categories
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  {incomeChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={incomeChartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={100}
-                          fill="#10B981"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {incomeChartData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={CHART_COLORS[index % CHART_COLORS.length]} 
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-muted-foreground">
-                      No income data available
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 gap-4">
+            {/* Use the improved CategoryCharts component */}
+            <CategoryCharts 
+              expenseData={chartData}
+              incomeData={incomeData}
+              transactions={filteredTransactions}
+            />
           </div>
           
           {/* Insights */}
