@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Info, LineChart, ArrowUpDown, BadgeCheck } from "lucide-react";
+import { ChevronLeft, Info, LineChart, ArrowUpDown, BadgeCheck, Loader2 } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -213,13 +213,16 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       
       <CardContent>
         {enhancedCount === 0 ? (
-          <Alert>
-            <AlertTitle>No enhanced data available</AlertTitle>
-            <AlertDescription>
-              Claude AI wasn't able to categorize any transactions. This may be due to the format
-              of your transaction data or an issue with the Claude API connection.
-            </AlertDescription>
-          </Alert>
+          <div className="flex flex-col items-center justify-center h-[200px] gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+            <Alert>
+              <AlertTitle>No enhanced data available yet</AlertTitle>
+              <AlertDescription>
+                Claude AI hasn't categorized any transactions yet. This may be because the enhancement 
+                process is still running or there was an issue with the Claude API connection.
+              </AlertDescription>
+            </Alert>
+          </div>
         ) : view === "pie" ? (
           <div className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -281,12 +284,17 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
             
             <div className="overflow-y-auto max-h-[300px] space-y-2">
               {(selectedTransactions || []).map((t) => (
-                <div key={t.id} className="text-sm p-2 border rounded-md">
+                <div key={t.id} className="text-sm p-3 border rounded-md hover:bg-muted/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div className="max-w-[70%]">
                       <p className="font-medium">
                         {t.verboseDescription || t.description || t.name}
                       </p>
+                      {(t.description !== t.verboseDescription && t.description) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Original: {t.description}
+                        </p>
+                      )}
                       <div className="flex items-center gap-1 mt-1 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {t.category || "Uncategorized"}

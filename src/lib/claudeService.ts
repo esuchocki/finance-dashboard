@@ -45,7 +45,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     const apiUrl = "https://api.anthropic.com/v1/messages";
     
     // Batch processing to avoid overwhelming the API
-    const BATCH_SIZE = 50;
+    const BATCH_SIZE = 25; // Reduced batch size to allow more detailed processing
     let enhancedTransactions: Transaction[] = [];
     
     // Create batches of transactions
@@ -67,11 +67,11 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
         }))
       );
 
-      // Create the prompt to analyze the batch
+      // Create the prompt to analyze the batch - enhanced prompt for better categorization and details
       const systemPrompt = `You are a financial data analysis AI specializing in transaction categorization and description enhancement. 
       
 Your task is to:
-1. Categorize each transaction into a main category
+1. Categorize EVERY transaction into a main category
 2. Determine a specific subcategory 
 3. Provide a more descriptive/verbose version of the transaction name/description
 4. Rate your confidence in the categorization (high, medium, low)
@@ -81,6 +81,7 @@ Use these predefined categories as a guide: ${JSON.stringify(PREDEFINED_CATEGORI
 However, if a transaction clearly belongs to a different category not listed above, create a new appropriate category. Be careful not to over-create categories - try to use existing ones when possible.
 
 Rules for categorization:
+- IMPORTANT: Try to categorize EVERY transaction. Do not leave any transactions uncategorized.
 - For deposits, paychecks, etc., use "Income" as the main category
 - For transactions with negative values, categorize based on the spending type
 - Be specific with subcategories, but keep them general enough to be useful for grouping
@@ -90,6 +91,7 @@ Rules for categorization:
 - For recurring transactions to the same payee, maintain consistent categorization
 
 For the verbose description:
+- This is VERY IMPORTANT as it will be displayed to users directly
 - Create a clearer, more informative description that expands the often cryptic transaction names
 - Include the business name and what was likely purchased if possible
 - For online purchases or subscriptions, identify the service (like "Netflix Subscription" instead of "NETFLIX.COM")
@@ -97,6 +99,7 @@ For the verbose description:
 - For retail purchases, include the store name and general type (like "Target - Household Items")
 - Remove unnecessary codes, abbreviations, or numbers while keeping informative details
 - Make it conversational and human-readable (like "Dinner at Chipotle" instead of "POS PURCHASE CHIPOTLE 092310")
+- If you see a business name you don't recognize, attempt to infer what it might be based on context
 - Keep it concise - ideally under 50 characters
 
 Return a JSON array of objects with these fields:
@@ -108,11 +111,11 @@ Return a JSON array of objects with these fields:
 
       const userMessage = `Here are the transactions to analyze: ${batchJSON}
 
-Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence.`;
+Please categorize each transaction, determine a subcategory, create a verbose description, and rate your confidence. Remember to attempt to categorize EVERY transaction, even if your confidence is low.`;
 
       // Call Claude API with a timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout (increased from 2)
       
       try {
         const response = await fetch(apiUrl, {
