@@ -262,7 +262,7 @@ const Dashboard = () => {
               <Tabs defaultValue="combined">
                 <TabsList className="mb-4">
                   <TabsTrigger value="combined" className="flex items-center gap-1">
-                    <ChartBarIcon className="h-4 w-4" />
+                    <ChartBar className="h-4 w-4" />
                     <span>Combined</span>
                   </TabsTrigger>
                   <TabsTrigger value="income" className="flex items-center gap-1">
