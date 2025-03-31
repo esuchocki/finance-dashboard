@@ -11,12 +11,13 @@ import { RefreshCw, FileText } from "lucide-react";
 const TransactionPage = () => {
   const { transactions, filteredTransactions, clearData } = useFinance();
   const [activeTab, setActiveTab] = useState("all");
+  const [showFileUploader, setShowFileUploader] = useState(false);
 
   return (
     <div className="space-y-6">
       {transactions.length === 0 ? (
         <div className="animate-fade-in">
-          <FileUploader />
+          <FileUploader open={showFileUploader} onOpenChange={setShowFileUploader} />
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in">
@@ -52,6 +53,11 @@ const TransactionPage = () => {
           </div>
         </div>
       )}
+      
+      <FileUploader 
+        open={showFileUploader}
+        onOpenChange={setShowFileUploader}
+      />
     </div>
   );
 };
