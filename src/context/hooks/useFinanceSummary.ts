@@ -1,0 +1,90 @@
+
+import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
+
+// Calculate financial summary from transactions
+export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
+  // Determine income and expense transactions, using categoryType if available
+  const incomeTransactions = txns.filter(t => 
+    t.categoryType === "income" || 
+    (!t.categoryType && (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"))
+  );
+  
+  const expenseTransactions = txns.filter(t => 
+    t.categoryType === "expense" || 
+    (!t.categoryType && (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"))
+  );
+  
+  const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
+  const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+  
+  // Calculate top expense categories using Claude's enhanced categorization
+  const categoryMap = new Map<string, number>();
+  for (const t of expenseTransactions) {
+    // Use Claude's categorization, which should now be more specific than just "Expenses"
+    const category = t.category || "Uncategorized";
+    const currentAmount = categoryMap.get(category) || 0;
+    categoryMap.set(category, currentAmount + t.amount);
+  }
+  
+  const topExpenseCategories = Array.from(categoryMap.entries())
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+  
+  // Find recurring expenses (simplified)
+  const recurringExpensesTotal = expenseTransactions
+    .filter(t => t.isRecurring)
+    .reduce((sum, t) => sum + t.amount, 0);
+  
+  // Find largest transaction
+  const largestTransaction = [...txns].sort((a, b) => b.amount - a.amount)[0];
+  
+  // Calculate monthly breakdown (for trends)
+  const monthlyBreakdown = calculateMonthlyBreakdown(txns);
+  
+  return {
+    totalIncome,
+    totalExpenses,
+    netCashflow: totalIncome - totalExpenses,
+    topExpenseCategories,
+    recurringExpensesTotal,
+    largestTransaction,
+    monthlyBreakdown,
+    transactionCount: txns.length,
+    dateRange: calculateDateRange(txns)
+  };
+};
+
+// Helper functions for enhanced insights
+export const calculateMonthlyBreakdown = (txns: Transaction[]) => {
+  const breakdown: Record<string, { income: number; expenses: number }> = {};
+  
+  txns.forEach(t => {
+    const monthYear = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
+    
+    if (!breakdown[monthYear]) {
+      breakdown[monthYear] = { income: 0, expenses: 0 };
+    }
+    
+    if (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST") {
+      breakdown[monthYear].income += t.amount;
+    } else if (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE") {
+      breakdown[monthYear].expenses += t.amount;
+    }
+  });
+  
+  return Object.entries(breakdown)
+    .map(([month, data]) => ({ month, ...data }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+};
+
+export const calculateDateRange = (txns: Transaction[]) => {
+  if (txns.length === 0) return { start: new Date(), end: new Date() };
+  
+  // Clone the array to avoid mutating the original
+  const sortedByDate = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
+  return {
+    start: sortedByDate[0].date,
+    end: sortedByDate[sortedByDate.length - 1].date
+  };
+};
