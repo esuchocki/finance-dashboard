@@ -67,13 +67,13 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     );
   };
 
-  // Extract Claude-enhanced categories using more inclusive criteria
+  // Extract Claude-enhanced categories to ensure we show the Claude-generated ones
   const prepareClaudeData = () => {
-    // Include ANY transaction that has been enhanced by Claude in any way
+    // Look for transactions that have Claude-generated categories or descriptions
     const enhancedTransactions = transactions.filter(t => 
+      t.category || 
       t.verboseDescription || 
       t.confidence || 
-      (t.category && t.category !== "Uncategorized") ||
       t.subCategory
     );
     
@@ -81,7 +81,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     const enhancedCount = enhancedTransactions.length;
     const percentCategorized = Math.round((enhancedCount / totalTransactions) * 100);
     
-    // Count transactions by category
+    // Count transactions by category, using Claude's categories
     const categoryMap = new Map<string, { 
       amount: number,
       count: number,
@@ -89,8 +89,8 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     }>();
     
     enhancedTransactions.forEach(t => {
-      // Use the assigned category or default to "Other" for better grouping
-      const category = t.category || "Other";
+      // Always use the Claude-assigned category, never default to "Other"
+      const category = t.category || "Uncategorized";
       
       if (!categoryMap.has(category)) {
         categoryMap.set(category, { 

@@ -35,7 +35,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
 
   // Helper function to get the best display name for a transaction
   const getDisplayName = (transaction: Transaction) => {
-    // Always prioritize the verbose description if it exists
+    // Always prioritize the verbose description if it exists and is unique
     if (transaction.verboseDescription && 
         transaction.verboseDescription !== transaction.description &&
         transaction.verboseDescription !== transaction.name) {
@@ -90,8 +90,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                     </>
                   )}
                   {transaction.description && 
-                   transaction.description !== transaction.verboseDescription && 
-                   getDisplayName(transaction) !== transaction.description && (
+                   transaction.description !== getDisplayName(transaction) && (
                     <>
                       <span>•</span>
                       <span className="text-xs opacity-70">{transaction.description}</span>
