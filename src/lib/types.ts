@@ -1,3 +1,14 @@
+export enum TransactionType {
+  DEBIT = "DEBIT",
+  CREDIT = "CREDIT",
+  CHECK = "CHECK",
+  DEPOSIT = "DEPOSIT",
+  WITHDRAWAL = "WITHDRAWAL",
+  FEE = "FEE",
+  INTEREST = "INTEREST",
+  TRANSFER = "TRANSFER",
+  OTHER = "OTHER",
+}
 
 export interface Transaction {
   id: string;
@@ -8,30 +19,14 @@ export interface Transaction {
   description: string;
   memo: string;
   category: string;
-  subCategory?: string;
-  payee?: string;
-  location?: string;
-  isRecurring?: boolean;
-  tags?: string[];
-}
-
-export enum TransactionType {
-  DEBIT = "DEBIT",
-  CREDIT = "CREDIT",
-  TRANSFER = "TRANSFER",
-  CHECK = "CHECK",
-  DEPOSIT = "DEPOSIT",
-  WITHDRAWAL = "WITHDRAWAL",
-  FEE = "FEE",
-  INTEREST = "INTEREST",
-  OTHER = "OTHER"
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  color: string;
-  subcategories?: Category[];
+  subCategory: string;
+  location: string;
+  isRecurring: boolean;
+  payee: string;
+  tags: string[];
+  // New fields for enhanced categorization
+  subSubCategory?: string;
+  confidence?: string; // high, medium, low
 }
 
 export interface TransactionFilterOptions {
@@ -45,19 +40,6 @@ export interface TransactionFilterOptions {
   isRecurring?: boolean;
 }
 
-export interface AnalysisSection {
-  title: string;
-  content: string;
-}
-
-export interface FinancialInsight {
-  id: string;
-  title: string;
-  description: string;
-  type: "warning" | "info" | "tip";
-  relatedTransactions?: string[];
-}
-
 export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
@@ -65,8 +47,15 @@ export interface FinancialSummary {
   topExpenseCategories: { category: string; amount: number }[];
   recurringExpensesTotal: number;
   largestTransaction: Transaction;
-  // New fields
   monthlyBreakdown: { month: string; income: number; expenses: number }[];
   transactionCount: number;
   dateRange: { start: Date; end: Date };
+}
+
+export interface FinancialInsight {
+  id: string;
+  title: string;
+  description: string;
+  type: "info" | "warning" | "error";
+  relatedTransactions?: string[];
 }

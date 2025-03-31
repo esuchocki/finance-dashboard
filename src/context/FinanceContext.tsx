@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Transaction, TransactionFilterOptions, FinancialSummary, FinancialInsight } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qboParser";
 import { toast } from "sonner";
+import { enhanceTransactionsWithClaude, hasClaudeApiKey } from "@/lib/claudeService";
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -252,7 +253,23 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       
       const content = await file.text();
-      const parsedTransactions = parseQBOFile(content);
+      let parsedTransactions = parseQBOFile(content);
+      
+      // Enhanced categorization with Claude if API key is available
+      if (hasClaudeApiKey()) {
+        toast.info("Enhancing transactions with Claude AI...");
+        try {
+          parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
+          toast.success("Transactions enhanced with Claude AI");
+        } catch (error) {
+          console.error("Error enhancing transactions with Claude:", error);
+          toast.error("Could not enhance transactions with Claude AI");
+        }
+      } else {
+        toast.info("Add a Claude API key to enhance transaction categorization", {
+          description: "Click the 'Add Claude API' button in the navbar"
+        });
+      }
       
       // Sort by date descending
       parsedTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
