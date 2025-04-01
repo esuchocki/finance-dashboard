@@ -1,6 +1,7 @@
+
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
+import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -437,10 +438,10 @@ export function BackgroundFormDialog({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 absolute right-2 top-2"
+                      className="h-6 w-6 p-0 absolute right-2 top-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => removeLocation(location.id)}
                     >
-                      <X className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Remove</span>
                     </Button>
                   )}
