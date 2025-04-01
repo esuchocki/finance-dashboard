@@ -190,31 +190,23 @@ export function BackgroundFormDialog({
     }
   };
 
-  // Location date handling
-  const handleLocationChange = (
-    id: string,
-    field: keyof Omit<Location, "id">,
-    value: string | Date | null
-  ) => {
+  // Location date handling - UPDATED to match birth date & graduation date pattern
+  const handleLocationDateChange = (id: string, field: "startDate" | "endDate", date: Date | undefined) => {
     setFormData({
       ...formData,
       locations: formData.locations.map((loc) =>
-        loc.id === id ? { ...loc, [field]: value } : loc
+        loc.id === id ? { ...loc, [field]: date || null } : loc
       ),
     });
     
-    // Update text inputs if Date value passed
-    if (field === "startDate" || field === "endDate") {
-      if (value instanceof Date) {
-        setLocationDateInputs({
-          ...locationDateInputs,
-          [id]: {
-            ...locationDateInputs[id],
-            [field === "startDate" ? "start" : "end"]: format(value, "MM/dd/yyyy")
-          }
-        });
+    // Update text inputs when date is selected from calendar
+    setLocationDateInputs({
+      ...locationDateInputs,
+      [id]: {
+        ...locationDateInputs[id] || { start: "", end: "" },
+        [field === "startDate" ? "start" : "end"]: date ? format(date, "MM/dd/yyyy") : ""
       }
-    }
+    });
   };
 
   const handleLocationDateInputChange = (id: string, field: "start" | "end", value: string) => {
@@ -231,9 +223,15 @@ export function BackgroundFormDialog({
     
     // Parse and update the actual date if valid
     const parsedDate = parseDateInput(formattedValue);
+    const dateField = field === "start" ? "startDate" : "endDate";
+    
     if (parsedDate) {
-      console.log(`Parsed ${field} date:`, parsedDate.toISOString());
-      handleLocationChange(id, field === "start" ? "startDate" : "endDate", parsedDate);
+      setFormData({
+        ...formData,
+        locations: formData.locations.map((loc) =>
+          loc.id === id ? { ...loc, [dateField]: parsedDate } : loc
+        ),
+      });
     }
   };
 
@@ -499,9 +497,7 @@ export function BackgroundFormDialog({
                             <Calendar
                               mode="single"
                               selected={location.startDate || undefined}
-                              onSelect={(date) =>
-                                handleLocationChange(location.id, "startDate", date || null)
-                              }
+                              onSelect={(date) => handleLocationDateChange(location.id, "startDate", date)}
                               disabled={(date) => location.endDate ? date > location.endDate : date > new Date()}
                               initialFocus
                               className="p-3 pointer-events-auto"
@@ -536,9 +532,7 @@ export function BackgroundFormDialog({
                             <Calendar
                               mode="single"
                               selected={location.endDate || undefined}
-                              onSelect={(date) =>
-                                handleLocationChange(location.id, "endDate", date || null)
-                              }
+                              onSelect={(date) => handleLocationDateChange(location.id, "endDate", date)}
                               disabled={(date) => location.startDate ? date < location.startDate : date > new Date()}
                               initialFocus
                               className="p-3 pointer-events-auto"
