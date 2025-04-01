@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
-import { FilePlus, Upload, AlertCircle, CheckCircle2 } from "lucide-react";
+import { FilePlus, Upload, AlertCircle, CheckCircle2, UserCog } from "lucide-react";
 import { useFinance } from "@/context/FinanceContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -18,11 +18,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { BackgroundFormDialog, BackgroundFormData } from "@/components/BackgroundFormDialog";
+import { toast } from "sonner";
 
 const FileUploader = () => {
   const { uploadQBOFile, isLoading } = useFinance();
   const [file, setFile] = useState<File | null>(null);
   const [open, setOpen] = React.useState(false);
+  const [backgroundFormOpen, setBackgroundFormOpen] = useState(false);
+  const [backgroundData, setBackgroundData] = useState<BackgroundFormData | null>(null);
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -61,13 +65,66 @@ const FileUploader = () => {
     }
   };
 
+  const handleBackgroundFormSubmit = (data: BackgroundFormData) => {
+    setBackgroundData(data);
+    
+    // Store in localStorage for persistence
+    localStorage.setItem('financial_persona', JSON.stringify(data));
+    
+    toast({
+      title: "Background Information Saved",
+      description: `Your personal information has been saved locally. This will help personalize your financial insights.`,
+      variant: "default",
+    });
+  };
+
+  // Load background data from localStorage on component mount
+  React.useEffect(() => {
+    const savedData = localStorage.getItem('financial_persona');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        
+        // Convert date strings back to Date objects
+        if (parsedData.birthDate) {
+          parsedData.birthDate = new Date(parsedData.birthDate);
+        }
+        
+        if (parsedData.locations) {
+          parsedData.locations = parsedData.locations.map((loc: any) => ({
+            ...loc,
+            startDate: loc.startDate ? new Date(loc.startDate) : null,
+            endDate: loc.endDate ? new Date(loc.endDate) : null,
+          }));
+        }
+        
+        setBackgroundData(parsedData);
+      } catch (error) {
+        console.error("Error loading background data:", error);
+      }
+    }
+  }, []);
+
   return (
     <Card className="w-full max-w-3xl mx-auto border border-border bg-card">
       <CardHeader className="pb-4">
-        <CardTitle className="text-2xl flex items-center gap-2">
-          <FilePlus className="h-6 w-6 text-finance-primary" />
-          Import QBO File
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-2xl flex items-center gap-2">
+            <FilePlus className="h-6 w-6 text-finance-primary" />
+            Import QBO File
+          </CardTitle>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setBackgroundFormOpen(true)}
+              className="flex items-center gap-1"
+            >
+              <UserCog className="h-4 w-4" />
+              {backgroundData ? "Edit Background" : "Add Background"}
+            </Button>
+          </div>
+        </div>
         <CardDescription>
           Upload your financial transactions from Quickbooks or other compatible software
         </CardDescription>
@@ -158,6 +215,14 @@ const FileUploader = () => {
         <p>Supported files: Quickbooks Web Connect (.qbo) files</p>
         <p className="mt-1">For best results, export your financial data from the last 12 months</p>
       </CardFooter>
+
+      {/* Background Information Form Dialog */}
+      <BackgroundFormDialog
+        open={backgroundFormOpen}
+        onOpenChange={setBackgroundFormOpen}
+        onSubmit={handleBackgroundFormSubmit}
+        initialData={backgroundData || undefined}
+      />
     </Card>
   );
 };
