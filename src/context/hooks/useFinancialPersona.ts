@@ -6,10 +6,13 @@ import {
   Transaction,
   NarrativeTransaction,
   LifeChapter,
-  Factoid
+  Factoid,
+  TimeOfDay,
+  LifestyleTag
 } from '@/lib/types';
 import { toast } from "sonner";
 import { differenceInYears, isBefore, isAfter } from 'date-fns';
+import { determineTimeOfDay } from '@/lib/qbo/transactionUtils';
 
 // Initialize an empty financial persona
 const createEmptyFinancialPersona = (): FinancialPersona => ({
@@ -180,21 +183,31 @@ export const useFinancialPersona = () => {
       const userAge = calculateAgeAtDate(transaction.date);
       const userLocation = determineLocationAtDate(transaction.date);
       
-      // This is a placeholder for the more advanced processing
+      // Create a basic narrative
       const narrative = `${financialPersona.personalBackground.name} ${
         transaction.amount > 0 ? "received" : "spent"
       } $${Math.abs(transaction.amount).toFixed(2)} ${
         transaction.payee ? `at ${transaction.payee}` : ""
       }`;
       
+      // Determine time of day
+      const timeOfDay = determineTimeOfDay(transaction.date.toString());
+      
+      // Return a complete NarrativeTransaction object
       return {
         ...transaction,
         narrative,
+        timeOfDay,
         userAge,
         userLocation,
-        transactionTags: [],
+        lifestyleTags: [] as LifestyleTag[],
+        transactionTags: transaction.tags || [],
+        lifeContext: "",
         isNotable: false,
-        relatedFactoids: []
+        relatedFactoids: [],
+        majorCategory: transaction.category || "Uncategorized",
+        minorCategory: transaction.subCategory || "",
+        vendor: transaction.name || transaction.payee || ""
       };
     });
     
@@ -248,3 +261,4 @@ export const useFinancialPersona = () => {
     determineLocationAtDate
   };
 };
+
