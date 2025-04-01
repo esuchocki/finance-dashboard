@@ -12,6 +12,12 @@ export enum TransactionType {
   OTHER = "OTHER"
 }
 
+// Simple date range type
+export interface DateRange {
+  start: Date;
+  end: Date;
+}
+
 // Structure for a transaction
 export interface Transaction {
   id: string;
@@ -51,6 +57,9 @@ export interface TransactionFilterOptions {
   minAmount?: number | null;
   maxAmount?: number | null;
   search?: string;
+  category?: string;
+  type?: string;
+  excludeTransfers?: boolean;
 }
 
 // Structure for financial summary data
