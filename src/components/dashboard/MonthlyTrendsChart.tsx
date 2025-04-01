@@ -49,16 +49,16 @@ interface MonthlyTrendsChartProps {
 }
 
 const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendData }) => {
-  // Configuration for charts - update colors to match dashboard
+  // Configuration for charts - update colors to pastel shades
   const chartConfig = {
     expense: { 
-      theme: { light: "#EF4444", dark: "#EF4444" } 
+      theme: { light: "#FFDEE2", dark: "#FFDEE2" } // Pastel red
     },
     income: { 
-      theme: { light: "#10B981", dark: "#10B981" } 
+      theme: { light: "#F2FCE2", dark: "#F2FCE2" } // Pastel green
     },
     balance: { 
-      theme: { light: "#8B5CF6", dark: "#8B5CF6" } 
+      theme: { light: "#E5DEFF", dark: "#E5DEFF" } // Pastel purple
     },
   };
 
@@ -102,7 +102,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           
           <TabsContent value="combined" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-9 h-[300px]">
+              <div className="md:col-span-8 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -142,12 +142,12 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Bar 
                         dataKey="income" 
                         name="income" 
-                        fill="#10B981" /* Green color to match Dashboard */
+                        fill="#A7E9AF" /* Pastel green */
                       />
                       <Bar 
                         dataKey="expenses" 
                         name="expense" 
-                        fill="#EF4444" /* Red color to match Dashboard */
+                        fill="#FFAAA5" /* Pastel red */
                       />
                       <Legend />
                     </BarChart>
@@ -158,15 +158,15 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 flex flex-col justify-center">
-                <div className="mb-4">
+              <div className="md:col-span-4 flex flex-col justify-center">
+                <div className="mb-6 pr-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This bar chart displays your monthly income and expenses side by side,
                     making it easy to compare the two values for each month.
                   </p>
                 </div>
-                <div>
+                <div className="pr-4">
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for months where expenses exceed income (red bars taller than green),
@@ -180,7 +180,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Trends Tab showing income and expenses as line chart with dollar amounts */}
           <TabsContent value="trends" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-9 h-[300px]">
+              <div className="md:col-span-8 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -221,7 +221,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="income" 
                         name="income" 
-                        stroke="#10B981" /* Green color to match Dashboard */
+                        stroke="#A7E9AF" /* Pastel green */
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -229,7 +229,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expenses" 
                         name="expense" 
-                        stroke="#EF4444" /* Red color to match Dashboard */
+                        stroke="#FFAAA5" /* Pastel red */
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -242,15 +242,15 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 flex flex-col justify-center">
-                <div className="mb-4">
+              <div className="md:col-span-4 flex flex-col justify-center">
+                <div className="mb-6 pr-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This line chart tracks your income and expenses over time,
                     highlighting overall trends and recurring patterns.
                   </p>
                 </div>
-                <div>
+                <div className="pr-4">
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for consistent upward or downward trends. Steady income with 
@@ -265,7 +265,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Combined Percentage Change Tab */}
           <TabsContent value="percentage" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-9 h-[300px]">
+              <div className="md:col-span-8 h-[300px]">
                 {monthlyTrendData.length > 1 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -304,7 +304,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="incomeChange" 
                         name="Income % Change" 
-                        stroke="#10B981" /* Green color to match Dashboard */
+                        stroke="#A7E9AF" /* Pastel green */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -312,7 +312,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expensesChange" 
                         name="Expense % Change" 
-                        stroke="#EF4444" /* Red color to match Dashboard */
+                        stroke="#FFAAA5" /* Pastel red */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -325,15 +325,15 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 flex flex-col justify-center">
-                <div className="mb-4">
+              <div className="md:col-span-4 flex flex-col justify-center">
+                <div className="mb-6 pr-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This chart shows month-over-month percentage changes in your income and expenses,
                     helping you identify growth or reduction rates.
                   </p>
                 </div>
-                <div>
+                <div className="pr-4">
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Large spikes may indicate unusual financial events. Income growing slower than 
