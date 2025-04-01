@@ -22,12 +22,12 @@ interface DashboardSummaryCardsProps {
 }
 
 // Calculate full-span trajectory indicators based on first and last month in the data
-const calculateTrajectory = (type: 'income' | 'expenses' | 'balance') => {
-  if (!summary?.monthlyBreakdown || summary.monthlyBreakdown.length < 2) {
+const calculateTrajectory = (type: 'income' | 'expenses' | 'balance', summaryData: FinancialSummary | null) => {
+  if (!summaryData?.monthlyBreakdown || summaryData.monthlyBreakdown.length < 2) {
     return { isUpward: null, description: "Not enough data for trajectory analysis" };
   }
 
-  const monthlyData = [...summary.monthlyBreakdown].sort((a, b) => 
+  const monthlyData = [...summaryData.monthlyBreakdown].sort((a, b) => 
     a.month.localeCompare(b.month)
   );
   
@@ -78,9 +78,9 @@ const calculateTrajectory = (type: 'income' | 'expenses' | 'balance') => {
 };
   
 const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, trends }) => {
-  const incomeTrajectory = calculateTrajectory('income');
-  const expensesTrajectory = calculateTrajectory('expenses');
-  const balanceTrajectory = calculateTrajectory('balance');
+  const incomeTrajectory = calculateTrajectory('income', summary);
+  const expensesTrajectory = calculateTrajectory('expenses', summary);
+  const balanceTrajectory = calculateTrajectory('balance', summary);
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
