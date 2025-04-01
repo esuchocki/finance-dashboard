@@ -17,7 +17,7 @@ const AppNavbar = () => {
       <div className="container flex h-16 items-center px-4">
         <Link to="/" className="flex items-center gap-2 font-bold text-xl text-primary">
           <CircleDollarSign className="h-6 w-6" />
-          <span>Finance Tapestry</span>
+          <span>Sailing Funds</span>
         </Link>
         
         <div className="ml-auto flex items-center gap-4">
