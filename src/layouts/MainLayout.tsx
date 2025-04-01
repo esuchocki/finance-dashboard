@@ -18,7 +18,7 @@ const MainLayout = () => {
           </main>
           <footer className="py-4 border-t">
             <div className="container text-center text-sm text-muted-foreground">
-              <p>Sailing Funds - Personal Finance Dashboard</p>
+              <p>Sailing Funds</p>
               <p className="text-xs mt-1">Data is processed locally and never leaves your device</p>
             </div>
           </footer>

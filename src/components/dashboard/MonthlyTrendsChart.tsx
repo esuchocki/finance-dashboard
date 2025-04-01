@@ -177,7 +177,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <h4 className="font-bold mb-2">How to Use It</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for months where expenses exceed income (red bars taller than green),
                     which might indicate budget issues that need attention. Also watch for seasonal 
@@ -270,7 +270,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <h4 className="font-bold mb-2">How to Use It</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for consistent upward or downward trends. Steady income with 
                     rising expenses may indicate lifestyle inflation. Seasonal 
@@ -361,7 +361,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <h4 className="font-bold mb-2">How to Use It</h4>
                   <p className="text-sm text-muted-foreground">
                     Large spikes may indicate unusual financial events. Income growing slower than 
                     expenses (green line below red) suggests increasing financial strain over time.
