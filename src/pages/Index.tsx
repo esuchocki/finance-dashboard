@@ -4,9 +4,20 @@ import { Dashboard } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const Index = () => {
-  const { transactions, isLoading, error, isUsingCache } = useFinance();
+  const { 
+    transactions, 
+    isLoading, 
+    error, 
+    isUsingCache, 
+    isDevelopmentMode, 
+    toggleDevelopmentMode 
+  } = useFinance();
+  
   const [renderTimeout, setRenderTimeout] = useState(false);
   const [extendedTimeout, setExtendedTimeout] = useState(false);
   
@@ -85,13 +96,31 @@ const Index = () => {
   
   return (
     <div className="max-w-7xl mx-auto">
+      {/* Development Mode Toggle */}
+      <div className="flex items-center justify-end space-x-2 mb-4 p-2 bg-muted/40 rounded-md">
+        <Label htmlFor="development-mode" className="text-sm">
+          Development Mode
+        </Label>
+        <Switch
+          id="development-mode"
+          checked={isDevelopmentMode}
+          onCheckedChange={toggleDevelopmentMode}
+        />
+        {isDevelopmentMode && (
+          <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
+            Cache Disabled
+          </Badge>
+        )}
+      </div>
+      
       <Dashboard />
       
       {transactions.length > 0 && (
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
           <p>
             Financial data visualization powered by QBO Parser & Claude AI
-            {isUsingCache && " (using cached data)"}
+            {isUsingCache && !isDevelopmentMode && " (using cached data)"}
+            {isDevelopmentMode && " (development mode - cache disabled)"}
           </p>
         </div>
       )}

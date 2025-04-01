@@ -12,7 +12,7 @@ const TRANSACTION_CACHE_KEY = 'financeDashboard_transactionCache';
 const CACHE_EXPIRY_KEY = 'financeDashboard_cacheExpiry';
 const CACHE_EXPIRY_HOURS = 24; // Cache data for 24 hours
 
-export const useFinanceUpload = () => {
+export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -24,6 +24,12 @@ export const useFinanceUpload = () => {
   // Check for cached data on initial load
   useEffect(() => {
     const loadCachedData = () => {
+      // Skip loading cache in development mode
+      if (isDevelopmentMode) {
+        console.log("Development mode enabled - skipping cache load");
+        return false;
+      }
+
       try {
         const cachedDataJson = localStorage.getItem(TRANSACTION_CACHE_KEY);
         if (!cachedDataJson) return false;
@@ -98,7 +104,7 @@ export const useFinanceUpload = () => {
     };
     
     loadCachedData();
-  }, []);
+  }, [isDevelopmentMode]);
 
   // Cache the current data
   const cacheCurrentData = (
@@ -106,6 +112,12 @@ export const useFinanceUpload = () => {
     currentSummary: FinancialSummary,
     currentInsights: FinancialInsight[]
   ) => {
+    // Skip caching in development mode
+    if (isDevelopmentMode) {
+      console.log("Development mode enabled - skipping cache storage");
+      return;
+    }
+    
     try {
       const dataToCache = {
         transactions: currentTransactions,
@@ -139,7 +151,8 @@ export const useFinanceUpload = () => {
       const contentHash = btoa(content.slice(0, 1000)).substring(0, 20);
       const cachedHash = localStorage.getItem('financeDashboard_lastFileHash');
       
-      if (contentHash === cachedHash) {
+      // Only use file cache detection in non-development mode
+      if (!isDevelopmentMode && contentHash === cachedHash) {
         toast.info("This appears to be the same file you uploaded before", {
           description: "Using cached data for faster processing"
         });
@@ -154,7 +167,9 @@ export const useFinanceUpload = () => {
       if (hasClaudeApiKey()) {
         try {
           toast.info("Starting transaction categorization with Claude AI", {
-            description: "This may take a moment for larger datasets",
+            description: isDevelopmentMode ? 
+              "Development mode enabled - all transactions will be re-categorized" : 
+              "This may take a moment for larger datasets",
             duration: 5000
           });
           
@@ -228,7 +243,7 @@ export const useFinanceUpload = () => {
           const newInsights = generateInsights(parsedTransactions, newSummary);
           setInsights(newInsights);
           
-          // Cache the data for future use
+          // Cache the data for future use (unless in development mode)
           cacheCurrentData(parsedTransactions, newSummary, newInsights);
           
           const dateRange = newSummary.dateRange;

@@ -16,6 +16,8 @@ interface FinanceContextType {
   filterOptions: TransactionFilterOptions;
   clearData: () => void;
   isUsingCache: boolean;
+  isDevelopmentMode: boolean;
+  toggleDevelopmentMode: () => void;
 }
 
 // Default empty filter options that match the required type
@@ -31,6 +33,10 @@ const defaultFilterOptions: TransactionFilterOptions = {
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
+  const [isDevelopmentMode, setIsDevelopmentMode] = useState<boolean>(
+    localStorage.getItem('financeDashboard_developmentMode') === 'true'
+  );
+  
   const { 
     transactions, 
     filteredTransactions, 
@@ -42,7 +48,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     uploadQBOFile, 
     clearData,
     isUsingCache 
-  } = useFinanceUpload();
+  } = useFinanceUpload(isDevelopmentMode);
   
   const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>(defaultFilterOptions);
 
@@ -50,6 +56,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setFilterOptions(filters);
     const filtered = applyFilters(transactions, filters);
     setFilteredTransactions(filtered);
+  };
+
+  const toggleDevelopmentMode = () => {
+    const newMode = !isDevelopmentMode;
+    setIsDevelopmentMode(newMode);
+    localStorage.setItem('financeDashboard_developmentMode', newMode.toString());
   };
 
   const value = {
@@ -63,7 +75,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     insights,
     filterOptions,
     clearData,
-    isUsingCache
+    isUsingCache,
+    isDevelopmentMode,
+    toggleDevelopmentMode
   };
 
   return (
