@@ -222,6 +222,12 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                 }
               </span>
             </div>
+            {/* Easter egg - Sailboat fund progress */}
+            {summary && summary.netCashflow > 0 && (
+              <span className="text-xs italic text-muted-foreground">
+                {summary.netCashflow > 100000 ? "Yacht fund: Ready!" : `Sailboat fund: ${((summary.netCashflow / 100000) * 100).toFixed(1)}%`}
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>

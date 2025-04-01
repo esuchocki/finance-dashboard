@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
@@ -5,7 +6,7 @@ import TransactionFilters from "./TransactionFilters";
 import AnalysisSectionWrapper from "./AnalysisSectionWrapper";
 import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, FileText, Info } from "lucide-react";
+import { RefreshCw, Anchor, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -83,8 +84,8 @@ const TransactionPage = () => {
         <div className="space-y-6 animate-fade-in">
           <div className="flex flex-col md:flex-row justify-between space-y-4 md:space-y-0 items-start md:items-center">
             <h1 className="text-2xl font-bold flex items-center">
-              <FileText className="h-6 w-6 mr-2 text-finance-primary" />
-              Transactions
+              <Anchor className="h-6 w-6 mr-2 text-finance-primary" />
+              Transactions Logbook
             </h1>
             <div className="flex items-center gap-4">
               <Button 

@@ -6,7 +6,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { LineChart, Info, RefreshCw } from "lucide-react";
+import { Sailboat, Info, RefreshCw } from "lucide-react";
 
 interface DashboardHeaderProps {
   onClearData: () => void;
@@ -17,7 +17,7 @@ const DashboardHeader = ({ onClearData }: DashboardHeaderProps) => {
     <div className="flex justify-between items-center">
       <div className="flex items-center gap-2">
         <h2 className="text-2xl font-bold flex items-center">
-          <LineChart className="h-6 w-6 mr-2 text-finance-primary" />
+          <Sailboat className="h-6 w-6 mr-2 text-finance-primary" />
           Financial Dashboard
         </h2>
         
