@@ -23,9 +23,9 @@ interface DashboardSummaryCardsProps {
 }
 
 const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, trends }) => {
-  // Calculate trajectory indicators based on monthly breakdowns
+  // Calculate full-span trajectory indicators based on first and last month in the data
   const calculateTrajectory = (type: 'income' | 'expenses' | 'balance') => {
-    if (!summary?.monthlyBreakdown || summary.monthlyBreakdown.length < 3) {
+    if (!summary?.monthlyBreakdown || summary.monthlyBreakdown.length < 2) {
       return { isUpward: null, description: "Not enough data for trajectory analysis" };
     }
 
@@ -33,31 +33,49 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
       a.month.localeCompare(b.month)
     );
     
-    // Need at least 3 months for meaningful trajectory
-    const recentMonths = monthlyData.slice(-3);
+    // Get first and last month
+    const firstMonth = monthlyData[0];
+    const lastMonth = monthlyData[monthlyData.length - 1];
     
     // Extract the relevant values based on type
-    const values = recentMonths.map(month => {
-      if (type === 'income') return month.income;
-      if (type === 'expenses') return month.expenses;
-      return month.income - month.expenses; // balance
-    });
+    let firstValue = 0;
+    let lastValue = 0;
     
-    // Check if trajectory is mostly upward (2+ increases)
-    let increases = 0;
-    for (let i = 1; i < values.length; i++) {
-      if (values[i] > values[i-1]) increases++;
+    if (type === 'income') {
+      firstValue = firstMonth.income;
+      lastValue = lastMonth.income;
+    } else if (type === 'expenses') {
+      firstValue = firstMonth.expenses;
+      lastValue = lastMonth.expenses;
+    } else {
+      // balance
+      firstValue = firstMonth.income - firstMonth.expenses;
+      lastValue = lastMonth.income - lastMonth.expenses;
     }
     
-    const isUpward = increases >= (values.length - 1) / 2;
+    // Calculate percentage change
+    const percentageChange = firstValue !== 0 
+      ? ((lastValue - firstValue) / Math.abs(firstValue)) * 100 
+      : lastValue > 0 ? 100 : 0;
+    
+    const isUpward = lastValue > firstValue;
     
     // Determine if trajectory is good based on type
     const isPositive = type === 'expenses' ? !isUpward : isUpward;
+
+    // Get month names for better description
+    const getMonthName = (monthStr: string) => {
+      const [year, month] = monthStr.split('-');
+      const date = new Date(parseInt(year), parseInt(month) - 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    };
     
     return {
       isUpward,
       isPositive,
-      description: `${isUpward ? 'Increasing' : 'Decreasing'} trend over the last ${recentMonths.length} months`
+      percentageChange,
+      description: `${isUpward ? 'Increased' : 'Decreased'} by ${Math.abs(percentageChange).toFixed(1)}% from ${getMonthName(firstMonth.month)} to ${getMonthName(lastMonth.month)}`,
+      shortDescription: `${isUpward ? 'Increasing' : 'Decreasing'} trend across all data`
     };
   };
   
@@ -73,26 +91,27 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <TrendingUp className="text-finance-positive h-4 w-4 mr-2" />
             Total Income
           </CardTitle>
-          {trends && (
+          {incomeTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
                     <ComparisonIndicator 
-                      value={trends.incomeChange} 
+                      value={incomeTrajectory.percentageChange} 
                       suffix="%" 
                       positiveIsGood={true}
                     />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p className="font-medium mb-1">Month-over-month change</p>
-                  <p>This compares the most recent month's income with the previous month in your data.</p>
-                  {incomeTrajectory.isUpward !== null && (
-                    <div className="mt-2 pt-2 border-t border-border">
-                      <p className="font-medium">Overall Trajectory: {incomeTrajectory.description}</p>
-                    </div>
-                  )}
+                  <p className="font-medium mb-1">Full-span Income Trajectory</p>
+                  <p>{incomeTrajectory.description}</p>
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="font-medium">Overall Assessment</p>
+                    <p className="text-xs mt-1">{incomeTrajectory.isPositive ? 
+                      "Your income is trending positively over the full period." : 
+                      "Your income is trending downward over the full period, which may need attention."}</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -118,29 +137,27 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <TrendingDown className="text-finance-negative h-4 w-4 mr-2" />
             Total Expenses
           </CardTitle>
-          {trends && (
+          {expensesTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
                     <ComparisonIndicator 
-                      value={trends.expensesChange} 
+                      value={expensesTrajectory.percentageChange} 
                       suffix="%" 
                       positiveIsGood={false}
                     />
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p className="font-medium mb-1">Month-over-month change</p>
-                  <p>This compares the most recent month's expenses with the previous month in your data. Lower expenses are generally better.</p>
-                  {expensesTrajectory.isUpward !== null && (
-                    <div className="mt-2 pt-2 border-t border-border">
-                      <p className="font-medium">Overall Trajectory: {expensesTrajectory.description}</p>
-                      <p className="text-xs mt-1">{expensesTrajectory.isPositive ? 
-                        "Your expenses are trending in a positive direction." : 
-                        "Your expenses are trending upward, which may need attention."}</p>
-                    </div>
-                  )}
+                  <p className="font-medium mb-1">Full-span Expense Trajectory</p>
+                  <p>{expensesTrajectory.description}</p>
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="font-medium">Overall Assessment</p>
+                    <p className="text-xs mt-1">{expensesTrajectory.isPositive ? 
+                      "Your expenses are trending in a positive direction (decreasing) over the full period." : 
+                      "Your expenses are trending upward over the full period, which may need attention."}</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -166,13 +183,13 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <CalendarClock className="h-4 w-4 mr-2 text-accent" />
             Net Cashflow
           </CardTitle>
-          {trends && trends.balanceChange !== 0 && (
+          {trends && trends.balanceChange !== 0 && balanceTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div>
-                    <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
-                      {trends.balanceChange > 0 ? (
+                    <Badge variant={balanceTrajectory.isPositive ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
+                      {balanceTrajectory.isUpward ? (
                         <ArrowUpRight className="h-3 w-3 mr-1" />
                       ) : (
                         <ArrowDownRight className="h-3 w-3 mr-1" />
@@ -182,16 +199,14 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p className="font-medium mb-1">Month-over-month change</p>
-                  <p>This shows the absolute change in net cashflow (income minus expenses) from the previous month to the most recent month in your data.</p>
-                  {balanceTrajectory.isUpward !== null && (
-                    <div className="mt-2 pt-2 border-t border-border">
-                      <p className="font-medium">Overall Trajectory: {balanceTrajectory.description}</p>
-                      <p className="text-xs mt-1">{balanceTrajectory.isPositive ? 
-                        "Your net cashflow is trending in a positive direction." : 
-                        "Your net cashflow is trending downward, which may need attention."}</p>
-                    </div>
-                  )}
+                  <p className="font-medium mb-1">Full-span Cashflow Trajectory</p>
+                  <p>{balanceTrajectory.description}</p>
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <p className="font-medium">Overall Assessment</p>
+                    <p className="text-xs mt-1">{balanceTrajectory.isPositive ? 
+                      "Your net cashflow is trending positively over the full period." : 
+                      "Your net cashflow is trending downward over the full period, which may need attention."}</p>
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
