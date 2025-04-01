@@ -34,16 +34,38 @@ const TransactionFilters = () => {
     new Set(transactions.map((t) => t.category))
   ).sort();
 
-  // Handle date input changes
+  // Auto-format date inputs
+  const autoFormatDateInput = (value: string): string => {
+    // If it's already in a valid date format, return it
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) return value;
+    
+    // Strip all non-digits
+    const digitsOnly = value.replace(/\D/g, '');
+    
+    // Format based on number of digits entered
+    if (digitsOnly.length <= 2) {
+      return digitsOnly;
+    } else if (digitsOnly.length <= 4) {
+      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}`;
+    } else if (digitsOnly.length <= 8) {
+      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}/${digitsOnly.substring(4)}`;
+    } else {
+      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}/${digitsOnly.substring(4, 8)}`;
+    }
+  };
+
+  // Handle date input changes with auto-formatting
   const handleStartDateInput = (value: string) => {
-    setStartDateInput(value);
+    const formattedValue = autoFormatDateInput(value);
+    setStartDateInput(formattedValue);
+    
     try {
       // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
       const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
       let parsedDate: Date | null = null;
       
       for (const dateFormat of formats) {
-        const attemptedDate = parse(value, dateFormat, new Date());
+        const attemptedDate = parse(formattedValue, dateFormat, new Date());
         if (isValid(attemptedDate)) {
           parsedDate = attemptedDate;
           break;
@@ -52,7 +74,7 @@ const TransactionFilters = () => {
       
       if (parsedDate && isValid(parsedDate)) {
         setStartDate(parsedDate);
-      } else if (value === "") {
+      } else if (formattedValue === "") {
         setStartDate(undefined);
       }
     } catch (error) {
@@ -61,14 +83,16 @@ const TransactionFilters = () => {
   };
   
   const handleEndDateInput = (value: string) => {
-    setEndDateInput(value);
+    const formattedValue = autoFormatDateInput(value);
+    setEndDateInput(formattedValue);
+    
     try {
       // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
       const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
       let parsedDate: Date | null = null;
       
       for (const dateFormat of formats) {
-        const attemptedDate = parse(value, dateFormat, new Date());
+        const attemptedDate = parse(formattedValue, dateFormat, new Date());
         if (isValid(attemptedDate)) {
           parsedDate = attemptedDate;
           break;
@@ -77,7 +101,7 @@ const TransactionFilters = () => {
       
       if (parsedDate && isValid(parsedDate)) {
         setEndDate(parsedDate);
-      } else if (value === "") {
+      } else if (formattedValue === "") {
         setEndDate(undefined);
       }
     } catch (error) {

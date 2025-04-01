@@ -8,8 +8,7 @@ import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/label";
 
 const TransactionPage = () => {
   const { 
@@ -28,11 +27,10 @@ const TransactionPage = () => {
   const indexOfFirstTransaction = indexOfLastTransaction - transactionsPerPage;
   const currentTransactions = filteredTransactions.slice(indexOfFirstTransaction, indexOfLastTransaction);
 
-  // Pagination handlers
+  // Pagination handlers - removed window.scrollTo
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Scroll to top of the transaction list when page changes
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Removed scroll to top
   };
 
   return (

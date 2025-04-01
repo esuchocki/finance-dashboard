@@ -269,7 +269,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
             `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`
           );
           
-          // Navigate to dashboard after successful upload
+          // Navigate to dashboard after successful upload (changed from /transactions to /)
           navigate("/");
           
           // Show key insights as toasts for immediate feedback
