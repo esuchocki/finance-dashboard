@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { Transaction, TransactionFilterOptions, FinancialSummary, FinancialInsight, DateRange } from "@/lib/types";
+import { Transaction, TransactionFilterOptions, FinancialSummary, FinancialInsight, DateRange, FinancialPersona } from "@/lib/types";
 import { useFinanceUpload } from "./hooks/useFinanceUpload";
 import { applyFilters } from "./hooks/useTransactionFilters";
 import { format, subMonths, startOfYear, startOfMonth, endOfMonth } from "date-fns";
@@ -27,6 +27,7 @@ interface FinanceContextType {
     minAmount: number;
     maxAmount: number;
   } | null;
+  financialPersona: FinancialPersona | null;
 }
 
 // Default empty filter options that match the required type
@@ -59,7 +60,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     insights, 
     uploadQBOFile, 
     clearData,
-    isUsingCache 
+    isUsingCache,
+    financialPersona
   } = useFinanceUpload(isDevelopmentMode);
   
   const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>(defaultFilterOptions);
@@ -160,7 +162,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     updateFilters,
     resetFilters,
     applyPresetDateRange,
-    stats
+    stats,
+    financialPersona
   };
 
   return (

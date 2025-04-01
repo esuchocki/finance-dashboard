@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Transaction, FinancialSummary, FinancialInsight, FinancialPersona, NarrativeTransaction } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qbo";
