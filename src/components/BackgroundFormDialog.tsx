@@ -120,7 +120,7 @@ export function BackgroundFormDialog({
     }
   };
 
-  // Parse dates from MM/DD/YYYY format
+  // Parse dates from MM/DD/YYYY format - FIXED to properly handle years
   const parseDateInput = (dateString: string): Date | null => {
     try {
       const parts = dateString.split("/");
@@ -129,15 +129,24 @@ export function BackgroundFormDialog({
         const day = parseInt(parts[1]);
         const year = parseInt(parts[2]);
         
-        const date = new Date(year, month, day);
+        // Check that we have a valid 4-digit year or reasonable 2-digit year
+        if (parts[2].length < 2) return null;
         
-        // Validate date is valid
-        if (!isNaN(date.getTime())) {
+        // Handle 2-digit years - assume 20xx for years < 50, 19xx for years >= 50
+        const fullYear = parts[2].length <= 2 
+          ? (year < 50 ? 2000 + year : 1900 + year)
+          : year;
+        
+        const date = new Date(fullYear, month, day);
+        
+        // Validate date is valid and year is correctly set
+        if (!isNaN(date.getTime()) && date.getFullYear() === fullYear) {
           return date;
         }
       }
       return null;
     } catch (error) {
+      console.error("Date parsing error:", error);
       return null;
     }
   };
@@ -229,6 +238,7 @@ export function BackgroundFormDialog({
     // Parse and update the actual date if valid
     const parsedDate = parseDateInput(formattedValue);
     if (parsedDate) {
+      console.log(`Parsed ${field} date:`, parsedDate.toISOString());
       handleLocationChange(id, field === "start" ? "startDate" : "endDate", parsedDate);
     }
   };

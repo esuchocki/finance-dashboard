@@ -65,7 +65,7 @@ const MainLayout = () => {
                   <div className="flex items-center gap-2">
                     <BookOpen className="h-5 w-5" />
                     <p className="text-sm">
-                      Financial narrative data is being built from your transactions
+                      Financial narrative data has been built from your transactions
                     </p>
                   </div>
                 )}
