@@ -89,7 +89,6 @@ const InsightDetails = ({ insight, isOpen, onClose }: InsightDetailsProps) => {
               <TransactionList 
                 transactions={insight.relatedTransactions}
                 title=""
-                showHeader={false}
               />
             </div>
           )}
