@@ -62,13 +62,13 @@ export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
   balance: number;
-  netCashflow: number; // Added this property
-  transactionCount: number; // Added this property
-  recurringExpensesTotal: number; // Added this property
+  netCashflow: number;
+  transactionCount: number;
+  recurringExpensesTotal: number;
   largestExpense: Transaction | null;
   largestIncome: Transaction | null;
   recurringExpenses: Transaction[];
-  largestTransaction?: Transaction; // Added this property
+  largestTransaction?: Transaction;
   topExpenseCategories: {
     category: string;
     amount: number;
@@ -84,6 +84,8 @@ export interface FinancialSummary {
     income: number;
     expenses: number;
   }[];
+  // Add the topInsights property that is referenced in InsightsList.tsx
+  topInsights?: FinancialInsight[];
 }
 
 // Structure for financial insights
@@ -91,7 +93,7 @@ export interface FinancialInsight {
   id: string;
   title: string;
   description: string;
-  type: "info" | "warning" | "success" | "danger";
+  type: "info" | "warning" | "success" | "danger" | "tip"; // Added "tip" to match usage in InsightsList.tsx
   category?: string;
   relatedTransactions?: Transaction[];
   amount?: number;
