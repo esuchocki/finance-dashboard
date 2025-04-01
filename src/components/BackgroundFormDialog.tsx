@@ -309,6 +309,16 @@ export function BackgroundFormDialog({
     toast.success("Location removed");
   };
 
+  // Adding a new function to handle location place changes
+  const handleLocationPlaceChange = (id: string, value: string) => {
+    setFormData({
+      ...formData,
+      locations: formData.locations.map((loc) =>
+        loc.id === id ? { ...loc, place: value } : loc
+      ),
+    });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -464,7 +474,7 @@ export function BackgroundFormDialog({
                       placeholder="Location"
                       value={location.place}
                       onChange={(e) =>
-                        handleLocationChange(location.id, "place", e.target.value)
+                        handleLocationPlaceChange(location.id, e.target.value)
                       }
                       className="pl-9"
                     />
