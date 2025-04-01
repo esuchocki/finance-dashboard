@@ -11,7 +11,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  InfoTooltipTrigger,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 const UploadSummary = () => {
@@ -92,11 +92,11 @@ const UploadSummary = () => {
             {Object.entries(typeCount).map(([type, count]) => (
               <TooltipProvider key={type}>
                 <Tooltip>
-                  <InfoTooltipTrigger asChild>
+                  <TooltipTrigger asChild>
                     <Badge variant="outline" className="text-xs cursor-help">
                       {type}: {count}
                     </Badge>
-                  </InfoTooltipTrigger>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>{count} transactions of type "{type}"</p>
                   </TooltipContent>
@@ -114,7 +114,7 @@ const UploadSummary = () => {
               {summary.topExpenseCategories.slice(0, 3).map((category, index) => (
                 <TooltipProvider key={index}>
                   <Tooltip>
-                    <InfoTooltipTrigger asChild>
+                    <TooltipTrigger asChild>
                       <div key={index} className="flex items-center justify-between cursor-help">
                         <div className="flex items-center">
                           <div 
@@ -127,7 +127,7 @@ const UploadSummary = () => {
                           {formatCurrency(category.amount)}
                         </span>
                       </div>
-                    </InfoTooltipTrigger>
+                    </TooltipTrigger>
                     <TooltipContent>
                       <p>{formatCurrency(category.amount)} in "{category.category}" expenses</p>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -145,7 +145,7 @@ const UploadSummary = () => {
       <CardFooter className="text-sm text-muted-foreground border-t pt-4">
         <TooltipProvider>
           <Tooltip>
-            <InfoTooltipTrigger asChild>
+            <TooltipTrigger asChild>
               <div className="flex items-center cursor-help">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 <span>
@@ -154,7 +154,7 @@ const UploadSummary = () => {
                   </span>
                 </span>
               </div>
-            </InfoTooltipTrigger>
+            </TooltipTrigger>
             <TooltipContent>
               <p>Net cashflow is the difference between your total income and expenses</p>
               <p className="text-xs text-muted-foreground mt-1">

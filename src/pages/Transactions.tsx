@@ -1,7 +1,7 @@
 
 import React from "react";
 import TransactionPage from "@/components/TransactionPage";
-import { Tooltip, TooltipContent, TooltipProvider, InfoTooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sailboat } from "lucide-react";
 
 const Transactions = () => {
@@ -11,12 +11,12 @@ const Transactions = () => {
         <h1 className="sr-only">Transactions</h1>
         <TooltipProvider>
           <Tooltip>
-            <InfoTooltipTrigger asChild>
+            <TooltipTrigger asChild>
               <div className="ml-auto text-xs text-muted-foreground italic flex items-center opacity-70">
                 <Sailboat className="h-3 w-3 mr-1" />
                 <span>"Every transaction is a nautical mile closer to the horizon..."</span>
               </div>
-            </InfoTooltipTrigger>
+            </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
               <p className="text-xs">At the current rate, you'll afford that 40-foot catamaran in approximately... well, let's not do the math.</p>
             </TooltipContent>

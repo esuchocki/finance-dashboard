@@ -136,11 +136,11 @@ const Index = () => {
         )}
         <TooltipProvider>
           <Tooltip>
-            <InfoTooltipTrigger asChild>
+            <TooltipTrigger asChild>
               <div className="opacity-50">
                 <Anchor className="h-4 w-4 ml-1 text-finance-primary" />
               </div>
-            </InfoTooltipTrigger>
+            </TooltipTrigger>
             <TooltipContent side="bottom" align="end" className="max-w-xs">
               <div className="text-xs">
                 <p>"Chart your financial course wisely, for the open seas await those with well-trimmed budgets."</p>
@@ -173,9 +173,9 @@ const Index = () => {
             {isDevelopmentMode && " (development mode - cache disabled)"}
             <TooltipProvider>
               <Tooltip>
-                <InfoTooltipTrigger asChild>
+                <TooltipTrigger asChild>
                   <Sailboat className="h-3 w-3 ml-1 opacity-50" />
-                </InfoTooltipTrigger>
+                </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
                   <p className="text-xs">"They say money can't buy happiness, but it can buy a sailboat... and that's pretty much the same thing."</p>
                 </TooltipContent>
