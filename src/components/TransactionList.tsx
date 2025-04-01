@@ -13,6 +13,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  PaginationEllipsis
 } from "@/components/ui/pagination";
 
 interface PaginationProps {
@@ -118,7 +119,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
       if (startPage > 2) {
         items.push(
           <PaginationItem key="ellipsis-1">
-            <PaginationLink disabled>...</PaginationLink>
+            <PaginationEllipsis />
           </PaginationItem>
         );
       }
@@ -141,7 +142,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
       if (endPage < totalPages - 1) {
         items.push(
           <PaginationItem key="ellipsis-2">
-            <PaginationLink disabled>...</PaginationLink>
+            <PaginationEllipsis />
           </PaginationItem>
         );
       }
