@@ -1,493 +1,208 @@
 
-import React, { useState, useMemo } from "react";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
+import React, { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, Filter, Search, PieChart as PieChartIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-// Consistent, visually distinct colors for the chart
-const COLORS = [
-  "#8B5CF6", "#D946EF", "#F97316", "#0EA5E9", "#10B981", 
-  "#F59E0B", "#EC4899", "#6366F1", "#84CC16", "#14B8A6",
-  "#EF4444", "#64748B", "#9333EA", "#0369A1", "#15803D",
-  "#6D28D9", "#DB2777", "#059669", "#D97706", "#7C3AED"
-];
+import { prepareChartData, prepareIncomeChartData } from "./utils/chartDataUtils";
 
 interface CategoryBreakdownProps {
   transactions: Transaction[];
 }
 
+const COLORS = [
+  "#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A4DE6C", 
+  "#8884D8", "#FF6B6B", "#6A6AFF", "#FFDDA1", "#7FB069"
+];
+
 const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({ transactions }) => {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const [viewType, setViewType] = useState<"expense" | "income">("expense");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
-  const [selectedTransactions, setSelectedTransactions] = useState<Transaction[] | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"expenses" | "income">("expenses");
-
-  // Process the transactions data to extract category information
-  const { 
-    categoryData, 
-    subcategoryData, 
-    totalExpenses, 
-    totalIncome,
-    expenseCategoriesCount,
-    incomeCategoriesCount
-  } = useMemo(() => {
-    // Filter based on the active tab
-    const relevantTransactions = transactions.filter(t => {
-      if (activeTab === "expenses") {
-        return t.amount < 0 || (t.categoryType === "expense");
-      } else {
-        return t.amount > 0 || (t.categoryType === "income");
-      }
-    });
-
-    // Apply search filter if present
-    const filteredTransactions = searchTerm 
-      ? relevantTransactions.filter(t => 
-          t.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.subCategory?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          t.verboseDescription?.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      : relevantTransactions;
-
-    // Group by category
-    const categoryMap = new Map<string, { 
-      amount: number,
-      count: number,
-      transactions: Transaction[],
-      subcategories: Map<string, {
-        amount: number,
-        count: number,
-        transactions: Transaction[]
-      }>
-    }>();
-    
-    let totalValue = 0;
-    
-    filteredTransactions.forEach(t => {
-      const amount = Math.abs(t.amount);
-      totalValue += amount;
-      
-      // Use Claude's categorization if available, or derive from transaction data
-      const category = t.category && t.category !== "Uncategorized" 
-        ? t.category 
-        : activeTab === "expenses" ? "Other Expenses" : "Other Income";
-      
-      const subCategory = t.subCategory || "Other";
-      
-      // Initialize category if it doesn't exist
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { 
-          amount: 0, 
-          count: 0,
-          transactions: [],
-          subcategories: new Map()
-        });
-      }
-      
-      // Get category data
-      const categoryData = categoryMap.get(category)!;
-      
-      // Update category data
-      categoryData.amount += amount;
-      categoryData.count += 1;
-      categoryData.transactions.push(t);
-      
-      // Initialize subcategory if it doesn't exist
-      if (!categoryData.subcategories.has(subCategory)) {
-        categoryData.subcategories.set(subCategory, {
-          amount: 0,
-          count: 0,
-          transactions: []
-        });
-      }
-      
-      // Update subcategory data
-      const subCategoryData = categoryData.subcategories.get(subCategory)!;
-      subCategoryData.amount += amount;
-      subCategoryData.count += 1;
-      subCategoryData.transactions.push(t);
-    });
-    
-    // Convert to chart data format
-    const chartData = Array.from(categoryMap.entries())
-      .map(([name, data]) => ({
-        name,
-        value: data.amount,
-        count: data.count,
-        transactions: data.transactions,
-        subcategories: Array.from(data.subcategories.entries())
-          .map(([subName, subData]) => ({ 
-            name: subName, 
-            value: subData.amount,
-            count: subData.count,
-            transactions: subData.transactions,
-            parentCategory: name
-          }))
-          .sort((a, b) => b.value - a.value),
-        totalValue
-      }))
-      .sort((a, b) => b.value - a.value);
-    
-    // Extract subcategory data if a category is selected
-    const subcategoryChartData = selectedCategory 
-      ? chartData.find(cat => cat.name === selectedCategory)?.subcategories || []
-      : [];
-    
-    // Calculate totals
-    const totalExpenses = activeTab === "expenses" ? totalValue : 0;
-    const totalIncome = activeTab === "income" ? totalValue : 0;
-    
-    return { 
-      categoryData: chartData, 
-      subcategoryData: subcategoryChartData,
-      totalExpenses,
-      totalIncome,
-      expenseCategoriesCount: activeTab === "expenses" ? chartData.length : 0,
-      incomeCategoriesCount: activeTab === "income" ? chartData.length : 0
-    };
-  }, [transactions, selectedCategory, activeTab, searchTerm]);
-
-  // Custom tooltip for the PieChart
-  const CustomTooltip = ({ active, payload }: any) => {
+  
+  // Prepare data based on selected view type
+  const expenseData = prepareChartData(transactions);
+  const incomeData = prepareIncomeChartData(transactions);
+  
+  const chartData = viewType === "expense" ? expenseData : incomeData;
+  
+  // If a category is selected, show its subcategories
+  const selectedCategoryData = selectedCategory
+    ? chartData.find(item => item.name === selectedCategory)?.subcategories || []
+    : [];
+  
+  // Handle clicking on a category to see subcategories
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category === selectedCategory ? null : category);
+  };
+  
+  // Format tooltip content
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      const percentage = ((data.value / data.totalValue) * 100).toFixed(1);
-      
       return (
-        <div className="bg-background border rounded p-3 shadow-md">
-          <p className="font-medium">{data.name}</p>
-          <p className="text-sm text-muted-foreground">{formatCurrency(data.value)}</p>
-          <p className="text-xs text-muted-foreground">{percentage}% of total</p>
-          <p className="text-xs text-muted-foreground">{data.count} transactions</p>
-          <p className="text-xs text-primary mt-1">Click to view details</p>
+        <div className="bg-background p-2 border rounded-md shadow-sm">
+          <p className="text-sm font-medium">{payload[0].payload.name}</p>
+          <p className="text-xs">{formatCurrency(payload[0].value)}</p>
+          {payload[0].payload.count && (
+            <p className="text-xs text-muted-foreground">
+              {payload[0].payload.count} transactions
+            </p>
+          )}
         </div>
       );
     }
     return null;
   };
-
-  // Active shape for the PieChart (when a slice is selected)
-  const renderActiveShape = (props: any) => {
-    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
-    
-    return (
-      <g>
-        <Sector
-          cx={cx}
-          cy={cy}
-          innerRadius={innerRadius}
-          outerRadius={outerRadius + 6}
-          startAngle={startAngle}
-          endAngle={endAngle}
-          fill={fill}
-        />
-      </g>
-    );
-  };
-
-  // Handle category selection
-  const handleCategoryClick = (data: any) => {
-    setSelectedCategory(data.name);
-    setSelectedSubcategory(null);
-    setSelectedTransactions(null);
-  };
-
-  // Handle subcategory selection
-  const handleSubcategoryClick = (data: any) => {
-    setSelectedSubcategory(data.name);
-    setSelectedTransactions(data.transactions);
-  };
-
-  // Handle navigation back (from subcategories to categories)
-  const handleBackToCategories = () => {
-    setSelectedCategory(null);
-    setSelectedSubcategory(null);
-    setSelectedTransactions(null);
-  };
-
-  // Handle navigation back (from transactions to subcategories)
-  const handleBackToSubcategories = () => {
-    setSelectedSubcategory(null);
-    setSelectedTransactions(null);
-  };
-
-  // Handle mouse hover on pie slices
-  const onPieEnter = (_, index: number) => {
-    setActiveIndex(index);
+  
+  // Format data for chart
+  const formatDataForChart = (data: any[]) => {
+    return data.map(item => ({
+      ...item,
+      // Use .name for display, add .count if available
+      name: item.name,
+      count: item.transactions?.length || 0
+    }));
   };
   
-  // Handle mouse leave on pie slices
-  const onPieLeave = () => {
-    setActiveIndex(null);
-  };
-
-  // Get display name for transaction - prioritize verbose description
-  const getTransactionDisplayName = (transaction: Transaction) => {
-    if (transaction.verboseDescription && 
-        transaction.verboseDescription !== transaction.description &&
-        transaction.verboseDescription !== transaction.name) {
-      return transaction.verboseDescription;
-    }
-    if (transaction.payee) {
-      return transaction.payee;
-    }
-    return transaction.description || transaction.name;
-  };
-
+  const displayData = selectedCategory
+    ? formatDataForChart(selectedCategoryData)
+    : formatDataForChart(chartData);
+  
+  // Calculate totals for percentage display
+  const totalAmount = selectedCategory
+    ? selectedCategoryData.reduce((sum, item) => sum + item.value, 0)
+    : chartData.reduce((sum, item) => sum + item.value, 0);
+  
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <PieChartIcon className="h-5 w-5 text-primary" />
-              {activeTab === "expenses" ? "Expense Categories" : "Income Sources"}
+            <CardTitle>
+              {selectedCategory 
+                ? `${selectedCategory} Breakdown` 
+                : "Category Breakdown"}
             </CardTitle>
             <CardDescription>
-              {activeTab === "expenses" 
-                ? `${expenseCategoriesCount} expense categories with ${formatCurrency(totalExpenses)} total`
-                : `${incomeCategoriesCount} income categories with ${formatCurrency(totalIncome)} total`
-              }
+              {selectedCategory 
+                ? `Subcategories of ${selectedCategory}` 
+                : `Your ${viewType === "expense" ? "spending" : "income"} by category`}
             </CardDescription>
           </div>
           
           <div className="flex items-center gap-2">
-            <Tabs value={activeTab} onValueChange={(value: any) => {
-              setActiveTab(value);
-              setSelectedCategory(null);
-              setSelectedSubcategory(null);
-              setSelectedTransactions(null);
-            }}>
-              <TabsList>
-                <TabsTrigger value="expenses">Expenses</TabsTrigger>
-                <TabsTrigger value="income">Income</TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {selectedCategory && (
+              <button 
+                onClick={() => setSelectedCategory(null)}
+                className="text-sm text-finance-primary hover:underline"
+              >
+                Back to all categories
+              </button>
+            )}
+            
+            <Select 
+              value={viewType} 
+              onValueChange={(value) => {
+                setViewType(value as "expense" | "income");
+                setSelectedCategory(null);
+              }}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="View" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expense">Expenses</SelectItem>
+                <SelectItem value="income">Income</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardHeader>
       
       <CardContent>
-        {/* Search Input */}
-        <div className="mb-4 relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search transactions..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        
-        {/* Navigation breadcrumbs */}
-        {(selectedCategory || selectedSubcategory) && (
-          <div className="flex items-center mb-4 space-x-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="p-0 h-8" 
-              onClick={
-                selectedTransactions 
-                  ? handleBackToSubcategories 
-                  : handleBackToCategories
-              }
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back
-            </Button>
-            
-            {selectedCategory && (
-              <div className="flex items-center">
-                <span className="text-sm font-medium mx-1">
-                  {selectedCategory}
-                </span>
-                {selectedSubcategory && (
-                  <>
-                    <span className="mx-1 text-muted-foreground">/</span>
-                    <span className="text-sm font-medium">
-                      {selectedSubcategory}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-            
-            {selectedTransactions && (
-              <Badge variant="outline" className="ml-2">
-                {selectedTransactions.length} transactions
-              </Badge>
-            )}
+        {displayData.length > 0 ? (
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={displayData}
+                layout="vertical"
+                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+              >
+                <XAxis type="number" tickFormatter={(value) => formatCurrency(value)} />
+                <YAxis 
+                  type="category" 
+                  dataKey="name" 
+                  width={150}
+                  tick={{
+                    fontSize: 12,
+                    width: 130, // Control width of the text
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar 
+                  dataKey="value" 
+                  fill="#8884d8" 
+                  onClick={(data) => {
+                    // Only allow drilling down on main categories, not subcategories
+                    if (!selectedCategory && data.subcategories?.length > 0) {
+                      handleCategorySelect(data.name);
+                    }
+                  }}
+                  cursor={!selectedCategory ? 'pointer' : undefined}
+                >
+                  {displayData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={COLORS[index % COLORS.length]} 
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="h-64 flex items-center justify-center">
+            <p className="text-muted-foreground">No data available</p>
           </div>
         )}
         
-        {/* Charts and Transaction List */}
-        <div className="mt-2">
-          {/* Category Pie Chart */}
-          {!selectedCategory && !selectedTransactions && (
-            <div className="h-[350px]">
-              {categoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      activeIndex={activeIndex}
-                      activeShape={renderActiveShape}
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={1}
-                      dataKey="value"
-                      onMouseEnter={onPieEnter}
-                      onMouseLeave={onPieLeave}
-                      onClick={handleCategoryClick}
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      formatter={(value, entry, index) => (
-                        <span className="text-xs">
-                          {value} ({categoryData[index].count})
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  No {activeTab} categories available
-                </div>
-              )}
+        {/* Category data table with percentages */}
+        <div className="mt-4 space-y-1 text-sm max-h-40 overflow-y-auto">
+          {displayData.map((item) => (
+            <div 
+              key={item.name}
+              className="flex justify-between items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer"
+              onClick={() => {
+                if (!selectedCategory && item.subcategories?.length > 0) {
+                  handleCategorySelect(item.name);
+                }
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full" 
+                  style={{ backgroundColor: COLORS[displayData.indexOf(item) % COLORS.length] }}
+                />
+                <span className="font-medium">{item.name}</span>
+                {!selectedCategory && item.subcategories?.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    ({item.subcategories.length} subcategories)
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {item.count} txns
+                </span>
+                <span>{formatCurrency(item.value)}</span>
+                <span className="text-xs text-muted-foreground w-12 text-right">
+                  {Math.round((item.value / totalAmount) * 100)}%
+                </span>
+              </div>
             </div>
-          )}
-          
-          {/* Subcategory Pie Chart */}
-          {selectedCategory && !selectedTransactions && (
-            <div className="h-[350px]">
-              {subcategoryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      activeIndex={activeIndex}
-                      activeShape={renderActiveShape}
-                      data={subcategoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={1}
-                      dataKey="value"
-                      onMouseEnter={onPieEnter}
-                      onMouseLeave={onPieLeave}
-                      onClick={handleSubcategoryClick}
-                    >
-                      {subcategoryData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      layout="vertical" 
-                      verticalAlign="middle" 
-                      align="right"
-                      formatter={(value, entry, index) => (
-                        <span className="text-xs">
-                          {value} ({subcategoryData[index].count})
-                        </span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  No subcategories for {selectedCategory}
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Transaction List */}
-          {selectedTransactions && (
-            <div className="overflow-y-auto max-h-[350px] space-y-2">
-              {selectedTransactions.map((t) => (
-                <div key={t.id} className="text-sm p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div className="max-w-[70%]">
-                      <p className="font-medium">{getTransactionDisplayName(t)}</p>
-                      {(t.description && t.description !== getTransactionDisplayName(t)) && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Original: {t.description || t.name}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        <Badge variant="outline" className="text-xs">
-                          {t.category || "Uncategorized"}
-                        </Badge>
-                        {t.subCategory && (
-                          <Badge variant="outline" className="text-xs bg-muted/50">
-                            {t.subCategory}
-                          </Badge>
-                        )}
-                        {t.confidence && (
-                          <Badge variant={
-                            t.confidence === "high" ? "default" : 
-                            t.confidence === "medium" ? "secondary" : "outline"
-                          } className="text-xs">
-                            {t.confidence} confidence
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-medium ${t.amount < 0 ? "text-destructive" : "text-green-600"}`}>
-                        {formatCurrency(t.amount)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(t.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {selectedTransactions.length === 0 && (
-                <div className="text-center p-4 text-muted-foreground">
-                  No transactions match your criteria
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        
-        {/* Summary Footer */}
-        <div className="mt-4 text-xs text-muted-foreground text-center">
-          {searchTerm ? (
-            <p>Filtered to {categoryData.reduce((sum, cat) => sum + cat.count, 0)} transactions matching "{searchTerm}"</p>
-          ) : (
-            <p>Showing all {activeTab} categories from Claude's enhanced categorization</p>
-          )}
+          ))}
         </div>
       </CardContent>
     </Card>

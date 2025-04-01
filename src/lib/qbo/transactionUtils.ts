@@ -1,4 +1,3 @@
-
 import { Transaction, TransactionType } from '../types';
 import { categoryPatterns, locationPatterns, categoryHierarchy } from './categoryPatterns';
 
@@ -61,7 +60,7 @@ export function processTransaction(trn: any): Transaction | null {
     // Determine initial category and other metadata
     let category = "Uncategorized";
     let subCategory = "";
-    let categoryType: "income" | "expense" | "transfer" | "other" = "other";
+    let categoryType: "income" | "expense" | "transfer" = "expense";
     
     // Set initial category type based on transaction type
     if (type === TransactionType.CREDIT || type === TransactionType.DEPOSIT || type === TransactionType.INTEREST) {
@@ -178,7 +177,7 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     // Determine initial category and other metadata
     let category = "Uncategorized";
     let subCategory = "";
-    let categoryType: "income" | "expense" | "transfer" | "other" = "other";
+    let categoryType: "income" | "expense" | "transfer" = "expense";
     
     // Set initial category type based on transaction type
     if (type === TransactionType.CREDIT || type === TransactionType.DEPOSIT || type === TransactionType.INTEREST) {

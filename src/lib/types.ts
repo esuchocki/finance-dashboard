@@ -1,28 +1,8 @@
 
-// Base Transaction type
-export interface Transaction {
-  id: string;
-  date: Date;
-  amount: number;
-  type: TransactionType;
-  name?: string;
-  description?: string;
-  memo?: string;
-  category?: string;
-  subCategory?: string;
-  location?: string;
-  payee?: string;
-  isRecurring?: boolean;
-  tags?: string[];
-  verboseDescription?: string;
-  confidence?: "high" | "medium" | "low";
-  categoryType?: "income" | "expense" | "transfer" | "other";
-}
-
-// Transaction types
+// Enum for transaction types
 export enum TransactionType {
-  CREDIT = "CREDIT",
   DEBIT = "DEBIT",
+  CREDIT = "CREDIT",
   CHECK = "CHECK",
   DEPOSIT = "DEPOSIT",
   WITHDRAWAL = "WITHDRAWAL",
@@ -32,55 +12,90 @@ export enum TransactionType {
   OTHER = "OTHER"
 }
 
-// Filter options for transactions
-export interface TransactionFilterOptions {
-  startDate?: Date;
-  endDate?: Date;
-  dateRange?: {
-    start?: Date;
-    end?: Date;
-  };
-  types?: TransactionType[];
-  categories?: string[];
-  minAmount?: number;
-  maxAmount?: number;
-  amountRange?: {
-    min?: number;
-    max?: number;
-  };
-  search?: string;
-  searchTerm?: string;
-  isRecurring?: boolean;
+// Structure for a transaction
+export interface Transaction {
+  id: string;
+  date: Date;
+  amount: number;
+  type: TransactionType;
+  name: string;
+  description: string;
+  memo: string;
+  category: string;
+  subCategory: string;
+  location: string;
+  isRecurring: boolean;
+  payee: string;
+  verboseDescription: string;
+  confidence: "high" | "medium" | "low";
+  categoryType: "income" | "expense" | "transfer";
+  tags: string[];
 }
 
-// Financial summary
+// Options for filtering transactions
+export interface TransactionFilterOptions {
+  categories: string[];
+  types: TransactionType[];
+  dateRange: {
+    start: Date | null;
+    end: Date | null;
+  };
+  amountRange: {
+    min: number | null;
+    max: number | null;
+  };
+  searchQuery: string;
+  isRecurring: boolean | null;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  search?: string;
+}
+
+// Structure for financial summary data
 export interface FinancialSummary {
-  totalIncome: number;
-  totalExpenses: number;
-  netCashflow: number;
-  topExpenseCategories: { category: string; amount: number }[];
-  recurringExpensesTotal: number;
-  largestTransaction: Transaction;
-  monthlyBreakdown: { month: string; income: number; expenses: number }[];
-  transactionCount: number;
   dateRange: {
     start: Date;
     end: Date;
   };
+  totalIncome: number;
+  totalExpenses: number;
+  balance: number;
+  largestExpense: Transaction | null;
+  largestIncome: Transaction | null;
+  recurringExpenses: Transaction[];
+  monthlyBreakdown: {
+    month: string; // Format: "YYYY-MM"
+    income: number;
+    expenses: number;
+  }[];
+  topExpenseCategories: {
+    category: string;
+    amount: number;
+    percentage: number;
+  }[];
+  topIncomeCategories: {
+    category: string;
+    amount: number;
+    percentage: number;
+  }[];
 }
 
-// Financial insights
+// Structure for financial insights
 export interface FinancialInsight {
   id: string;
-  type: "info" | "warning" | "tip";
   title: string;
   description: string;
+  type: "info" | "warning" | "success" | "danger";
   category?: string;
   relatedTransactions?: Transaction[];
-  priority?: number;
+  amount?: number;
+  change?: number;
+  trendDirection?: "up" | "down" | "stable";
 }
 
-// Enhanced category classification for Claude
+// Define category hierarchy
 export interface CategoryHierarchy {
   name: string;
   subcategories: string[];
