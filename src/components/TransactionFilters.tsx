@@ -25,7 +25,7 @@ const TransactionFilters = () => {
   } = useFinance();
   
   const [searchQuery, setSearchQuery] = useState(filters.searchQuery || "");
-  const [category, setCategory] = useState(filters.category || "");
+  const [category, setCategory] = useState(filters.category || "all");
   const [transactionType, setTransactionType] = useState(filters.type || "all");
   const [dateRange, setDateRange] = useState(filters.dateRange || null);
   const [minAmount, setMinAmount] = useState(filters.minAmount?.toString() || "");
@@ -67,7 +67,7 @@ const TransactionFilters = () => {
     
     updateFilters({
       // Required properties from TransactionFilterOptions
-      categories: category ? [category] : [],
+      categories: category !== "all" ? [category] : [],
       types: typeValue,
       dateRange: {
         start: dateRange?.start || null,
@@ -81,7 +81,7 @@ const TransactionFilters = () => {
       isRecurring: null,
       
       // Support for legacy properties
-      category: category,
+      category: category !== "all" ? category : undefined,
       type: transactionType,
       excludeTransfers: excludeTransfers,
       minAmount: minAmount ? parseFloat(minAmount) : undefined,
@@ -129,7 +129,7 @@ const TransactionFilters = () => {
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
+                <SelectItem value="all">All categories</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                 ))}
@@ -275,7 +275,7 @@ const TransactionFilters = () => {
               onClick={() => {
                 resetFilters();
                 setSearchQuery("");
-                setCategory("");
+                setCategory("all");
                 setTransactionType("all");
                 setDateRange(null);
                 setMinAmount("");
