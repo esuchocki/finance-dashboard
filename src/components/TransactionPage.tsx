@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
@@ -6,7 +5,7 @@ import TransactionFilters from "./TransactionFilters";
 import AnalysisSectionWrapper from "./AnalysisSectionWrapper";
 import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, FileText, Info, Anchor } from "lucide-react";
+import { RefreshCw, FileText, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -79,9 +78,6 @@ const TransactionPage = () => {
       {transactions.length === 0 ? (
         <div className="animate-fade-in">
           <FileUploader />
-          <div className="text-center text-muted-foreground text-xs italic mt-8 opacity-70">
-            "The winds of finance can't fill your sails without data to chart your course..."
-          </div>
         </div>
       ) : (
         <div className="space-y-6 animate-fade-in">
@@ -91,18 +87,6 @@ const TransactionPage = () => {
               Transactions
             </h1>
             <div className="flex items-center gap-4">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center opacity-70">
-                      <Anchor className="h-4 w-4 text-finance-primary mr-1" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-xs">
-                    <p className="text-xs">Every expense avoided is another fathom closer to your nautical dreams.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2 hover:bg-muted" 

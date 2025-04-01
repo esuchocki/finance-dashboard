@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Dashboard } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Info, Lightbulb, ChevronRight, Sailboat, Anchor } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -134,27 +134,13 @@ const Index = () => {
             </Tooltip>
           </TooltipProvider>
         )}
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="opacity-50">
-                <Anchor className="h-4 w-4 ml-1 text-finance-primary" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" align="end" className="max-w-xs">
-              <div className="text-xs">
-                <p>"Chart your financial course wisely, for the open seas await those with well-trimmed budgets."</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
       
       <Dashboard />
       
       {transactions.length > 0 && (
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
-          <p className="flex items-center justify-center gap-1">
+          <p>
             Financial data visualization powered by QBO Parser & Claude AI
             {isUsingCache && !isDevelopmentMode && (
               <TooltipProvider>
@@ -171,16 +157,6 @@ const Index = () => {
               </TooltipProvider>
             )}
             {isDevelopmentMode && " (development mode - cache disabled)"}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Sailboat className="h-3 w-3 ml-1 opacity-50" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="text-xs">"They say money can't buy happiness, but it can buy a sailboat... and that's pretty much the same thing."</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           </p>
         </div>
       )}
