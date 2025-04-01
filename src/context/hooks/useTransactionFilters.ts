@@ -39,7 +39,10 @@ export const applyFilters = (transactions: Transaction[], filters: TransactionFi
     filtered = filtered.filter(t => 
       (t.description?.toLowerCase().includes(searchLower) || false) || 
       (t.memo?.toLowerCase().includes(searchLower) || false) ||
-      (t.name?.toLowerCase().includes(searchLower) || false)
+      (t.name?.toLowerCase().includes(searchLower) || false) ||
+      (t.verboseDescription?.toLowerCase().includes(searchLower) || false) ||
+      (t.category?.toLowerCase().includes(searchLower) || false) ||
+      (t.subCategory?.toLowerCase().includes(searchLower) || false)
     );
   }
   

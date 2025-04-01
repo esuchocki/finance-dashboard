@@ -79,3 +79,13 @@ export interface FinancialInsight {
   relatedTransactions?: Transaction[];
   priority?: number;
 }
+
+// Enhanced category classification for Claude
+export interface CategoryHierarchy {
+  name: string;
+  subcategories: string[];
+  examples: string[];
+  isIncome?: boolean;
+  isExpense?: boolean;
+  isTransfer?: boolean;
+}

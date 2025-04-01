@@ -12,7 +12,9 @@ export const prepareChartData = (transactions: Transaction[]) => {
   
   // First, filter for expense transactions
   const expenseTransactions = transactions.filter(
-    t => t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"
+    t => t.categoryType === "expense" || 
+        (t.categoryType === undefined && 
+         (t.type === "DEBIT" || t.type === "CHECK" || t.type === "WITHDRAWAL" || t.type === "FEE"))
   );
   
   // Count total uncategorized before processing
@@ -21,6 +23,20 @@ export const prepareChartData = (transactions: Transaction[]) => {
   ).length;
   
   console.log(`Initial uncategorized expense transactions: ${initialUncategorized} of ${expenseTransactions.length}`);
+  
+  // Log sample transactions to debug categorization
+  if (expenseTransactions.length > 0) {
+    console.log("Sample expense transactions:", 
+      expenseTransactions.slice(0, 5).map(t => ({
+        description: t.description,
+        verboseDescription: t.verboseDescription,
+        category: t.category,
+        subCategory: t.subCategory,
+        amount: t.amount,
+        confidence: t.confidence
+      }))
+    );
+  }
   
   expenseTransactions.forEach(t => {
     // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
@@ -33,14 +49,14 @@ export const prepareChartData = (transactions: Transaction[]) => {
         if (words.length > 1) {
           // For transactions with verbose descriptions but no category, 
           // set them to "Other" instead of "Uncategorized" for better organization
-          category = "Other";
+          category = "Other Expenses";
         }
       }
     }
     
     // Still defaulting to "Other" if needed
-    category = category && category !== "Uncategorized" ? category : "Other";
-    const subCategory = t.subCategory || "Other";
+    category = category && category !== "Uncategorized" ? category : "Other Expenses";
+    const subCategory = t.subCategory || "Uncategorized Spending";
     
     // Initialize category if it doesn't exist
     if (!categoryMap.has(category)) {
@@ -66,7 +82,8 @@ export const prepareChartData = (transactions: Transaction[]) => {
     Array.from(categoryMap.entries()).map(([name, data]) => ({
       name,
       count: data.transactions.length,
-      amount: data.amount
+      amount: data.amount,
+      subcategories: Array.from(data.subcategories.keys())
     }))
   );
   
@@ -94,7 +111,9 @@ export const prepareIncomeChartData = (transactions: Transaction[]) => {
   
   // Filter for income transactions
   const incomeTransactions = transactions.filter(
-    t => t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"
+    t => t.categoryType === "income" || 
+        (t.categoryType === undefined && 
+         (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"))
   );
   
   // Count total uncategorized before processing
@@ -104,17 +123,31 @@ export const prepareIncomeChartData = (transactions: Transaction[]) => {
   
   console.log(`Initial uncategorized income transactions: ${initialUncategorized} of ${incomeTransactions.length}`);
   
+  // Log sample transactions to debug categorization
+  if (incomeTransactions.length > 0) {
+    console.log("Sample income transactions:", 
+      incomeTransactions.slice(0, 5).map(t => ({
+        description: t.description,
+        verboseDescription: t.verboseDescription, 
+        category: t.category,
+        subCategory: t.subCategory,
+        amount: t.amount,
+        confidence: t.confidence
+      }))
+    );
+  }
+  
   incomeTransactions.forEach(t => {
     // IMPORTANT: Always use Claude's assigned category if available, with fallback to original
     // For income, if the category is missing, try to use "Income" as default
     let category = t.category;
     if (!category || category === "Uncategorized") {
-      category = "Income";
+      category = "Other Income Sources";
     }
     
     // Still defaulting if needed
-    category = category && category !== "Uncategorized" ? category : "Income";
-    const subCategory = t.subCategory || "Other Income";
+    category = category && category !== "Uncategorized" ? category : "Other Income Sources";
+    const subCategory = t.subCategory || "Miscellaneous Income";
     
     // Initialize category if it doesn't exist
     if (!categoryMap.has(category)) {
@@ -140,7 +173,8 @@ export const prepareIncomeChartData = (transactions: Transaction[]) => {
     Array.from(categoryMap.entries()).map(([name, data]) => ({
       name,
       count: data.transactions.length,
-      amount: data.amount
+      amount: data.amount,
+      subcategories: Array.from(data.subcategories.keys())
     }))
   );
   
