@@ -6,17 +6,33 @@ import { formatCurrency } from "@/lib/formatters";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
 
 interface TransactionListProps {
   transactions: Transaction[];
   title?: string;
   showViewAll?: boolean;
+  pagination?: PaginationProps;
 }
 
 const TransactionList: React.FC<TransactionListProps> = ({ 
   transactions, 
   title = "Transactions", 
-  showViewAll = true 
+  showViewAll = true,
+  pagination
 }) => {
   if (!transactions || transactions.length === 0) {
     return (
@@ -71,6 +87,75 @@ const TransactionList: React.FC<TransactionListProps> = ({
       default:
         return "outline";
     }
+  };
+
+  // Generate pagination items
+  const renderPaginationItems = () => {
+    if (!pagination || pagination.totalPages <= 1) return null;
+    
+    const { currentPage, totalPages, onPageChange } = pagination;
+    const items = [];
+    
+    // Show up to 5 page numbers, with ellipsis for large ranges
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+    
+    if (endPage - startPage < 4) {
+      startPage = Math.max(1, endPage - 4);
+    }
+    
+    // Add first page if not included in range
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key="page-1">
+          <PaginationLink isActive={currentPage === 1} onClick={() => onPageChange(1)}>
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+      
+      // Add ellipsis if there's a gap
+      if (startPage > 2) {
+        items.push(
+          <PaginationItem key="ellipsis-1">
+            <PaginationLink disabled>...</PaginationLink>
+          </PaginationItem>
+        );
+      }
+    }
+    
+    // Add page numbers
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={`page-${i}`}>
+          <PaginationLink isActive={currentPage === i} onClick={() => onPageChange(i)}>
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    // Add last page if not included in range
+    if (endPage < totalPages) {
+      // Add ellipsis if there's a gap
+      if (endPage < totalPages - 1) {
+        items.push(
+          <PaginationItem key="ellipsis-2">
+            <PaginationLink disabled>...</PaginationLink>
+          </PaginationItem>
+        );
+      }
+      
+      items.push(
+        <PaginationItem key={`page-${totalPages}`}>
+          <PaginationLink isActive={currentPage === totalPages} onClick={() => onPageChange(totalPages)}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    return items;
   };
 
   return (
@@ -155,6 +240,33 @@ const TransactionList: React.FC<TransactionListProps> = ({
             </div>
           ))}
         </div>
+        
+        {/* Pagination controls */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="mt-4">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
+                    className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={pagination.currentPage === 1}
+                  />
+                </PaginationItem>
+                
+                {renderPaginationItems()}
+                
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
+                    className={pagination.currentPage === pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={pagination.currentPage === pagination.totalPages}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

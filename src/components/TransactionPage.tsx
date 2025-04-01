@@ -10,7 +10,21 @@ import { RefreshCw, FileText } from "lucide-react";
 
 const TransactionPage = () => {
   const { transactions, filteredTransactions, clearData } = useFinance();
-  const [activeTab, setActiveTab] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const transactionsPerPage = 10;
+  
+  // Calculate pagination values
+  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
+  const indexOfLastTransaction = currentPage * transactionsPerPage;
+  const indexOfFirstTransaction = indexOfLastTransaction - transactionsPerPage;
+  const currentTransactions = filteredTransactions.slice(indexOfFirstTransaction, indexOfLastTransaction);
+
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of the transaction list when page changes
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="space-y-6">
@@ -42,8 +56,14 @@ const TransactionPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2 animate-fade-in stagger-2">
               <TransactionList 
-                transactions={filteredTransactions} 
+                transactions={currentTransactions} 
                 title={`Filtered Transactions (${filteredTransactions.length})`} 
+                showViewAll={false}
+                pagination={{
+                  currentPage,
+                  totalPages,
+                  onPageChange: handlePageChange
+                }}
               />
             </div>
             <div className="md:col-span-1 animate-fade-in stagger-3">
