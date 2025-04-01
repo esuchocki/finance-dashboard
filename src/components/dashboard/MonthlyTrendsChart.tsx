@@ -62,6 +62,16 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
     },
   };
 
+  // Format currency values for tooltips to round to nearest dollar
+  const formatTooltipCurrency = (value: number): string => {
+    return formatCurrency(Math.round(value));
+  };
+
+  // Format percentage values for tooltips to round to nearest percent
+  const formatTooltipPercentage = (value: number): string => {
+    return `${Math.round(value)}%`;
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -124,8 +134,8 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       />
                       <YAxis 
                         tickFormatter={(value) => `$${Math.abs(value) >= 1000 
-                          ? `${(value / 1000).toFixed(1)}k` 
-                          : value}`}
+                          ? `${Math.round(value / 1000)}k` 
+                          : Math.round(value)}`}
                         stroke="#888"
                         fontSize={12}
                       />
@@ -135,8 +145,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                             return (
                               <ChartTooltipContent
                                 active={active}
-                                payload={payload}
-                                formatter={(value) => formatCurrency(value as number)}
+                                payload={payload.map(item => ({
+                                  ...item,
+                                  name: item.dataKey === "income" ? "Income" : "Expense"
+                                }))}
+                                formatter={(value) => formatTooltipCurrency(value as number)}
                               />
                             );
                           }
@@ -145,13 +158,13 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       />
                       <Bar 
                         dataKey="income" 
-                        name="income" 
+                        name="Income" 
                         fill="#81C784" // Muted green
                         radius={[3, 3, 0, 0]} // Slightly rounded bar tops
                       />
                       <Bar 
                         dataKey="expenses" 
-                        name="expense" 
+                        name="Expense" 
                         fill="#E57373" // Muted red
                         radius={[3, 3, 0, 0]} // Slightly rounded bar tops
                       />
@@ -172,8 +185,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This bar chart displays your monthly income and expenses side by side,
-                    making it easy to compare the two values for each month. The visualizations 
-                    use balanced colors to distinguish between different financial categories.
+                    making it easy to compare the two values for each month.
                   </p>
                 </div>
                 <div>
@@ -213,8 +225,8 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       />
                       <YAxis 
                         tickFormatter={(value) => `$${Math.abs(value) >= 1000 
-                          ? `${(value / 1000).toFixed(1)}k` 
-                          : value}`}
+                          ? `${Math.round(value / 1000)}k` 
+                          : Math.round(value)}`}
                         stroke="#888"
                         fontSize={12}
                       />
@@ -224,8 +236,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                             return (
                               <ChartTooltipContent
                                 active={active}
-                                payload={payload}
-                                formatter={(value) => formatCurrency(value as number)}
+                                payload={payload.map(item => ({
+                                  ...item,
+                                  name: item.dataKey === "income" ? "Income" : "Expense"
+                                }))}
+                                formatter={(value) => formatTooltipCurrency(value as number)}
                               />
                             );
                           }
@@ -235,7 +250,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Line 
                         type="monotone" 
                         dataKey="income" 
-                        name="income" 
+                        name="Income" 
                         stroke="#81C784" // Muted green
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
@@ -243,7 +258,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Line 
                         type="monotone" 
                         dataKey="expenses" 
-                        name="expense" 
+                        name="Expense" 
                         stroke="#E57373" // Muted red
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
@@ -305,7 +320,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         fontSize={12}
                       />
                       <YAxis 
-                        tickFormatter={(value) => `${value}%`}
+                        tickFormatter={(value) => `${Math.round(value)}%`}
                         stroke="#888"
                         fontSize={12}
                       />
@@ -315,8 +330,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                             return (
                               <ChartTooltipContent
                                 active={active}
-                                payload={payload}
-                                formatter={(value) => `${value}%`}
+                                payload={payload.map(item => ({
+                                  ...item,
+                                  name: item.dataKey === "incomeChange" ? "Income % Change" : "Expense % Change"
+                                }))}
+                                formatter={(value) => formatTooltipPercentage(value as number)}
                               />
                             );
                           }
