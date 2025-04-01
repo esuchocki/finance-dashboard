@@ -49,16 +49,16 @@ interface MonthlyTrendsChartProps {
 }
 
 const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendData }) => {
-  // Configuration for charts - update colors to pastel shades
+  // Updated colors to more professional, balanced tones - not too pastel, not too vibrant
   const chartConfig = {
     expense: { 
-      theme: { light: "#FFDEE2", dark: "#FFDEE2" } // Pastel red
+      theme: { light: "#E57373", dark: "#E57373" } // Muted red
     },
     income: { 
-      theme: { light: "#F2FCE2", dark: "#F2FCE2" } // Pastel green
+      theme: { light: "#81C784", dark: "#81C784" } // Muted green
     },
     balance: { 
-      theme: { light: "#E5DEFF", dark: "#E5DEFF" } // Pastel purple
+      theme: { light: "#9FA8DA", dark: "#9FA8DA" } // Muted purple/blue
     },
   };
 
@@ -102,7 +102,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           
           <TabsContent value="combined" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-8 h-[300px]">
+              <div className="md:col-span-7 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -112,18 +112,22 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       data={monthlyTrendData}
                       margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.7} />
                       <XAxis 
                         dataKey="name" 
                         angle={-45}
                         textAnchor="end"
                         height={60}
                         tickMargin={20}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <YAxis 
                         tickFormatter={(value) => `$${Math.abs(value) >= 1000 
                           ? `${(value / 1000).toFixed(1)}k` 
                           : value}`}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <ChartTooltip 
                         content={({ active, payload }) => {
@@ -142,14 +146,19 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Bar 
                         dataKey="income" 
                         name="income" 
-                        fill="#A7E9AF" /* Pastel green */
+                        fill="#81C784" // Muted green
+                        radius={[3, 3, 0, 0]} // Slightly rounded bar tops
                       />
                       <Bar 
                         dataKey="expenses" 
                         name="expense" 
-                        fill="#FFAAA5" /* Pastel red */
+                        fill="#E57373" // Muted red
+                        radius={[3, 3, 0, 0]} // Slightly rounded bar tops
                       />
-                      <Legend />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: 15 }} 
+                        iconType="circle"
+                      />
                     </BarChart>
                   </ChartContainer>
                 ) : (
@@ -158,19 +167,21 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-4 flex flex-col justify-center">
-                <div className="mb-6 pr-4">
+              <div className="md:col-span-5 flex flex-col justify-center pl-4">
+                <div className="mb-6">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This bar chart displays your monthly income and expenses side by side,
-                    making it easy to compare the two values for each month.
+                    making it easy to compare the two values for each month. The visualizations 
+                    use balanced colors to distinguish between different financial categories.
                   </p>
                 </div>
-                <div className="pr-4">
+                <div>
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for months where expenses exceed income (red bars taller than green),
-                    which might indicate budget issues that need attention.
+                    which might indicate budget issues that need attention. Also watch for seasonal 
+                    patterns that could help you anticipate future financial needs.
                   </p>
                 </div>
               </div>
@@ -180,7 +191,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Trends Tab showing income and expenses as line chart with dollar amounts */}
           <TabsContent value="trends" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-8 h-[300px]">
+              <div className="md:col-span-7 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -190,18 +201,22 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       data={monthlyTrendData}
                       margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.7} />
                       <XAxis 
                         dataKey="name" 
                         angle={-45}
                         textAnchor="end"
                         height={60}
                         tickMargin={20}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <YAxis 
                         tickFormatter={(value) => `$${Math.abs(value) >= 1000 
                           ? `${(value / 1000).toFixed(1)}k` 
                           : value}`}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <ChartTooltip 
                         content={({ active, payload }) => {
@@ -221,7 +236,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="income" 
                         name="income" 
-                        stroke="#A7E9AF" /* Pastel green */
+                        stroke="#81C784" // Muted green
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -229,11 +244,14 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expenses" 
                         name="expense" 
-                        stroke="#FFAAA5" /* Pastel red */
+                        stroke="#E57373" // Muted red
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
-                      <Legend />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: 15 }} 
+                        iconType="line"
+                      />
                     </LineChart>
                   </ChartContainer>
                 ) : (
@@ -242,20 +260,21 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-4 flex flex-col justify-center">
-                <div className="mb-6 pr-4">
+              <div className="md:col-span-5 flex flex-col justify-center pl-4">
+                <div className="mb-6">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This line chart tracks your income and expenses over time,
-                    highlighting overall trends and recurring patterns.
+                    highlighting overall trends and recurring patterns. The line visualization
+                    makes it easier to spot growth or decline in your financial flows.
                   </p>
                 </div>
-                <div className="pr-4">
+                <div>
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Look for consistent upward or downward trends. Steady income with 
                     rising expenses may indicate lifestyle inflation. Seasonal 
-                    fluctuations might suggest predictable budget cycles.
+                    fluctuations might suggest predictable budget cycles that you can plan for.
                   </p>
                 </div>
               </div>
@@ -265,7 +284,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Combined Percentage Change Tab */}
           <TabsContent value="percentage" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-8 h-[300px]">
+              <div className="md:col-span-7 h-[300px]">
                 {monthlyTrendData.length > 1 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -275,16 +294,20 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       data={monthlyTrendData}
                       margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.7} />
                       <XAxis 
                         dataKey="name" 
                         angle={-45}
                         textAnchor="end"
                         height={60}
                         tickMargin={20}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <YAxis 
                         tickFormatter={(value) => `${value}%`}
+                        stroke="#888"
+                        fontSize={12}
                       />
                       <ChartTooltip 
                         content={({ active, payload }) => {
@@ -304,7 +327,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="incomeChange" 
                         name="Income % Change" 
-                        stroke="#A7E9AF" /* Pastel green */
+                        stroke="#81C784" // Muted green
                         dot={true}
                         strokeWidth={2}
                       />
@@ -312,11 +335,14 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expensesChange" 
                         name="Expense % Change" 
-                        stroke="#FFAAA5" /* Pastel red */
+                        stroke="#E57373" // Muted red
                         dot={true}
                         strokeWidth={2}
                       />
-                      <Legend />
+                      <Legend 
+                        wrapperStyle={{ paddingTop: 15 }} 
+                        iconType="line"
+                      />
                     </LineChart>
                   </ChartContainer>
                 ) : (
@@ -325,19 +351,21 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-4 flex flex-col justify-center">
-                <div className="mb-6 pr-4">
+              <div className="md:col-span-5 flex flex-col justify-center pl-4">
+                <div className="mb-6">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
                     This chart shows month-over-month percentage changes in your income and expenses,
-                    helping you identify growth or reduction rates.
+                    helping you identify growth or reduction rates. Percentage views normalize the data,
+                    making changes more comparable regardless of absolute amounts.
                   </p>
                 </div>
-                <div className="pr-4">
+                <div>
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Large spikes may indicate unusual financial events. Income growing slower than 
                     expenses (green line below red) suggests increasing financial strain over time.
+                    Look for crossover points where the relationship between income and expense growth changes.
                   </p>
                 </div>
               </div>

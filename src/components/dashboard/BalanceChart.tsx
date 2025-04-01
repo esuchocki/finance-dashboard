@@ -28,10 +28,10 @@ interface BalanceChartProps {
 }
 
 const BalanceChart: React.FC<BalanceChartProps> = ({ balanceData }) => {
-  // Configuration for charts - using pastel purple for balance
+  // Updated to match the new chart colors with muted blue
   const chartConfig = {
     balance: { 
-      theme: { light: "#E5DEFF", dark: "#E5DEFF" } // Pastel purple
+      theme: { light: "#9FA8DA", dark: "#9FA8DA" } // Muted blue/purple to match other charts
     },
   };
 
@@ -70,11 +70,11 @@ const BalanceChart: React.FC<BalanceChartProps> = ({ balanceData }) => {
                 >
                   <defs>
                     <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#E5DEFF" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#E5DEFF" stopOpacity={0.1}/>
+                      <stop offset="5%" stopColor="#9FA8DA" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#9FA8DA" stopOpacity={0.1}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.6} />
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.7} />
                   <XAxis 
                     dataKey="name" 
                     angle={-45}
@@ -109,11 +109,11 @@ const BalanceChart: React.FC<BalanceChartProps> = ({ balanceData }) => {
                     type="monotone" 
                     dataKey="balance" 
                     name="balance" 
-                    stroke="#D0C4FF" // Slightly darker pastel purple for the line
+                    stroke="#7986CB" // Slightly darker for the line
                     strokeWidth={2}
                     fillOpacity={1} 
                     fill="url(#balanceGradient)" 
-                    activeDot={{ r: 6, stroke: "#D0C4FF", strokeWidth: 2, fill: "white" }}
+                    activeDot={{ r: 6, stroke: "#7986CB", strokeWidth: 2, fill: "white" }}
                   />
                 </AreaChart>
               </ChartContainer>
