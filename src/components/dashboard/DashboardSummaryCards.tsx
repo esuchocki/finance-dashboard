@@ -2,10 +2,16 @@
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, CalendarClock, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarClock, ArrowUpRight, ArrowDownRight, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import ComparisonIndicator from "@/components/ComparisonIndicator";
 import { FinancialSummary } from "@/lib/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface DashboardSummaryCardsProps {
   summary: FinancialSummary | null;
@@ -26,11 +32,22 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             Total Income
           </CardTitle>
           {trends && (
-            <ComparisonIndicator 
-              value={trends.incomeChange} 
-              suffix="%" 
-              positiveIsGood={true}
-            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <ComparisonIndicator 
+                      value={trends.incomeChange} 
+                      suffix="%" 
+                      positiveIsGood={true}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Month-over-month change in income compared to previous period</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </CardHeader>
         <CardContent>
@@ -54,11 +71,22 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             Total Expenses
           </CardTitle>
           {trends && (
-            <ComparisonIndicator 
-              value={trends.expensesChange} 
-              suffix="%" 
-              positiveIsGood={false}
-            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <ComparisonIndicator 
+                      value={trends.expensesChange} 
+                      suffix="%" 
+                      positiveIsGood={false}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Month-over-month change in expenses compared to previous period. Lower expenses are better.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </CardHeader>
         <CardContent>
@@ -82,14 +110,25 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             Net Cashflow
           </CardTitle>
           {trends && trends.balanceChange !== 0 && (
-            <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
-              {trends.balanceChange > 0 ? (
-                <ArrowUpRight className="h-3 w-3 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 mr-1" />
-              )}
-              {formatCurrency(Math.abs(trends.balanceChange))}
-            </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Badge variant={trends.balanceChange > 0 ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
+                      {trends.balanceChange > 0 ? (
+                        <ArrowUpRight className="h-3 w-3 mr-1" />
+                      ) : (
+                        <ArrowDownRight className="h-3 w-3 mr-1" />
+                      )}
+                      {formatCurrency(Math.abs(trends.balanceChange))}
+                    </Badge>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p>Absolute change in net cashflow (income minus expenses) compared to previous period</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </CardHeader>
         <CardContent>

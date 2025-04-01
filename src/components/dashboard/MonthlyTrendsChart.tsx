@@ -325,12 +325,6 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   Large spikes may indicate unusual financial events. Income growing slower than 
                   expenses (green line below orange) suggests increasing financial strain over time.
                 </p>
-                <h4 className="font-medium mt-4 mb-2">Other Useful Metrics</h4>
-                <ul className="text-sm text-muted-foreground list-disc pl-4 space-y-1">
-                  <li>Savings rate (% of income saved each month)</li>
-                  <li>Debt-to-income ratio trends</li>
-                  <li>Discretionary vs. essential spending ratio</li>
-                </ul>
               </div>
             </div>
           </TabsContent>
