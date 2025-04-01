@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Dashboard } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -104,9 +104,21 @@ const Index = () => {
     <div className="max-w-7xl mx-auto">
       {/* Development Mode Toggle */}
       <div className="flex items-center justify-end space-x-2 mb-4 p-2 bg-muted/40 rounded-md">
-        <Label htmlFor="development-mode" className="text-sm">
-          Development Mode
-        </Label>
+        <TooltipProvider>
+          <Tooltip>
+            <InfoTooltipTrigger asChild>
+              <Label htmlFor="development-mode" className="text-sm cursor-help">
+                Development Mode
+              </Label>
+            </InfoTooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <div className="space-y-2">
+                <p className="font-medium">What is Development Mode?</p>
+                <p className="text-sm">Development Mode disables data caching, ensuring that new data is processed each time you upload a file. This is useful for testing and development purposes.</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Switch
           id="development-mode"
           checked={isDevelopmentMode}

@@ -6,10 +6,16 @@ import TransactionFilters from "./TransactionFilters";
 import AnalysisSectionWrapper from "./AnalysisSectionWrapper";
 import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, FileText } from "lucide-react";
+import { RefreshCw, FileText, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  InfoTooltipTrigger
+} from "@/components/ui/tooltip";
 
 const TransactionPage = () => {
   const { 
@@ -38,18 +44,42 @@ const TransactionPage = () => {
     <div className="space-y-6">
       {/* Development Mode Toggle - Always visible */}
       <div className="flex items-center justify-end space-x-2 p-2 bg-muted/40 rounded-md">
-        <Label htmlFor="development-mode-transactions" className="text-sm">
-          Development Mode
-        </Label>
+        <TooltipProvider>
+          <Tooltip>
+            <InfoTooltipTrigger asChild>
+              <Label htmlFor="development-mode-transactions" className="text-sm cursor-help">
+                Development Mode
+              </Label>
+            </InfoTooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <div className="space-y-2">
+                <p className="font-medium">What is Development Mode?</p>
+                <p className="text-sm">Development Mode disables data caching, ensuring that new data is processed each time you upload a file. This is useful for testing and development purposes.</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <Switch
           id="development-mode-transactions"
           checked={isDevelopmentMode}
           onCheckedChange={toggleDevelopmentMode}
         />
         {isDevelopmentMode && (
-          <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
-            Cache Disabled
-          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <InfoTooltipTrigger asChild>
+                <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
+                  Cache Disabled
+                </Badge>
+              </InfoTooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-2">
+                  <p className="font-medium">Cache Disabled in Development Mode</p>
+                  <p className="text-sm">In development mode, requests are not cached and data is fetched fresh each time.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
       
