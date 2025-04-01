@@ -43,26 +43,19 @@ const TransactionPage = () => {
     <div className="space-y-6">
       {/* Development Mode Toggle - Always visible */}
       <div className="flex items-center justify-end space-x-2 p-2 bg-muted/40 rounded-md">
-        <Label htmlFor="development-mode-transactions" className="text-sm">
-          Development Mode
-        </Label>
-        <TooltipProvider>
-          <Tooltip>
-            <InfoTooltipTrigger asChild>
-              <Switch
-                id="development-mode-transactions"
-                checked={isDevelopmentMode}
-                onCheckedChange={toggleDevelopmentMode}
-              />
-            </InfoTooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <div className="space-y-2">
-                <p className="font-medium">What is Development Mode?</p>
-                <p className="text-sm">Development Mode disables data caching, ensuring that new data is processed each time you upload a file. This is useful for testing and development purposes.</p>
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex flex-col items-end">
+          <Label htmlFor="development-mode-transactions" className="text-sm">
+            Development Mode
+          </Label>
+          <p className="text-xs text-muted-foreground mt-1">
+            Disables caching for testing purposes
+          </p>
+        </div>
+        <Switch
+          id="development-mode-transactions"
+          checked={isDevelopmentMode}
+          onCheckedChange={toggleDevelopmentMode}
+        />
         {isDevelopmentMode && (
           <TooltipProvider>
             <Tooltip>
