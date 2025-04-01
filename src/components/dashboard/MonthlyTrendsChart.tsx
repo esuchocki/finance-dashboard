@@ -142,11 +142,14 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Bar 
                         dataKey="income" 
                         name="income" 
+                        fill="#10B981" /* Adding green color for income bars */
                       />
                       <Bar 
                         dataKey="expenses" 
                         name="expense" 
+                        fill="#F97316" /* Adding orange color for expense bars */
                       />
+                      <Legend />
                     </BarChart>
                   </ChartContainer>
                 ) : (

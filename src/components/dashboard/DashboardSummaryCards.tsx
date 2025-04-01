@@ -44,7 +44,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>Month-over-month change in income compared to previous period</p>
+                  <p>Month-over-month change in income compared to previous month. This compares the current month's income with the previous month's income.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -83,7 +83,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>Month-over-month change in expenses compared to previous period. Lower expenses are better.</p>
+                  <p>Month-over-month change in expenses compared to previous month. This compares the current month's expenses with the previous month's expenses. Lower expenses are better.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -125,7 +125,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                   </div>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-xs">
-                  <p>Absolute change in net cashflow (income minus expenses) compared to previous period</p>
+                  <p>Absolute change in net cashflow (income minus expenses) compared to previous month. This shows how much your monthly cash flow has changed from last month to this month.</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
