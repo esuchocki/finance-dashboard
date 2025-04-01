@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
