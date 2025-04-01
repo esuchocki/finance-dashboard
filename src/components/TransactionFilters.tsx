@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Search, Filter, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
-import { DateRange } from "@/lib/types";
+import { TransactionType } from "@/lib/types";
 import { format } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -27,7 +27,7 @@ const TransactionFilters = () => {
   const [searchQuery, setSearchQuery] = useState(filters.searchQuery || "");
   const [category, setCategory] = useState(filters.category || "");
   const [transactionType, setTransactionType] = useState(filters.type || "all");
-  const [dateRange, setDateRange] = useState<DateRange | null>(filters.dateRange || null);
+  const [dateRange, setDateRange] = useState(filters.dateRange || null);
   const [minAmount, setMinAmount] = useState(filters.minAmount?.toString() || "");
   const [maxAmount, setMaxAmount] = useState(filters.maxAmount?.toString() || "");
   const [excludeTransfers, setExcludeTransfers] = useState(filters.excludeTransfers || false);
@@ -57,16 +57,35 @@ const TransactionFilters = () => {
     setMaxAmount(values[1].toString());
   };
 
-  // Apply all filters
+  // Apply all filters - fixed to match TransactionFilterOptions type
   const applyFilters = () => {
+    const typeValue = transactionType === "all" 
+      ? [] 
+      : transactionType === "debit" 
+        ? [TransactionType.DEBIT, TransactionType.WITHDRAWAL, TransactionType.FEE, TransactionType.CHECK] 
+        : [TransactionType.CREDIT, TransactionType.DEPOSIT, TransactionType.INTEREST];
+    
     updateFilters({
-      searchQuery,
-      category,
+      // Required properties from TransactionFilterOptions
+      categories: category ? [category] : [],
+      types: typeValue,
+      dateRange: {
+        start: dateRange?.start || null,
+        end: dateRange?.end || null
+      },
+      amountRange: {
+        min: minAmount ? parseFloat(minAmount) : null,
+        max: maxAmount ? parseFloat(maxAmount) : null
+      },
+      searchQuery: searchQuery,
+      isRecurring: null,
+      
+      // Support for legacy properties
+      category: category,
       type: transactionType,
-      dateRange,
+      excludeTransfers: excludeTransfers,
       minAmount: minAmount ? parseFloat(minAmount) : undefined,
-      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
-      excludeTransfers
+      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined
     });
   };
   
@@ -78,7 +97,7 @@ const TransactionFilters = () => {
   }, []); // Only run once on mount
 
   // Helper to format date range for display
-  const formatDateRange = (range: DateRange | null) => {
+  const formatDateRange = (range: any) => {
     if (!range) return "All dates";
     return `${format(range.start, "MMM d, yyyy")} - ${format(range.end, "MMM d, yyyy")}`;
   };

@@ -1,4 +1,3 @@
-
 // Enum for transaction types
 export enum TransactionType {
   DEBIT = "DEBIT",
@@ -40,6 +39,7 @@ export interface Transaction {
 
 // Options for filtering transactions
 export interface TransactionFilterOptions {
+  // Required base filter properties
   categories: string[];
   types: TransactionType[];
   dateRange: {
@@ -52,6 +52,8 @@ export interface TransactionFilterOptions {
   };
   searchQuery: string;
   isRecurring: boolean | null;
+  
+  // Legacy/alternative properties (keeping for backward compatibility)
   startDate?: Date | null;
   endDate?: Date | null;
   minAmount?: number | null;
