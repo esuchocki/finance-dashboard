@@ -113,7 +113,9 @@ const enhanceTransactionBatch = async (transactions: Transaction[], apiKey: stri
       // Adding more context about transaction types
       isDebit: ['DEBIT', 'CHECK', 'WITHDRAWAL', 'FEE'].includes(t.type),
       isCredit: ['CREDIT', 'DEPOSIT', 'INTEREST'].includes(t.type),
-      isTransfer: t.type === 'TRANSFER'
+      isTransfer: t.type === 'TRANSFER',
+      // Extract key terms from description for better context
+      descriptionKeywords: extractKeywords(t.description || '') 
     }));
 
     // Create a richer prompt for Claude with detailed instructions, examples and context
@@ -142,19 +144,27 @@ ${JSON.stringify(categoryHierarchy, null, 2)}
    - EXPENSE: money spent (purchases, bills, fees)
    - TRANSFER: money moved between accounts (not income or expense)
 
-5. Create a CLEAR, HELPFUL "verboseDescription" that explains what the transaction is in plain English
+5. Words in transaction descriptions that should ALWAYS be properly categorized:
+   - "LEASE" in housing contexts should be "Housing" category, NOT "Food & Dining"
+   - Food-related terms (grocery, restaurant names, etc.) should be "Food & Dining", NOT "Entertainment"
+   - "Credit Card" or "CRD" payments should be "Financial" category with "Credit Card Payment" or "Debt Payments" subcategory
+   - PayPal transactions need careful examination - look at the full context to determine what was purchased
+
+6. Create a CLEAR, HELPFUL "verboseDescription" that explains what the transaction is in plain English
    - Example: "AMZN MKTP US" → "Amazon purchase: Office supplies"
    - Example: "SLING 9.99" → "Sling TV streaming subscription"
    - Example: "XXXXXX2983 PYMT" → "Credit card payment to account ending in 2983"
+   - For credit card payments: "CHASE CREDIT CRD PAYMENT" → "Chase credit card payment"
+   - For PayPal: "PAYPAL JOHN DOE" → "PayPal payment to John Doe for [infer purpose if possible]"
 
-6. Assign a confidence level:
+7. Assign a confidence level:
    - HIGH: Very clear what the transaction is
    - MEDIUM: Reasonable certainty but some ambiguity
    - LOW: Significant uncertainty about the correct category
 
 ## EXAMPLES OF IDEAL CATEGORIZATION:
 
-Example 1:
+Example 1: 
 Input: { "description": "NETFLIX.COM", "amount": 15.99, "type": "DEBIT", "isRecurring": true }
 Output: { 
   "category": "Entertainment", 
@@ -214,6 +224,36 @@ Output: {
   "categoryType": "transfer" 
 }
 
+Example 7:
+Input: { "description": "CHASE CREDIT CRD SUCHOCKI PYMT", "amount": 115.77, "type": "DEBIT" }
+Output: { 
+  "category": "Financial", 
+  "subCategory": "Credit Card Payment", 
+  "verboseDescription": "Payment to Chase credit card", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
+Example 8:
+Input: { "description": "BOULDER WINE AND", "amount": 23.98, "type": "DEBIT" }
+Output: { 
+  "category": "Food & Dining", 
+  "subCategory": "Alcohol & Bars", 
+  "verboseDescription": "Purchase at Boulder Wine and Spirits", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
+Example 9:
+Input: { "description": "LEASE PAYMENT 123 MAIN ST", "amount": 1500, "type": "DEBIT" }
+Output: { 
+  "category": "Housing", 
+  "subCategory": "Rent", 
+  "verboseDescription": "Lease payment for apartment at 123 Main St", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
 ## TRANSACTIONS TO CATEGORIZE:
 ${JSON.stringify(transactionData, null, 2)}
 
@@ -224,7 +264,7 @@ Respond with ONLY a valid JSON object containing:
    - subCategory: The subcategory (MUST match one from the hierarchy)
    - verboseDescription: A clear, helpful human-readable description
    - confidence: "high", "medium", or "low"
-   - categoryType: "income", "expense", "transfer", or "other"
+   - categoryType: "income", "expense", or "transfer"
 
 2. A summary object with:
    - categorizedCount: Total number of transactions categorized
@@ -357,6 +397,27 @@ RETURN ONLY THE JSON OBJECT WITH NO ADDITIONAL TEXT, EXPLANATION OR MARKDOWN.
     // Instead of failing completely, we'll return the original transactions
     return transactions;
   }
+};
+
+// Helper function to extract keywords from a transaction description
+const extractKeywords = (description: string): string[] => {
+  if (!description) return [];
+  
+  // Remove common filler words and symbols
+  const cleanedText = description
+    .replace(/[^\w\s]/gi, ' ')  // Replace special chars with space
+    .replace(/\s+/g, ' ')       // Replace multiple spaces with single space
+    .trim()
+    .toLowerCase();
+  
+  // Split into words
+  const words = cleanedText.split(' ');
+  
+  // Remove common filler words
+  const stopWords = ['the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'of', 'a', 'an'];
+  const filteredWords = words.filter(word => !stopWords.includes(word) && word.length > 1);
+  
+  return filteredWords;
 };
 
 // Simplified function for enriching a single transaction (for debugging/testing)

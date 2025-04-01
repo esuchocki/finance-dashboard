@@ -3,86 +3,94 @@ import { CategoryPattern, LocationPattern, CategoryHierarchy } from './types';
 
 // Define common merchant patterns for better categorization
 export const categoryPatterns: CategoryPattern[] = [
-  // Food & Dining
-  { pattern: /(restaurant|café|cafe|coffee|starbucks|mcdonald|burger|pizza|taco|dining|chipotle|panera|subway|wendys|applebees|ihop|denny|chilis|olive garden|red lobster)/i, category: "Food & Dining", subcategory: "Restaurants" },
-  { pattern: /(grocery|market|food|supermarket|walmart|target|costco|trader|wholefood|kroger|safeway|publix|aldi|lidl|wegmans|albertsons)/i, category: "Food & Dining", subcategory: "Groceries" },
-  { pattern: /(doordash|ubereats|grubhub|seamless|postmates|instacart)/i, category: "Food & Dining", subcategory: "Food Delivery" },
+  // Food & Dining - More specific patterns
+  { pattern: /\b(restaurant|café|cafe|coffee|starbucks|mcdonald|burger|pizza|taco|dining|chipotle|panera|subway|wendys|applebees|ihop|denny|chilis|olive garden|red lobster)\b/i, category: "Food & Dining", subcategory: "Restaurants" },
+  { pattern: /\b(grocery|market|food store|supermarket|walmart|target|costco|trader|wholefood|kroger|safeway|publix|aldi|lidl|wegmans|albertsons)\b/i, category: "Food & Dining", subcategory: "Groceries" },
+  { pattern: /\b(doordash|ubereats|grubhub|seamless|postmates|instacart)\b/i, category: "Food & Dining", subcategory: "Food Delivery" },
+  { pattern: /\b(bakery|dessert|ice cream|yogurt)\b/i, category: "Food & Dining", subcategory: "Restaurants" },
   
-  // Entertainment
-  { pattern: /(netflix|hulu|disney\+|hbo|spotify|apple music|youtube|prime|peacock|paramount|tidal|deezer|pandora)/i, category: "Entertainment", subcategory: "Streaming Services" },
-  { pattern: /(movie|cinema|theatre|theater|amc|regal|cinemark|concert|ticket|stubhub|ticketmaster|fandango|eventbrite)/i, category: "Entertainment", subcategory: "Movies & Events" },
-  { pattern: /(game|steam|playstation|xbox|nintendo|epic games|ea|ubisoft|blizzard|riot|activision)/i, category: "Entertainment", subcategory: "Games" },
-  { pattern: /(patreon|facebook|meta|onlyfans|twitch|cameo)/i, category: "Entertainment", subcategory: "Social Media & Creators" },
+  // Entertainment - More specific patterns
+  { pattern: /\b(netflix|hulu|disney\+|hbo|spotify|apple music|youtube|prime|peacock|paramount|tidal|deezer|pandora)\b/i, category: "Entertainment", subcategory: "Streaming Services" },
+  { pattern: /\b(movie|cinema|theatre|theater|amc|regal|cinemark|concert|ticket|stubhub|ticketmaster|fandango|eventbrite)\b/i, category: "Entertainment", subcategory: "Movies & Events" },
+  { pattern: /\b(game|steam|playstation|xbox|nintendo|epic games|ea|ubisoft|blizzard|riot|activision)\b/i, category: "Entertainment", subcategory: "Games" },
+  { pattern: /\b(patreon|facebook|meta|onlyfans|twitch|cameo)\b/i, category: "Entertainment", subcategory: "Social Media & Creators" },
   
-  // Transportation
-  { pattern: /(uber|lyft|taxi|cab|rideshare|ride share)/i, category: "Transportation", subcategory: "Ride Sharing" },
-  { pattern: /(train|subway|metro|transit|bus|amtrak|mta|bart|cta)/i, category: "Transportation", subcategory: "Public Transit" },
-  { pattern: /(airline|flight|delta|united|american|southwest|jetblue|spirit|frontier|alaska|british airways|air canada)/i, category: "Transportation", subcategory: "Air Travel" },
-  { pattern: /(gas|shell|exxon|mobil|chevron|bp|marathon|valero|sunoco|speedway|76|circle k)/i, category: "Transportation", subcategory: "Gas & Fuel" },
-  { pattern: /(parking|toll|bridge|highway|garage|lot|meter)/i, category: "Transportation", subcategory: "Parking & Tolls" },
+  // Transportation - More specific patterns
+  { pattern: /\b(uber|lyft|taxi|cab|rideshare|ride share)\b/i, category: "Transportation", subcategory: "Ride Sharing" },
+  { pattern: /\b(train|subway|metro|transit|bus|amtrak|mta|bart|cta)\b/i, category: "Transportation", subcategory: "Public Transit" },
+  { pattern: /\b(airline|flight|delta|united|american|southwest|jetblue|spirit|frontier|alaska|british airways|air canada)\b/i, category: "Transportation", subcategory: "Air Travel" },
+  { pattern: /\b(gas|shell|exxon|mobil|chevron|bp|marathon|valero|sunoco|speedway|76|circle k)\b/i, category: "Transportation", subcategory: "Gas & Fuel" },
+  { pattern: /\b(parking|toll|bridge|highway|garage|lot|meter)\b/i, category: "Transportation", subcategory: "Parking & Tolls" },
   
-  // Shopping
-  { pattern: /(amazon|ebay|etsy|wayfair|bestbuy|aliexpress|walmart\.com|target\.com|overstock|newegg|wish|zappos)/i, category: "Shopping", subcategory: "Online Shopping" },
-  { pattern: /(clothing|apparel|fashion|zara|h&m|gap|old navy|marshalls|tj ?maxx|ross|kohls|macys|nordstrom|forever 21|american eagle)/i, category: "Shopping", subcategory: "Clothing & Fashion" },
-  { pattern: /(electronic|tech|gadget|phone|laptop|computer|tablet|headphone|tv|audio|camera)/i, category: "Shopping", subcategory: "Electronics" },
+  // Shopping - More specific patterns
+  { pattern: /\b(amazon|ebay|etsy|wayfair|bestbuy|aliexpress|walmart\.com|target\.com|overstock|newegg|wish|zappos)\b/i, category: "Shopping", subcategory: "Online Shopping" },
+  { pattern: /\b(clothing|apparel|fashion|zara|h&m|gap|old navy|marshalls|tj ?maxx|ross|kohls|macys|nordstrom|forever 21|american eagle)\b/i, category: "Shopping", subcategory: "Clothing & Fashion" },
+  { pattern: /\b(electronic|tech|gadget|phone|laptop|computer|tablet|headphone|tv|audio|camera)\b/i, category: "Shopping", subcategory: "Electronics" },
   
-  // Health & Fitness
-  { pattern: /(gym|fitness|peloton|nike|adidas|workout|sport|planet fitness|equinox|la fitness|ymca|crunch|gold's|lifetime|crossfit)/i, category: "Health & Fitness", subcategory: "Gym & Fitness" },
-  { pattern: /(doctor|physician|medical|clinic|hospital|healthcare|specialist|pediatrician|dentist|orthodontist|dermatologist|optometrist)/i, category: "Health & Fitness", subcategory: "Medical Services" },
-  { pattern: /(pharmacy|prescription|medication|medicine|drug|cvs|walgreens|rite aid|duane reade|rx)/i, category: "Health & Fitness", subcategory: "Pharmacy" },
+  // Health & Fitness - More specific patterns
+  { pattern: /\b(gym|fitness|peloton|nike|adidas|workout|sport|planet fitness|equinox|la fitness|ymca|crunch|gold's|lifetime|crossfit)\b/i, category: "Health & Fitness", subcategory: "Gym & Fitness" },
+  { pattern: /\b(doctor|physician|medical|clinic|hospital|healthcare|specialist|pediatrician|dentist|orthodontist|dermatologist|optometrist)\b/i, category: "Health & Fitness", subcategory: "Medical Services" },
+  { pattern: /\b(pharmacy|prescription|medication|medicine|drug|cvs|walgreens|rite aid|duane reade|rx)\b/i, category: "Health & Fitness", subcategory: "Pharmacy" },
   
-  // Housing
-  { pattern: /(rent|mortgage|loan|apartment|condo|house payment|housing|lease|tenant|landlord)/i, category: "Housing", subcategory: "Rent/Mortgage" },
-  { pattern: /(electric|gas|water|sewer|utility|power|energy|pg&e|con edison|national grid|duke energy)/i, category: "Housing", subcategory: "Utilities" },
-  { pattern: /(internet|cable|phone|cell|mobile|broadband|wifi|verizon|at&t|t-mobile|sprint|xfinity|spectrum|cox|dish|directv)/i, category: "Housing", subcategory: "Internet & Phone" },
-  { pattern: /(home depot|lowes|ikea|wayfair|overstock|furniture|appliance|renovation|repair|maintenance|plumber|electrician)/i, category: "Housing", subcategory: "Home Improvement" },
+  // Housing - More specific patterns with stronger word boundaries
+  { pattern: /\b(rent|mortgage|loan payment|apartment|condo|house payment|housing|lease payment|tenant|landlord)\b/i, category: "Housing", subcategory: "Rent/Mortgage" },
+  { pattern: /\b(lease)\b.*\b(apartment|home|house|property|real estate)\b/i, category: "Housing", subcategory: "Rent/Mortgage" },
+  { pattern: /\b(electric|gas bill|water bill|sewer|utility|power|energy|pg&e|con edison|national grid|duke energy)\b/i, category: "Housing", subcategory: "Utilities" },
+  { pattern: /\b(internet|cable|phone bill|cell service|mobile service|broadband|wifi|verizon|at&t|t-mobile|sprint|xfinity|spectrum|cox|dish|directv)\b/i, category: "Housing", subcategory: "Internet & Phone" },
+  { pattern: /\b(home depot|lowes|ikea|wayfair|overstock|furniture|appliance|renovation|repair|maintenance|plumber|electrician)\b/i, category: "Housing", subcategory: "Home Improvement" },
   
-  // Insurance
-  { pattern: /(insurance|policy|premium|coverage|geico|allstate|statefarm|progressive|liberty|nationwide|farmers|usaa)/i, category: "Insurance", subcategory: "General Insurance" },
-  { pattern: /(health insurance|medical insurance|dental insurance|vision insurance|healthcare premium|aetna|cigna|humana|bluecross|anthem|united healthcare)/i, category: "Insurance", subcategory: "Health Insurance" },
-  { pattern: /(car insurance|auto insurance|vehicle insurance)/i, category: "Insurance", subcategory: "Auto Insurance" },
-  { pattern: /(life insurance|disability insurance)/i, category: "Insurance", subcategory: "Life & Disability Insurance" },
+  // Insurance - More specific patterns
+  { pattern: /\b(insurance|policy|premium|coverage|geico|allstate|statefarm|progressive|liberty|nationwide|farmers|usaa)\b/i, category: "Insurance", subcategory: "General Insurance" },
+  { pattern: /\b(health insurance|medical insurance|dental insurance|vision insurance|healthcare premium|aetna|cigna|humana|bluecross|anthem|united healthcare)\b/i, category: "Insurance", subcategory: "Health Insurance" },
+  { pattern: /\b(car insurance|auto insurance|vehicle insurance)\b/i, category: "Insurance", subcategory: "Auto Insurance" },
+  { pattern: /\b(life insurance|disability insurance)\b/i, category: "Insurance", subcategory: "Life & Disability Insurance" },
   
-  // Income
-  { pattern: /(salary|payroll|direct deposit|deposit|employment|wage|paycheck|income)/i, category: "Income", subcategory: "Salary" },
-  { pattern: /(dividend|interest|investment income|capital gain|stock|bond|etf|mutual fund|retirement)/i, category: "Income", subcategory: "Investment Income" },
-  { pattern: /(freelance|contract|consulting|gig|client payment|self-employed|business income)/i, category: "Income", subcategory: "Self-Employment" },
-  { pattern: /(refund|rebate|cashback|reimbursement|return)/i, category: "Income", subcategory: "Refunds & Reimbursements" },
+  // Income - More specific patterns
+  { pattern: /\b(salary|payroll|direct deposit|deposit|employment|wage|paycheck|income)\b/i, category: "Income", subcategory: "Salary" },
+  { pattern: /\b(dividend|interest|investment income|capital gain|stock|bond|etf|mutual fund|retirement)\b/i, category: "Income", subcategory: "Investment Income" },
+  { pattern: /\b(freelance|contract|consulting|gig|client payment|self-employed|business income)\b/i, category: "Income", subcategory: "Self-Employment" },
+  { pattern: /\b(refund|rebate|cashback|reimbursement|return)\b/i, category: "Income", subcategory: "Refunds & Reimbursements" },
   
-  // Technology
-  { pattern: /(anthropic|claude\.ai|chatgpt|openai|ai service|github|gitlab|stackoverflow|digitalocean|notion)/i, category: "Technology", subcategory: "Software & Services" },
-  { pattern: /(apple|microsoft|google|aws|amazon web services|cloud|hosting|domain|server|storage)/i, category: "Technology", subcategory: "Tech Services" },
+  // Technology - More specific patterns
+  { pattern: /\b(anthropic|claude\.ai|chatgpt|openai|ai service|github|gitlab|stackoverflow|digitalocean|notion)\b/i, category: "Technology", subcategory: "Software & Services" },
+  { pattern: /\b(apple|microsoft|google|aws|amazon web services|cloud|hosting|domain|server|storage)\b/i, category: "Technology", subcategory: "Tech Services" },
   
-  // Education
-  { pattern: /(tuition|student|education|school|college|university|course|class|training|workshop|udemy|coursera|edx|skillshare|masterclass)/i, category: "Education", subcategory: "Education & Courses" },
-  { pattern: /(book|textbook|ebook|kindle|audible|amazon books|barnes|noble)/i, category: "Education", subcategory: "Books & Learning Materials" },
+  // Education - More specific patterns
+  { pattern: /\b(tuition|student|education|school|college|university|course|class|training|workshop|udemy|coursera|edx|skillshare|masterclass)\b/i, category: "Education", subcategory: "Education & Courses" },
+  { pattern: /\b(book|textbook|ebook|kindle|audible|amazon books|barnes|noble)\b/i, category: "Education", subcategory: "Books & Learning Materials" },
   
-  // Personal Care
-  { pattern: /(haircut|salon|spa|massage|nail|beauty|barber|stylist|cosmetic|makeup|skincare)/i, category: "Personal Care", subcategory: "Personal Care Services" },
-  { pattern: /(sephora|ulta|bath & body works|lush|perfume|cologne|grooming)/i, category: "Personal Care", subcategory: "Personal Care Products" },
+  // Personal Care - More specific patterns
+  { pattern: /\b(haircut|salon|spa|massage|nail|beauty|barber|stylist|cosmetic|makeup|skincare)\b/i, category: "Personal Care", subcategory: "Personal Care Services" },
+  { pattern: /\b(sephora|ulta|bath & body works|lush|perfume|cologne|grooming)\b/i, category: "Personal Care", subcategory: "Personal Care Products" },
   
-  // Children
-  { pattern: /(childcare|daycare|babysitter|nanny|kids|children|toys|games|child support)/i, category: "Children", subcategory: "Childcare & Support" },
+  // Children - More specific patterns
+  { pattern: /\b(childcare|daycare|babysitter|nanny|kids|children|toys|games|child support)\b/i, category: "Children", subcategory: "Childcare & Support" },
   
-  // Travel
-  { pattern: /(hotel|airbnb|vrbo|lodging|accommodation|marriott|hilton|hyatt|holiday inn|booking\.com|expedia|travelocity|tripadvisor)/i, category: "Travel", subcategory: "Accommodation" },
-  { pattern: /(vacation|resort|cruise|tour|travel agent|all-inclusive)/i, category: "Travel", subcategory: "Vacations & Travel" },
+  // Travel - More specific patterns
+  { pattern: /\b(hotel|airbnb|vrbo|lodging|accommodation|marriott|hilton|hyatt|holiday inn|booking\.com|expedia|travelocity|tripadvisor)\b/i, category: "Travel", subcategory: "Accommodation" },
+  { pattern: /\b(vacation|resort|cruise|tour|travel agent|all-inclusive)\b/i, category: "Travel", subcategory: "Vacations & Travel" },
   
-  // Financial
-  { pattern: /(fee|service charge|overdraft|atm fee|bank fee|transfer fee|foreign transaction|membership fee|annual fee)/i, category: "Financial", subcategory: "Fees & Charges" },
-  { pattern: /(credit card payment|loan payment|debt|financing|interest payment)/i, category: "Financial", subcategory: "Debt Payments" },
-  { pattern: /(investment|broker|vanguard|fidelity|schwab|robinhood|etrade|td ameritrade|wealthfront|betterment)/i, category: "Financial", subcategory: "Investments" },
-  { pattern: /(tax|irs|state tax|property tax|tax payment|turbotax|h&r block)/i, category: "Financial", subcategory: "Taxes" },
+  // Financial - More specific patterns
+  { pattern: /\b(fee|service charge|overdraft|atm fee|bank fee|transfer fee|foreign transaction|membership fee|annual fee)\b/i, category: "Financial", subcategory: "Fees & Charges" },
+  { pattern: /\b(credit card payment|loan payment|debt|financing|interest payment)\b/i, category: "Financial", subcategory: "Debt Payments" },
+  { pattern: /\b(investment|broker|vanguard|fidelity|schwab|robinhood|etrade|td ameritrade|wealthfront|betterment)\b/i, category: "Financial", subcategory: "Investments" },
+  { pattern: /\b(tax|irs|state tax|property tax|tax payment|turbotax|h&r block)\b/i, category: "Financial", subcategory: "Taxes" },
   
-  // Charity & Gifts
-  { pattern: /(donation|charity|nonprofit|charitable|red cross|united way|salvation army|goodwill|unicef|aclu|peta)/i, category: "Charity & Gifts", subcategory: "Charitable Donations" },
-  { pattern: /(gift|present|card|flowers|1800flowers|ftd|edible arrangements)/i, category: "Charity & Gifts", subcategory: "Gifts" },
+  // Charity & Gifts - More specific patterns
+  { pattern: /\b(donation|charity|nonprofit|charitable|red cross|united way|salvation army|goodwill|unicef|aclu|peta)\b/i, category: "Charity & Gifts", subcategory: "Charitable Donations" },
+  { pattern: /\b(gift|present|card|flowers|1800flowers|ftd|edible arrangements)\b/i, category: "Charity & Gifts", subcategory: "Gifts" },
   
-  // Business Expenses
-  { pattern: /(business expense|office supply|staples|office depot|business service|professional)/i, category: "Business", subcategory: "Business Expenses" },
+  // Business Expenses - More specific patterns
+  { pattern: /\b(business expense|office supply|staples|office depot|business service|professional)\b/i, category: "Business", subcategory: "Business Expenses" },
   
-  // Pets
-  { pattern: /(pet|dog|cat|veterinarian|vet|animal|petco|petsmart|chewy)/i, category: "Pets", subcategory: "Pet Care" },
+  // Pets - More specific patterns
+  { pattern: /\b(pet|dog|cat|veterinarian|vet|animal|petco|petsmart|chewy)\b/i, category: "Pets", subcategory: "Pet Care" },
+  
+  // Credit Card - Specific pattern for credit card payments
+  { pattern: /\b((?:credit card)|(?:credit ?crd)).*(?:payment|pymt)\b/i, category: "Financial", subcategory: "Debt Payments" },
+  
+  // Specific payment pattern for PayPal
+  { pattern: /paypal.*?payment/i, category: "Financial", subcategory: "Online Payments" },
 ];
 
 // Common location patterns in transaction descriptions
@@ -150,8 +158,8 @@ export const categoryHierarchy: CategoryHierarchy[] = [
   },
   {
     name: "Financial",
-    subcategories: ["Credit Card Payment", "Loan Payment", "Bank Fees", "Financial Advisor", "Investments", "Taxes", "Life Insurance"],
-    examples: ["Chase Credit Card", "Citibank Loan", "ATM Fee", "E*TRADE", "Schwab", "IRS", "State Tax Board", "Northwestern Mutual"],
+    subcategories: ["Credit Card Payment", "Loan Payment", "Bank Fees", "Financial Advisor", "Investments", "Taxes", "Life Insurance", "Online Payments"],
+    examples: ["Chase Credit Card", "Citibank Loan", "ATM Fee", "E*TRADE", "Schwab", "IRS", "State Tax Board", "Northwestern Mutual", "PayPal Payment"],
     isExpense: true
   },
   {

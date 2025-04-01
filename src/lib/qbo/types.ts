@@ -31,6 +31,10 @@ export interface EnhancedTransaction extends Omit<Transaction, 'categoryType'> {
   // Additional properties that Claude might add
   confidence: "high" | "medium" | "low";
   verboseDescription: string;
+  // Add merchant information 
+  merchantType?: string;
+  merchantCategory?: string;
+  isRecurring: boolean;
 }
 
 // Structured format for Claude's response
@@ -42,6 +46,11 @@ export interface ClaudeEnhancementResponse {
     verboseDescription: string;
     confidence: "high" | "medium" | "low";
     categoryType: "income" | "expense" | "transfer";
+    merchantInfo?: {
+      name?: string;
+      type?: string;
+      category?: string;
+    };
   }>;
   summary?: {
     categorizedCount: number;

@@ -4,6 +4,7 @@ import MonthlyTrendsChart from "../MonthlyTrendsChart";
 import BalanceChart from "../BalanceChart";
 import CategoryCharts from "../CategoryCharts";
 import MonthlyIncomeExpensesChart from "../MonthlyIncomeExpensesChart";
+import ClaudeEnhancedCategories from "../ClaudeEnhancedCategories";
 
 interface ChartSectionProps {
   monthlyTrendData: any[];
@@ -31,10 +32,8 @@ const ChartSection = ({
       {/* Balance Over Time Chart */}
       <BalanceChart balanceData={balanceData} />
       
-      {/* Category Charts */}
-      <CategoryCharts 
-        expenseData={categoryData} 
-        incomeData={incomeData}
+      {/* Claude AI Enhanced Categories - This replaces both the CategoryCharts and ClaudeEnhancedCategories */}
+      <ClaudeEnhancedCategories 
         transactions={transactions} 
       />
     </>

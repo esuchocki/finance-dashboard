@@ -1,15 +1,17 @@
-import React, { useState } from "react";
+
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
 import { Transaction } from "@/lib/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Info, LineChart, BadgeCheck, Loader2, Filter } from "lucide-react";
+import { ChevronLeft, Info, LineChart, BadgeCheck, Loader2, Filter, Search } from "lucide-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectSeparator } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 
 // Custom colors for the chart - using a different palette from main charts
 const COLORS = [
@@ -19,6 +21,31 @@ const COLORS = [
   "#6D28D9", "#DB2777", "#059669", "#D97706", "#7C3AED",
   "#0284C7", "#0F766E", "#4338CA", "#A21CAF", "#0F172A"
 ];
+
+// Map categories to specific colors for consistency
+const CATEGORY_COLORS: Record<string, string> = {
+  "Food & Dining": "#00C49F",
+  "Housing": "#0088FE",
+  "Transportation": "#FFBB28",
+  "Entertainment": "#FF8042",
+  "Shopping": "#A4DE6C",
+  "Health & Fitness": "#8884D8",
+  "Insurance": "#673AB7",
+  "Personal Care": "#FF6B6B",
+  "Education": "#E91E63",
+  "Travel": "#6A6AFF",
+  "Financial": "#FFDDA1",
+  "Income": "#7FB069",
+  "Business": "#D1495B",
+  "Charity & Gifts": "#9E9E9E",
+  "Children": "#FF5722",
+  "Pets": "#607D8B",
+  "Technology": "#3F51B5",
+  "Taxes": "#795548",
+  "Other": "#9C6644",
+  "Transfers": "#4CAF50",
+  "Uncategorized": "#AAAAAA" // Gray for uncategorized (should be minimal)
+};
 
 interface ClaudeEnhancedCategoriesProps {
   transactions: Transaction[];
@@ -30,6 +57,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
   const [selectedTransactions, setSelectedTransactions] = useState<Transaction[] | null>(null);
   const [view, setView] = useState<"pie" | "list">("pie");
   const [activeTab, setActiveTab] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   // Custom tooltip for the PieChart
   const CustomTooltip = ({ active, payload }: any) => {
@@ -71,35 +99,40 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     );
   };
 
+  // Filter transactions based on active tab
+  const filteredTransactionsByType = useMemo(() => {
+    if (activeTab === "all") return transactions;
+    
+    return transactions.filter(transaction => {
+      if (activeTab === "expenses") return transaction.categoryType === "expense";
+      if (activeTab === "income") return transaction.categoryType === "income";
+      if (activeTab === "transfers") return transaction.categoryType === "transfer";
+      return true;
+    });
+  }, [transactions, activeTab]);
+
+  // Further filter by search if applicable
+  const filteredTransactions = useMemo(() => {
+    if (!searchQuery) return filteredTransactionsByType;
+    
+    const query = searchQuery.toLowerCase();
+    return filteredTransactionsByType.filter(t => 
+      (t.verboseDescription || "").toLowerCase().includes(query) ||
+      (t.description || "").toLowerCase().includes(query) ||
+      (t.name || "").toLowerCase().includes(query) ||
+      (t.category || "").toLowerCase().includes(query) ||
+      (t.subCategory || "").toLowerCase().includes(query)
+    );
+  }, [filteredTransactionsByType, searchQuery]);
+
   // Prepare data for visualization based on Claude-enhanced categories
   const prepareClaudeData = () => {
     // Filter to include all transactions with Claude-generated data
-    const enhancedTransactions = transactions.filter(t => t.category);
+    const enhancedTransactions = filteredTransactions.filter(t => t.category);
     
     const totalTransactions = transactions.length;
     const enhancedCount = enhancedTransactions.length;
     const percentCategorized = Math.round((enhancedCount / totalTransactions) * 100);
-    
-    // Filter transactions based on active tab
-    let filteredTransactions = enhancedTransactions;
-    if (activeTab === "expenses") {
-      filteredTransactions = enhancedTransactions.filter(
-        t => t.categoryType === "expense" || 
-            (t.categoryType === undefined && 
-              (t.type === "DEBIT" || t.type === "WITHDRAWAL" || t.type === "CHECK" || t.type === "FEE"))
-      );
-    } else if (activeTab === "income") {
-      filteredTransactions = enhancedTransactions.filter(
-        t => t.categoryType === "income" || 
-            (t.categoryType === undefined && 
-              (t.type === "CREDIT" || t.type === "DEPOSIT" || t.type === "INTEREST"))
-      );
-    } else if (activeTab === "transfers") {
-      filteredTransactions = enhancedTransactions.filter(
-        t => t.categoryType === "transfer" || 
-            (t.categoryType === undefined && t.type === "TRANSFER")
-      );
-    }
     
     // Group transactions by category
     const categoryMap = new Map<string, { 
@@ -113,7 +146,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       }>
     }>();
     
-    filteredTransactions.forEach(t => {
+    enhancedTransactions.forEach(t => {
       // Use Claude's assigned category, defaulting to "Other" for any uncategorized
       const category = t.category && t.category !== "Uncategorized" ? t.category : "Other";
       const subCategory = t.subCategory || "Other";
@@ -150,16 +183,6 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       subCategoryData.transactions.push(t);
     });
     
-    // Log category and subcategory distribution
-    console.log("Category distribution:", 
-      Array.from(categoryMap.entries()).map(([name, data]) => ({
-        name,
-        count: data.count,
-        amount: data.amount,
-        subcategories: Array.from(data.subcategories.keys())
-      }))
-    );
-    
     // Convert to chart data format
     const chartData = Array.from(categoryMap.entries())
       .map(([name, data]) => ({
@@ -175,7 +198,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
           }))
           .sort((a, b) => b.value - a.value),
         transactions: data.transactions,
-        totalValue: filteredTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
+        totalValue: enhancedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0)
       }))
       .sort((a, b) => b.value - a.value);
     
@@ -184,7 +207,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       totalTransactions,
       enhancedCount,
       percentCategorized,
-      filteredCount: filteredTransactions.length,
+      filteredCount: enhancedTransactions.length,
       categoriesCount: categoryMap.size
     };
   };
@@ -222,8 +245,14 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
       setSelectedCategory(null);
       setSelectedTransactions(null);
     } else {
-      setSelectedTransactions(chartData.flatMap(item => item.transactions));
+      setSelectedTransactions(filteredTransactions);
     }
+  };
+
+  // Function to get color for a category, with fallback
+  const getCategoryColor = (category: string, index: number) => {
+    if (!category) return COLORS[index % COLORS.length];
+    return CATEGORY_COLORS[category] || COLORS[index % COLORS.length];
   };
 
   // Get display name for transaction - UPDATED to prioritize verbose description
@@ -239,6 +268,16 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
     return transaction.description || transaction.name;
   };
 
+  // Get more readable format for category type
+  const getCategoryTypeLabel = (type: string) => {
+    switch (type) {
+      case "income": return "Income";
+      case "expense": return "Expense";
+      case "transfer": return "Transfer";
+      default: return type;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -246,14 +285,26 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
           <div>
             <CardTitle className="flex items-center gap-2">
               <BadgeCheck className="h-5 w-5 text-finance-primary" />
-              Claude AI Categorization
+              Categories & Spending
             </CardTitle>
             <CardDescription>
-              {categoriesCount} categories created across {enhancedCount} transactions
+              AI-powered categorization across {enhancedCount} transactions
             </CardDescription>
           </div>
           
           <div className="flex items-center gap-2">
+            {view === "list" && selectedTransactions && (
+              <div className="relative mr-2">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search transactions..."
+                  className="pl-8 h-9 w-[200px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            )}
+            
             <Button 
               variant="outline" 
               size="sm" 
@@ -343,7 +394,7 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                   {chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={COLORS[index % COLORS.length]}
+                      fill={getCategoryColor(entry.name, index)}
                     />
                   ))}
                 </Pie>
@@ -388,7 +439,17 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
             </div>
             
             <div className="overflow-y-auto max-h-[300px] space-y-2">
-              {(selectedTransactions || []).map((t) => (
+              {(selectedTransactions?.filter(t => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return (
+                  (t.verboseDescription || "").toLowerCase().includes(query) ||
+                  (t.description || "").toLowerCase().includes(query) ||
+                  (t.name || "").toLowerCase().includes(query) ||
+                  (t.category || "").toLowerCase().includes(query) ||
+                  (t.subCategory || "").toLowerCase().includes(query)
+                );
+              }) || []).map((t) => (
                 <div key={t.id} className="text-sm p-3 border rounded-md hover:bg-muted/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div className="max-w-[70%]">
@@ -425,13 +486,15 @@ const ClaudeEnhancedCategories: React.FC<ClaudeEnhancedCategoriesProps> = ({ tra
                             t.categoryType === "expense" ? "destructive" : 
                             t.categoryType === "transfer" ? "secondary" : "outline"
                           } className="text-xs">
-                            {t.categoryType}
+                            {getCategoryTypeLabel(t.categoryType)}
                           </Badge>
                         )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-medium">{formatCurrency(t.amount)}</p>
+                      <p className={`font-medium ${t.categoryType === "income" ? "text-green-600" : t.categoryType === "expense" ? "text-red-600" : ""}`}>
+                        {formatCurrency(t.amount)}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {new Date(t.date).toLocaleDateString()}
                       </p>
