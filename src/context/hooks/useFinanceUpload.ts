@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { enhanceTransactionsWithClaude, hasClaudeApiKey } from "@/lib/claudeService";
 import { calculateSummary } from "./useFinanceSummary";
 import { generateInsights } from "./useFinanceInsights";
+import { useNavigate } from 'react-router-dom';
 
 // Cache key for localStorage
 const TRANSACTION_CACHE_KEY = 'financeDashboard_transactionCache';
@@ -19,6 +20,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
+  const navigate = useNavigate();
 
   // Log development mode status whenever it changes
   useEffect(() => {
@@ -266,6 +268,9 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           toast.success(
             `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`
           );
+          
+          // Navigate to dashboard after successful upload
+          navigate("/");
           
           // Show key insights as toasts for immediate feedback
           if (newInsights.length > 0) {

@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { TransactionFilterOptions, TransactionType } from "@/lib/types";
 import { useFinance } from "@/context/FinanceContext";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parse, isValid } from "date-fns";
 import { Calendar as CalendarIcon, Search, X } from "lucide-react";
 
 // Remove the props interface as we'll get everything from the context
@@ -17,17 +18,102 @@ const TransactionFilters = () => {
   const { applyFilters, transactions } = useFinance();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [startDateInput, setStartDateInput] = useState<string>("");
+  const [endDateInput, setEndDateInput] = useState<string>("");
   const [minAmount, setMinAmount] = useState<string>("");
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [selectedTypes, setSelectedTypes] = useState<TransactionType[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isRecurring, setIsRecurring] = useState<boolean | undefined>(undefined);
+  const [showStartCalendar, setShowStartCalendar] = useState<boolean>(false);
+  const [showEndCalendar, setShowEndCalendar] = useState<boolean>(false);
 
   // Extract unique categories from transactions
   const uniqueCategories = Array.from(
     new Set(transactions.map((t) => t.category))
   ).sort();
+
+  // Handle date input changes
+  const handleStartDateInput = (value: string) => {
+    setStartDateInput(value);
+    try {
+      // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
+      const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
+      let parsedDate: Date | null = null;
+      
+      for (const dateFormat of formats) {
+        const attemptedDate = parse(value, dateFormat, new Date());
+        if (isValid(attemptedDate)) {
+          parsedDate = attemptedDate;
+          break;
+        }
+      }
+      
+      if (parsedDate && isValid(parsedDate)) {
+        setStartDate(parsedDate);
+      } else if (value === "") {
+        setStartDate(undefined);
+      }
+    } catch (error) {
+      console.error("Error parsing date:", error);
+    }
+  };
+  
+  const handleEndDateInput = (value: string) => {
+    setEndDateInput(value);
+    try {
+      // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
+      const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
+      let parsedDate: Date | null = null;
+      
+      for (const dateFormat of formats) {
+        const attemptedDate = parse(value, dateFormat, new Date());
+        if (isValid(attemptedDate)) {
+          parsedDate = attemptedDate;
+          break;
+        }
+      }
+      
+      if (parsedDate && isValid(parsedDate)) {
+        setEndDate(parsedDate);
+      } else if (value === "") {
+        setEndDate(undefined);
+      }
+    } catch (error) {
+      console.error("Error parsing date:", error);
+    }
+  };
+
+  const handleCalendarStartDateSelect = (date: Date | undefined) => {
+    setStartDate(date);
+    if (date) {
+      setStartDateInput(format(date, "MM/dd/yyyy"));
+    } else {
+      setStartDateInput("");
+    }
+    setShowStartCalendar(false);
+  };
+
+  const handleCalendarEndDateSelect = (date: Date | undefined) => {
+    setEndDate(date);
+    if (date) {
+      setEndDateInput(format(date, "MM/dd/yyyy"));
+    } else {
+      setEndDateInput("");
+    }
+    setShowEndCalendar(false);
+  };
+
+  const handleClearStartDate = () => {
+    setStartDate(undefined);
+    setStartDateInput("");
+  };
+
+  const handleClearEndDate = () => {
+    setEndDate(undefined);
+    setEndDateInput("");
+  };
 
   const handleApplyFilters = () => {
     const filters: TransactionFilterOptions = {
@@ -57,6 +143,8 @@ const TransactionFilters = () => {
   const handleResetFilters = () => {
     setStartDate(undefined);
     setEndDate(undefined);
+    setStartDateInput("");
+    setEndDateInput("");
     setMinAmount("");
     setMaxAmount("");
     setSelectedTypes([]);
@@ -99,7 +187,7 @@ const TransactionFilters = () => {
         <CardTitle className="flex justify-between items-center">
           <span>Filter Transactions</span>
           <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-            <X className="h-4 w-4 mr-1" /> Clear
+            <X className="h-4 w-4 mr-1" /> Clear All Filters
           </Button>
         </CardTitle>
       </CardHeader>
@@ -108,49 +196,83 @@ const TransactionFilters = () => {
           {/* Date Range */}
           <div className="space-y-2">
             <Label>Start Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left">
-                  {startDate ? (
-                    format(startDate, "PPP")
-                  ) : (
-                    <span className="text-muted-foreground">Pick a date</span>
-                  )}
-                  <CalendarIcon className="ml-auto h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={setStartDate}
-                  initialFocus
+            <div className="flex gap-2">
+              <div className="relative flex-grow">
+                <Input
+                  type="text"
+                  value={startDateInput}
+                  onChange={(e) => handleStartDateInput(e.target.value)}
+                  placeholder="MM/DD/YYYY"
+                  className="pr-8"
                 />
-              </PopoverContent>
-            </Popover>
+                {startDateInput && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1 h-6 w-6"
+                    onClick={handleClearStartDate}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <Popover open={showStartCalendar} onOpenChange={setShowStartCalendar}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={handleCalendarStartDateSelect}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
           <div className="space-y-2">
             <Label>End Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left">
-                  {endDate ? (
-                    format(endDate, "PPP")
-                  ) : (
-                    <span className="text-muted-foreground">Pick a date</span>
-                  )}
-                  <CalendarIcon className="ml-auto h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={setEndDate}
-                  initialFocus
+            <div className="flex gap-2">
+              <div className="relative flex-grow">
+                <Input
+                  type="text"
+                  value={endDateInput}
+                  onChange={(e) => handleEndDateInput(e.target.value)}
+                  placeholder="MM/DD/YYYY"
+                  className="pr-8"
                 />
-              </PopoverContent>
-            </Popover>
+                {endDateInput && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1 h-6 w-6"
+                    onClick={handleClearEndDate}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+              <Popover open={showEndCalendar} onOpenChange={setShowEndCalendar}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <CalendarIcon className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={handleCalendarEndDateSelect}
+                    initialFocus
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           {/* Amount Range */}

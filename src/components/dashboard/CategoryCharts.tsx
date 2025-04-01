@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
@@ -374,7 +373,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   const calculateCategorizedPercentage = () => {
     const totalTransactionCount = transactions.length;
     const uncategorizedCount = transactions.filter(t => 
-      t.category === "Uncategorized" || t.category === "Other"
+      !t.category || t.category === "Uncategorized" || t.category === "Other"
     ).length;
     
     if (totalTransactionCount === 0) return 100;
