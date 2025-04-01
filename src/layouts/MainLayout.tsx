@@ -6,7 +6,7 @@ import { FinanceProvider } from "@/context/FinanceContext";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserCircle2 } from "lucide-react";
-import { BackgroundFormData } from "@/components/BackgroundFormDialog";
+import { PersonalBackground } from "@/lib/types";
 
 const MainLayout = () => {
   const [hasPersonaData, setHasPersonaData] = React.useState(false);
@@ -16,7 +16,7 @@ const MainLayout = () => {
     const savedData = localStorage.getItem('financial_persona');
     if (savedData) {
       try {
-        const parsedData = JSON.parse(savedData) as BackgroundFormData;
+        const parsedData = JSON.parse(savedData) as PersonalBackground;
         // Validate that essential data exists
         if (parsedData.name && parsedData.birthDate) {
           setHasPersonaData(true);
