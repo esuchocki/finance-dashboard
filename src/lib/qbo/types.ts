@@ -26,10 +26,11 @@ export interface CategoryHierarchy {
 
 // Enhanced transaction with detailed information
 export interface EnhancedTransaction extends Transaction {
+  // Ensure this matches the Transaction interface
+  categoryType: "income" | "expense" | "transfer";
   // Additional properties that Claude might add
   confidence: "high" | "medium" | "low";
   verboseDescription: string;
-  categoryType: "income" | "expense" | "transfer" | "other";
 }
 
 // Structured format for Claude's response

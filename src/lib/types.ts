@@ -62,14 +62,13 @@ export interface FinancialSummary {
   totalIncome: number;
   totalExpenses: number;
   balance: number;
+  netCashflow: number; // Added this property
+  transactionCount: number; // Added this property
+  recurringExpensesTotal: number; // Added this property
   largestExpense: Transaction | null;
   largestIncome: Transaction | null;
   recurringExpenses: Transaction[];
-  monthlyBreakdown: {
-    month: string; // Format: "YYYY-MM"
-    income: number;
-    expenses: number;
-  }[];
+  largestTransaction?: Transaction; // Added this property
   topExpenseCategories: {
     category: string;
     amount: number;
@@ -79,6 +78,11 @@ export interface FinancialSummary {
     category: string;
     amount: number;
     percentage: number;
+  }[];
+  monthlyBreakdown: {
+    month: string; // Format: "YYYY-MM"
+    income: number;
+    expenses: number;
   }[];
 }
 

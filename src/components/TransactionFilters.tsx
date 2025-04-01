@@ -31,14 +31,24 @@ const TransactionFilters = () => {
 
   const handleApplyFilters = () => {
     const filters: TransactionFilterOptions = {
-      startDate,
-      endDate,
-      minAmount: minAmount ? parseFloat(minAmount) : undefined,
-      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
-      types: selectedTypes.length > 0 ? selectedTypes : undefined,
-      categories: selectedCategories.length > 0 ? selectedCategories : undefined,
-      search: searchTerm || undefined,
-      isRecurring,
+      dateRange: {
+        start: startDate || null,
+        end: endDate || null
+      },
+      amountRange: {
+        min: minAmount ? parseFloat(minAmount) : null,
+        max: maxAmount ? parseFloat(maxAmount) : null
+      },
+      types: selectedTypes,
+      categories: selectedCategories,
+      searchQuery: searchTerm,
+      isRecurring: isRecurring === undefined ? null : isRecurring,
+      // Keep backward compatibility with older filter properties
+      startDate: startDate || null,
+      endDate: endDate || null,
+      minAmount: minAmount ? parseFloat(minAmount) : null,
+      maxAmount: maxAmount ? parseFloat(maxAmount) : null,
+      search: searchTerm
     };
 
     applyFilters(filters);
@@ -53,7 +63,18 @@ const TransactionFilters = () => {
     setSelectedCategories([]);
     setSearchTerm("");
     setIsRecurring(undefined);
-    applyFilters({});
+    
+    // Create an empty filter object with all required properties
+    const emptyFilters: TransactionFilterOptions = {
+      dateRange: { start: null, end: null },
+      amountRange: { min: null, max: null },
+      types: [],
+      categories: [],
+      searchQuery: "",
+      isRecurring: null
+    };
+    
+    applyFilters(emptyFilters);
   };
 
   const handleTypeChange = (type: TransactionType) => {

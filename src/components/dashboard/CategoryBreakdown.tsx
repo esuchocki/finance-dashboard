@@ -136,8 +136,8 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({ transactions }) =
                   tick={{
                     fontSize: 12,
                     width: 130, // Control width of the text
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
+                    overflow: 'hidden'
+                    // Removed the invalid textOverflow property
                   }}
                 />
                 <Tooltip content={<CustomTooltip />} />

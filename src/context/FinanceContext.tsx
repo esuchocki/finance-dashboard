@@ -17,6 +17,16 @@ interface FinanceContextType {
   clearData: () => void;
 }
 
+// Default empty filter options that match the required type
+const defaultFilterOptions: TransactionFilterOptions = {
+  categories: [],
+  types: [],
+  dateRange: { start: null, end: null },
+  amountRange: { min: null, max: null },
+  searchQuery: "",
+  isRecurring: null
+};
+
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 export function FinanceProvider({ children }: { children: ReactNode }) {
@@ -32,7 +42,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     clearData 
   } = useFinanceUpload();
   
-  const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>({});
+  const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>(defaultFilterOptions);
 
   const handleApplyFilters = (filters: TransactionFilterOptions) => {
     setFilterOptions(filters);

@@ -27,14 +27,17 @@ export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
   }
   
   const topExpenseCategories = Array.from(categoryMap.entries())
-    .map(([category, amount]) => ({ category, amount }))
+    .map(([category, amount]) => {
+      // Calculate the percentage of total expenses
+      const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
+      return { category, amount, percentage };
+    })
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 5);
   
   // Find recurring expenses (simplified)
-  const recurringExpensesTotal = expenseTransactions
-    .filter(t => t.isRecurring)
-    .reduce((sum, t) => sum + t.amount, 0);
+  const recurringExpenses = expenseTransactions.filter(t => t.isRecurring);
+  const recurringExpensesTotal = recurringExpenses.reduce((sum, t) => sum + t.amount, 0);
   
   // Find largest transaction
   const largestTransaction = [...txns].sort((a, b) => b.amount - a.amount)[0];
@@ -42,13 +45,21 @@ export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
   // Calculate monthly breakdown (for trends)
   const monthlyBreakdown = calculateMonthlyBreakdown(txns);
   
+  // Calculate net cashflow
+  const netCashflow = totalIncome - totalExpenses;
+  
   return {
     totalIncome,
     totalExpenses,
-    netCashflow: totalIncome - totalExpenses,
+    netCashflow,
+    balance: netCashflow, // Use netCashflow as balance for now
     topExpenseCategories,
+    topIncomeCategories: [], // Empty array for now
     recurringExpensesTotal,
+    recurringExpenses,
     largestTransaction,
+    largestExpense: null, // Set to null for now
+    largestIncome: null, // Set to null for now
     monthlyBreakdown,
     transactionCount: txns.length,
     dateRange: calculateDateRange(txns)
