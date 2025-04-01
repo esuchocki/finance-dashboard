@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
+  InfoTooltipTrigger
 } from "@/components/ui/tooltip";
 
 interface DashboardSummaryCardsProps {
@@ -22,63 +21,63 @@ interface DashboardSummaryCardsProps {
   } | null;
 }
 
-const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, trends }) => {
-  // Calculate full-span trajectory indicators based on first and last month in the data
-  const calculateTrajectory = (type: 'income' | 'expenses' | 'balance') => {
-    if (!summary?.monthlyBreakdown || summary.monthlyBreakdown.length < 2) {
-      return { isUpward: null, description: "Not enough data for trajectory analysis" };
-    }
+// Calculate full-span trajectory indicators based on first and last month in the data
+const calculateTrajectory = (type: 'income' | 'expenses' | 'balance') => {
+  if (!summary?.monthlyBreakdown || summary.monthlyBreakdown.length < 2) {
+    return { isUpward: null, description: "Not enough data for trajectory analysis" };
+  }
 
-    const monthlyData = [...summary.monthlyBreakdown].sort((a, b) => 
-      a.month.localeCompare(b.month)
-    );
-    
-    // Get first and last month
-    const firstMonth = monthlyData[0];
-    const lastMonth = monthlyData[monthlyData.length - 1];
-    
-    // Extract the relevant values based on type
-    let firstValue = 0;
-    let lastValue = 0;
-    
-    if (type === 'income') {
-      firstValue = firstMonth.income;
-      lastValue = lastMonth.income;
-    } else if (type === 'expenses') {
-      firstValue = firstMonth.expenses;
-      lastValue = lastMonth.expenses;
-    } else {
-      // balance
-      firstValue = firstMonth.income - firstMonth.expenses;
-      lastValue = lastMonth.income - lastMonth.expenses;
-    }
-    
-    // Calculate percentage change
-    const percentageChange = firstValue !== 0 
-      ? ((lastValue - firstValue) / Math.abs(firstValue)) * 100 
-      : lastValue > 0 ? 100 : 0;
-    
-    const isUpward = lastValue > firstValue;
-    
-    // Determine if trajectory is good based on type
-    const isPositive = type === 'expenses' ? !isUpward : isUpward;
+  const monthlyData = [...summary.monthlyBreakdown].sort((a, b) => 
+    a.month.localeCompare(b.month)
+  );
+  
+  // Get first and last month
+  const firstMonth = monthlyData[0];
+  const lastMonth = monthlyData[monthlyData.length - 1];
+  
+  // Extract the relevant values based on type
+  let firstValue = 0;
+  let lastValue = 0;
+  
+  if (type === 'income') {
+    firstValue = firstMonth.income;
+    lastValue = lastMonth.income;
+  } else if (type === 'expenses') {
+    firstValue = firstMonth.expenses;
+    lastValue = lastMonth.expenses;
+  } else {
+    // balance
+    firstValue = firstMonth.income - firstMonth.expenses;
+    lastValue = lastMonth.income - lastMonth.expenses;
+  }
+  
+  // Calculate percentage change
+  const percentageChange = firstValue !== 0 
+    ? ((lastValue - firstValue) / Math.abs(firstValue)) * 100 
+    : lastValue > 0 ? 100 : 0;
+  
+  const isUpward = lastValue > firstValue;
+  
+  // Determine if trajectory is good based on type
+  const isPositive = type === 'expenses' ? !isUpward : isUpward;
 
-    // Get month names for better description
-    const getMonthName = (monthStr: string) => {
-      const [year, month] = monthStr.split('-');
-      const date = new Date(parseInt(year), parseInt(month) - 1);
-      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    };
-    
-    return {
-      isUpward,
-      isPositive,
-      percentageChange,
-      description: `${isUpward ? 'Increased' : 'Decreased'} by ${Math.abs(percentageChange).toFixed(1)}% from ${getMonthName(firstMonth.month)} to ${getMonthName(lastMonth.month)}`,
-      shortDescription: `${isUpward ? 'Increasing' : 'Decreasing'} trend across all data`
-    };
+  // Get month names for better description
+  const getMonthName = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
   };
   
+  return {
+    isUpward,
+    isPositive,
+    percentageChange,
+    description: `${isUpward ? 'Increased' : 'Decreased'} by ${Math.abs(percentageChange).toFixed(1)}% from ${getMonthName(firstMonth.month)} to ${getMonthName(lastMonth.month)}`,
+    shortDescription: `${isUpward ? 'Increasing' : 'Decreasing'} trend across all data`
+  };
+};
+  
+const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, trends }) => {
   const incomeTrajectory = calculateTrajectory('income');
   const expensesTrajectory = calculateTrajectory('expenses');
   const balanceTrajectory = calculateTrajectory('balance');
@@ -94,15 +93,15 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
           {incomeTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-help">
+                <InfoTooltipTrigger>
+                  <div>
                     <ComparisonIndicator 
                       value={incomeTrajectory.percentageChange} 
                       suffix="%" 
                       positiveIsGood={true}
                     />
                   </div>
-                </TooltipTrigger>
+                </InfoTooltipTrigger>
                 <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Income Trajectory</p>
                   <p>{incomeTrajectory.description}</p>
@@ -140,15 +139,15 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
           {expensesTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-help">
+                <InfoTooltipTrigger>
+                  <div>
                     <ComparisonIndicator 
                       value={expensesTrajectory.percentageChange} 
                       suffix="%" 
                       positiveIsGood={false}
                     />
                   </div>
-                </TooltipTrigger>
+                </InfoTooltipTrigger>
                 <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Expense Trajectory</p>
                   <p>{expensesTrajectory.description}</p>
@@ -186,18 +185,16 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
           {trends && trends.balanceChange !== 0 && balanceTrajectory.isUpward !== null && (
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="cursor-help">
-                    <Badge variant={balanceTrajectory.isPositive ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
-                      {balanceTrajectory.isUpward ? (
-                        <ArrowUpRight className="h-3 w-3 mr-1" />
-                      ) : (
-                        <ArrowDownRight className="h-3 w-3 mr-1" />
-                      )}
-                      {formatCurrency(Math.abs(trends.balanceChange))}
-                    </Badge>
-                  </div>
-                </TooltipTrigger>
+                <InfoTooltipTrigger>
+                  <Badge variant={balanceTrajectory.isPositive ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
+                    {balanceTrajectory.isUpward ? (
+                      <ArrowUpRight className="h-3 w-3 mr-1" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3 mr-1" />
+                    )}
+                    {formatCurrency(Math.abs(trends.balanceChange))}
+                  </Badge>
+                </InfoTooltipTrigger>
                 <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Cashflow Trajectory</p>
                   <p>{balanceTrajectory.description}</p>

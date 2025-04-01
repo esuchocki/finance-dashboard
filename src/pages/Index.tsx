@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { Dashboard } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Info } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
+  InfoTooltipTrigger
 } from "@/components/ui/tooltip";
 
 const Index = () => {
@@ -115,11 +115,11 @@ const Index = () => {
         {isDevelopmentMode && (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
-                <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 cursor-help">
+              <InfoTooltipTrigger asChild>
+                <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
                   Cache Disabled
                 </Badge>
-              </TooltipTrigger>
+              </InfoTooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <div className="space-y-2">
                   <p className="font-medium">Cache Disabled in Development Mode</p>
@@ -140,9 +140,11 @@ const Index = () => {
             {isUsingCache && !isDevelopmentMode && (
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="cursor-help ml-1">(using cached data)</span>
-                  </TooltipTrigger>
+                  <InfoTooltipTrigger asChild>
+                    <span className="ml-1">
+                      (using cached data)
+                    </span>
+                  </InfoTooltipTrigger>
                   <TooltipContent>
                     <p>Data is being served from cache for faster performance</p>
                   </TooltipContent>

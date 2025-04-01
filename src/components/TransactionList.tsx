@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Transaction } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +14,12 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  InfoTooltipTrigger
+} from "@/components/ui/tooltip";
 
 interface PaginationProps {
   currentPage: number;
@@ -230,12 +235,21 @@ const TransactionList: React.FC<TransactionListProps> = ({
                   {formatCurrency(transaction.amount)}
                 </span>
                 {transaction.confidence && (
-                  <Badge variant={
-                    transaction.confidence === "high" ? "default" : 
-                    transaction.confidence === "medium" ? "secondary" : "outline"
-                  } className="text-xs hidden sm:inline-flex">
-                    {transaction.confidence}
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <InfoTooltipTrigger asChild>
+                        <Badge variant={
+                          transaction.confidence === "high" ? "default" : 
+                          transaction.confidence === "medium" ? "secondary" : "outline"
+                        } className="text-xs hidden sm:inline-flex">
+                          {transaction.confidence}
+                        </Badge>
+                      </InfoTooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>AI confidence level in this categorization</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>

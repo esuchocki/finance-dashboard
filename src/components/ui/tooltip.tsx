@@ -28,4 +28,17 @@ const TooltipContent = React.forwardRef<
 ))
 TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+// Custom styled tooltip trigger that removes the question mark on hover
+const StyledTooltipTrigger = React.forwardRef<
+  React.ElementRef<typeof TooltipPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <TooltipPrimitive.Trigger
+    ref={ref}
+    className={cn("cursor-help inline-flex items-center justify-center", className)}
+    {...props}
+  />
+))
+StyledTooltipTrigger.displayName = "StyledTooltipTrigger"
+
+export { Tooltip, TooltipTrigger, StyledTooltipTrigger as InfoTooltipTrigger, TooltipContent, TooltipProvider }
