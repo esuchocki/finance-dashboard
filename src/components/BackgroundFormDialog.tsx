@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
@@ -110,7 +109,7 @@ export function BackgroundFormDialog({
     // Remove any non-digit characters
     const digitsOnly = input.replace(/\D/g, "");
     
-    // Add slashes as the user types
+    // Add slashes as the user types, allowing for full 4-digit years
     if (digitsOnly.length <= 2) {
       return digitsOnly;
     } else if (digitsOnly.length <= 4) {
@@ -129,7 +128,7 @@ export function BackgroundFormDialog({
         const day = parseInt(parts[1]);
         const year = parseInt(parts[2]);
         
-        // Check that we have a valid 4-digit year or reasonable 2-digit year
+        // Check that we have a valid year (at least 2 digits)
         if (parts[2].length < 2) return null;
         
         // Handle 2-digit years - assume 20xx for years < 50, 19xx for years >= 50
