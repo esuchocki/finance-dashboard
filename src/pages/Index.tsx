@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
 const Index = () => {
-  const { transactions, isLoading, error } = useFinance();
+  const { transactions, isLoading, error, isUsingCache } = useFinance();
   const [renderTimeout, setRenderTimeout] = useState(false);
   const [extendedTimeout, setExtendedTimeout] = useState(false);
   
@@ -89,7 +89,10 @@ const Index = () => {
       
       {transactions.length > 0 && (
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
-          <p>Financial data visualization powered by QBO Parser & Claude AI</p>
+          <p>
+            Financial data visualization powered by QBO Parser & Claude AI
+            {isUsingCache && " (using cached data)"}
+          </p>
         </div>
       )}
     </div>

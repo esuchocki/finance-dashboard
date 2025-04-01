@@ -2,7 +2,6 @@
 import React from "react";
 import MonthlyTrendsChart from "../MonthlyTrendsChart";
 import BalanceChart from "../BalanceChart";
-import CategoryCharts from "../CategoryCharts";
 import MonthlyIncomeExpensesChart from "../MonthlyIncomeExpensesChart";
 import ClaudeEnhancedCategories from "../ClaudeEnhancedCategories";
 
@@ -32,7 +31,7 @@ const ChartSection = ({
       {/* Balance Over Time Chart */}
       <BalanceChart balanceData={balanceData} />
       
-      {/* Claude AI Enhanced Categories - This replaces both the CategoryCharts and ClaudeEnhancedCategories */}
+      {/* Claude AI Enhanced Categories */}
       <ClaudeEnhancedCategories 
         transactions={transactions} 
       />

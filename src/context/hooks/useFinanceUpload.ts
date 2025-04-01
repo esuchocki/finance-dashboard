@@ -1,11 +1,16 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qbo";
 import { toast } from "sonner";
 import { enhanceTransactionsWithClaude, hasClaudeApiKey } from "@/lib/claudeService";
 import { calculateSummary } from "./useFinanceSummary";
 import { generateInsights } from "./useFinanceInsights";
+
+// Cache key for localStorage
+const TRANSACTION_CACHE_KEY = 'financeDashboard_transactionCache';
+const CACHE_EXPIRY_KEY = 'financeDashboard_cacheExpiry';
+const CACHE_EXPIRY_HOURS = 24; // Cache data for 24 hours
 
 export const useFinanceUpload = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -14,14 +19,135 @@ export const useFinanceUpload = () => {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
+  const [isUsingCache, setIsUsingCache] = useState(false);
+
+  // Check for cached data on initial load
+  useEffect(() => {
+    const loadCachedData = () => {
+      try {
+        const cachedDataJson = localStorage.getItem(TRANSACTION_CACHE_KEY);
+        if (!cachedDataJson) return false;
+        
+        // Check if cache has expired
+        const expiryTime = localStorage.getItem(CACHE_EXPIRY_KEY);
+        if (expiryTime && new Date().getTime() > parseInt(expiryTime)) {
+          console.log("Cache expired, will refresh data on next upload");
+          return false;
+        }
+        
+        const cachedData = JSON.parse(cachedDataJson);
+        
+        // Validate cache structure
+        if (!cachedData || !Array.isArray(cachedData.transactions) || !cachedData.summary) {
+          console.log("Invalid cache structure, will refresh data on next upload");
+          return false;
+        }
+        
+        // Convert date strings back to Date objects for transactions
+        const parsedTransactions = cachedData.transactions.map((t: any) => ({
+          ...t,
+          date: new Date(t.date)
+        }));
+        
+        // Convert date strings back to Date objects for summary
+        const parsedSummary = {
+          ...cachedData.summary,
+          dateRange: {
+            start: new Date(cachedData.summary.dateRange.start),
+            end: new Date(cachedData.summary.dateRange.end)
+          }
+        };
+        
+        // Handle largest transaction date conversion if present
+        if (parsedSummary.largestTransaction) {
+          parsedSummary.largestTransaction.date = new Date(parsedSummary.largestTransaction.date);
+        }
+        
+        // Handle largest expense/income date conversion if present
+        if (parsedSummary.largestExpense) {
+          parsedSummary.largestExpense.date = new Date(parsedSummary.largestExpense.date);
+        }
+        if (parsedSummary.largestIncome) {
+          parsedSummary.largestIncome.date = new Date(parsedSummary.largestIncome.date);
+        }
+        
+        // Handle recurring expenses date conversion
+        if (Array.isArray(parsedSummary.recurringExpenses)) {
+          parsedSummary.recurringExpenses = parsedSummary.recurringExpenses.map((t: any) => ({
+            ...t,
+            date: new Date(t.date)
+          }));
+        }
+        
+        console.log(`Loaded ${parsedTransactions.length} transactions from cache`);
+        setTransactions(parsedTransactions);
+        setFilteredTransactions(parsedTransactions);
+        setSummary(parsedSummary);
+        setInsights(cachedData.insights || []);
+        setIsUsingCache(true);
+        
+        toast.info("Using cached financial data", {
+          description: "New data will be processed when you upload a new file"
+        });
+        
+        return true;
+      } catch (err) {
+        console.error("Error loading cached data:", err);
+        return false;
+      }
+    };
+    
+    loadCachedData();
+  }, []);
+
+  // Cache the current data
+  const cacheCurrentData = (
+    currentTransactions: Transaction[], 
+    currentSummary: FinancialSummary,
+    currentInsights: FinancialInsight[]
+  ) => {
+    try {
+      const dataToCache = {
+        transactions: currentTransactions,
+        summary: currentSummary,
+        insights: currentInsights
+      };
+      
+      localStorage.setItem(TRANSACTION_CACHE_KEY, JSON.stringify(dataToCache));
+      
+      // Set expiry time
+      const expiryTime = new Date().getTime() + (CACHE_EXPIRY_HOURS * 60 * 60 * 1000);
+      localStorage.setItem(CACHE_EXPIRY_KEY, expiryTime.toString());
+      
+      console.log(`Cached ${currentTransactions.length} transactions successfully`);
+    } catch (err) {
+      console.error("Error caching data:", err);
+      // Non-critical error, so just log it
+    }
+  };
 
   const uploadQBOFile = async (file: File): Promise<number> => {
     try {
       setIsLoading(true);
       setError(null);
+      setIsUsingCache(false);
       
       console.log("Starting QBO file upload and parsing");
       const content = await file.text();
+      
+      // Generate a simple hash of the file content to check if it's the same file
+      const contentHash = btoa(content.slice(0, 1000)).substring(0, 20);
+      const cachedHash = localStorage.getItem('financeDashboard_lastFileHash');
+      
+      if (contentHash === cachedHash) {
+        toast.info("This appears to be the same file you uploaded before", {
+          description: "Using cached data for faster processing"
+        });
+      }
+      
+      // Store the hash for next time
+      localStorage.setItem('financeDashboard_lastFileHash', contentHash);
+      
       let parsedTransactions = parseQBOFile(content);
       
       // Enhanced categorization with Claude if API key is available
@@ -102,6 +228,9 @@ export const useFinanceUpload = () => {
           const newInsights = generateInsights(parsedTransactions, newSummary);
           setInsights(newInsights);
           
+          // Cache the data for future use
+          cacheCurrentData(parsedTransactions, newSummary, newInsights);
+          
           const dateRange = newSummary.dateRange;
           const formattedStartDate = dateRange.start.toLocaleDateString();
           const formattedEndDate = dateRange.end.toLocaleDateString();
@@ -149,6 +278,10 @@ export const useFinanceUpload = () => {
     setFilteredTransactions([]);
     setSummary(null);
     setInsights([]);
+    setIsUsingCache(false);
+    // Clear the cache when explicitly clearing data
+    localStorage.removeItem(TRANSACTION_CACHE_KEY);
+    localStorage.removeItem(CACHE_EXPIRY_KEY);
     toast.success("Data cleared. You can now upload a new file.");
   };
 
@@ -164,6 +297,7 @@ export const useFinanceUpload = () => {
     insights,
     setInsights,
     uploadQBOFile,
-    clearData
+    clearData,
+    isUsingCache
   };
 };

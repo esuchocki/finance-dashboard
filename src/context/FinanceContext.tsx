@@ -15,6 +15,7 @@ interface FinanceContextType {
   insights: FinancialInsight[];
   filterOptions: TransactionFilterOptions;
   clearData: () => void;
+  isUsingCache: boolean;
 }
 
 // Default empty filter options that match the required type
@@ -39,7 +40,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     summary, 
     insights, 
     uploadQBOFile, 
-    clearData 
+    clearData,
+    isUsingCache 
   } = useFinanceUpload();
   
   const [filterOptions, setFilterOptions] = useState<TransactionFilterOptions>(defaultFilterOptions);
@@ -60,7 +62,8 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     summary,
     insights,
     filterOptions,
-    clearData
+    clearData,
+    isUsingCache
   };
 
   return (
