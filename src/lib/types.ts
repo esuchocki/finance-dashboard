@@ -157,15 +157,42 @@ export interface Factoid {
   tags: string[];
 }
 
+// Enhanced transaction types for time of day and additional context
+export enum TimeOfDay {
+  MORNING = "morning",
+  AFTERNOON = "afternoon",
+  EVENING = "evening",
+  NIGHT = "night",
+  LATE_NIGHT = "late_night"
+}
+
+// Transaction lifestyle impact tags
+export enum LifestyleTag {
+  NECESSITY = "necessity",
+  LIFESTYLE_IMPROVEMENT = "lifestyle_improvement",
+  LUXURY = "luxury",
+  SUBSCRIPTION = "subscription",
+  INVESTMENT = "investment",
+  EMERGENCY = "emergency",
+  ENTERTAINMENT = "entertainment",
+  HEALTH = "health",
+  EDUCATION = "education"
+}
+
 // Narrative transaction - enhanced transaction with narrative context
 export interface NarrativeTransaction extends Transaction {
   narrative: string; // Subject-Verb-Object sentence describing the transaction
+  timeOfDay: TimeOfDay; // Time of day categorization
   userAge: number; // Age of the user at the time of transaction
   userLocation: string; // Where the user was living at the time
-  transactionTags: string[]; // Tags like 'necessity', 'luxury', etc.
+  lifestyleTags: LifestyleTag[]; // Tags like 'necessity', 'luxury', etc.
+  transactionTags: string[]; // Custom tags specific to this transaction
   lifeContext?: string; // Additional context about user's life at this time
   isNotable: boolean; // Whether this transaction is particularly significant
   relatedFactoids: string[]; // IDs of factoids derived from this transaction
+  majorCategory: string; // Main category (e.g., "Food & Dining")
+  minorCategory: string; // Subcategory (e.g., "Coffee Shop")
+  vendor: string; // The merchant or vendor name
 }
 
 // Life chapter - a period in the user's financial life with distinct patterns

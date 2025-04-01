@@ -1,5 +1,5 @@
 
-import { Transaction, TransactionType } from '../types';
+import { Transaction, TransactionType, TimeOfDay, NarrativeTransaction, PersonalBackground } from '../types';
 import { categoryPatterns, locationPatterns, categoryHierarchy } from './categoryPatterns';
 
 // Process transactions in batches for better performance
@@ -17,6 +17,37 @@ export function processTransactionsInBatches(transactions: any[], batchSize: num
   return result;
 }
 
+// Determine time of day based on transaction timestamp if available
+export function determineTimeOfDay(dateStr: string): TimeOfDay {
+  try {
+    // Default to MORNING if no time information is available
+    if (!dateStr || dateStr.length < 10) return TimeOfDay.MORNING;
+    
+    // Try to extract time information if available (format could be like "20230415120000")
+    let hour = 12; // Default to noon
+    
+    // If the date string has time portion (greater than 8 chars for YYYYMMDD)
+    if (dateStr.length > 8) {
+      // Try to extract hour from position 8-10 (assuming YYYYMMDDHH format)
+      const hourStr = dateStr.substring(8, 10);
+      const parsedHour = parseInt(hourStr);
+      if (!isNaN(parsedHour) && parsedHour >= 0 && parsedHour < 24) {
+        hour = parsedHour;
+      }
+    }
+    
+    // Categorize based on hour
+    if (hour >= 5 && hour < 12) return TimeOfDay.MORNING;
+    if (hour >= 12 && hour < 17) return TimeOfDay.AFTERNOON;
+    if (hour >= 17 && hour < 21) return TimeOfDay.EVENING;
+    if (hour >= 21 || hour < 1) return TimeOfDay.NIGHT;
+    return TimeOfDay.LATE_NIGHT; // 1am - 5am
+  } catch (error) {
+    console.error("Error determining time of day:", error);
+    return TimeOfDay.MORNING; // Default
+  }
+}
+
 // Process a single transaction with improved categorization
 export function processTransaction(trn: any): Transaction | null {
   if (!trn) return null;
@@ -28,6 +59,7 @@ export function processTransaction(trn: any): Transaction | null {
     const name = String(trn.NAME || "");
     const memo = String(trn.MEMO || "");
     const checkNum = trn.CHECKNUM ? `Check #${trn.CHECKNUM}` : "";
+    const datePosted = String(trn.DTPOSTED || "");
     
     // Create a richer description by combining available fields
     const baseDescription = `${name} ${memo} ${checkNum}`.trim();
@@ -130,7 +162,7 @@ export function processTransaction(trn: any): Transaction | null {
     const isRecurring = /monthly|recurring|subscription|bill payment|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon|gym|fitness|insurance|mortgage|rent|loan payment|utility|phone|internet|cable|service fee/i.test(baseDescription + " " + verboseDescription);
     
     // Parse the date
-    const date = parseQBODate(trn.DTPOSTED || "");
+    const date = parseQBODate(datePosted);
     
     // Generate a unique transaction ID
     const id = trn.FITID || `${date.getTime()}-${amount}-${Math.random().toString(36).substring(2, 9)}`;
@@ -298,6 +330,85 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     console.error("Error processing transaction data:", err);
     return null;
   }
+}
+
+// Create a narrative transaction from a regular transaction with personal context
+export function createNarrativeTransaction(
+  transaction: Transaction, 
+  personalBackground: PersonalBackground | null
+): NarrativeTransaction {
+  // Default values if no personal background is available
+  let userAge = 0;
+  let userLocation = "Unknown";
+
+  // Calculate user age and determine location at time of transaction if personal data exists
+  if (personalBackground) {
+    // Calculate age
+    const birthDate = new Date(personalBackground.birthDate);
+    const transactionDate = new Date(transaction.date);
+    
+    userAge = transactionDate.getFullYear() - birthDate.getFullYear();
+    
+    // Adjust age if birthday hasn't occurred yet in the transaction year
+    const hasBirthdayOccurred = 
+      transactionDate.getMonth() > birthDate.getMonth() || 
+      (transactionDate.getMonth() === birthDate.getMonth() && 
+       transactionDate.getDate() >= birthDate.getDate());
+    
+    if (!hasBirthdayOccurred) {
+      userAge--;
+    }
+    
+    // Find location at time of transaction
+    const sortedLocations = [...personalBackground.locations].sort(
+      (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    );
+    
+    for (const loc of sortedLocations) {
+      const locationStart = new Date(loc.startDate);
+      const locationEnd = loc.endDate ? new Date(loc.endDate) : null;
+      
+      if (locationStart <= transactionDate && 
+          (!locationEnd || locationEnd >= transactionDate)) {
+        userLocation = loc.location;
+        break;
+      }
+    }
+  }
+  
+  // Determine time of day from transaction date
+  const timeOfDay = determineTimeOfDay(transaction.date.toString());
+  
+  // Generate initial narrative sentence based on transaction type and other details
+  let narrative = "";
+  const userName = personalBackground?.name || "User";
+  
+  if (transaction.categoryType === "income") {
+    narrative = `${userName} received ${transaction.amount.toFixed(2)} from ${transaction.name || "an unknown source"}`;
+  } else if (transaction.categoryType === "expense") {
+    narrative = `${userName} spent ${transaction.amount.toFixed(2)} at ${transaction.name || "an unknown vendor"}`;
+  } else {
+    narrative = `${userName} transferred ${transaction.amount.toFixed(2)} involving ${transaction.name || "an account"}`;
+  }
+  
+  // Initial determination of whether this transaction is notable (to be enhanced by Claude)
+  const isNotable = transaction.amount > 1000 || transaction.isRecurring;
+  
+  return {
+    ...transaction,
+    narrative,
+    timeOfDay,
+    userAge,
+    userLocation,
+    lifestyleTags: [], // To be filled by Claude
+    transactionTags: transaction.tags || [],
+    lifeContext: "", // To be filled by Claude
+    isNotable,
+    relatedFactoids: [],
+    majorCategory: transaction.category || "Uncategorized",
+    minorCategory: transaction.subCategory || "",
+    vendor: transaction.name || transaction.payee || ""
+  };
 }
 
 // Parse QBO date format

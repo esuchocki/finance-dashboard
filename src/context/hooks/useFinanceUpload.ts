@@ -1,16 +1,19 @@
+
 import { useState, useEffect } from 'react';
-import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
+import { Transaction, FinancialSummary, FinancialInsight, FinancialPersona, NarrativeTransaction } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qbo";
 import { toast } from "sonner";
 import { enhanceTransactionsWithClaude, hasClaudeApiKey } from "@/lib/claudeService";
 import { calculateSummary } from "./useFinanceSummary";
 import { generateInsights } from "./useFinanceInsights";
 import { useNavigate } from 'react-router-dom';
+import { createNarrativeTransaction } from "@/lib/qbo/transactionUtils";
 
 // Cache key for localStorage
 const TRANSACTION_CACHE_KEY = 'financeDashboard_transactionCache';
 const CACHE_EXPIRY_KEY = 'financeDashboard_cacheExpiry';
 const CACHE_EXPIRY_HOURS = 24; // Cache data for 24 hours
+const FINANCIAL_PERSONA_KEY = 'financial_persona';
 
 export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -20,7 +23,54 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
+  const [financialPersona, setFinancialPersona] = useState<FinancialPersona | null>(null);
+  const [narrativeTransactions, setNarrativeTransactions] = useState<NarrativeTransaction[]>([]);
   const navigate = useNavigate();
+
+  // Load financial persona from localStorage
+  useEffect(() => {
+    const loadFinancialPersona = () => {
+      try {
+        const savedData = localStorage.getItem(FINANCIAL_PERSONA_KEY);
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          
+          // Convert date strings back to Date objects for proper usage
+          if (parsedData.personalBackground) {
+            if (parsedData.personalBackground.birthDate) {
+              parsedData.personalBackground.birthDate = new Date(parsedData.personalBackground.birthDate);
+            }
+            
+            if (Array.isArray(parsedData.personalBackground.locations)) {
+              parsedData.personalBackground.locations = parsedData.personalBackground.locations.map((loc: any) => ({
+                ...loc,
+                startDate: new Date(loc.startDate),
+                endDate: loc.endDate ? new Date(loc.endDate) : null
+              }));
+            }
+          }
+          
+          // Initialize other arrays if they don't exist
+          if (!parsedData.narrativeTransactions) parsedData.narrativeTransactions = [];
+          if (!parsedData.lifeChapters) parsedData.lifeChapters = [];
+          if (!parsedData.factoids) parsedData.factoids = [];
+          if (!parsedData.rawTransactions) parsedData.rawTransactions = [];
+          
+          parsedData.lastUpdated = new Date();
+          
+          setFinancialPersona(parsedData);
+          console.log("Loaded financial persona from localStorage:", parsedData);
+          
+          return parsedData;
+        }
+      } catch (error) {
+        console.error("Error loading financial persona:", error);
+      }
+      return null;
+    };
+    
+    loadFinancialPersona();
+  }, []);
 
   // Log development mode status whenever it changes
   useEffect(() => {
@@ -91,6 +141,16 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           }));
         }
         
+        // Convert narrative transactions if they exist
+        let parsedNarrativeTransactions: NarrativeTransaction[] = [];
+        if (cachedData.narrativeTransactions && Array.isArray(cachedData.narrativeTransactions)) {
+          parsedNarrativeTransactions = cachedData.narrativeTransactions.map((t: any) => ({
+            ...t,
+            date: new Date(t.date)
+          }));
+          setNarrativeTransactions(parsedNarrativeTransactions);
+        }
+        
         console.log(`Loaded ${parsedTransactions.length} transactions from cache`);
         setTransactions(parsedTransactions);
         setFilteredTransactions(parsedTransactions);
@@ -116,7 +176,8 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const cacheCurrentData = (
     currentTransactions: Transaction[], 
     currentSummary: FinancialSummary,
-    currentInsights: FinancialInsight[]
+    currentInsights: FinancialInsight[],
+    currentNarrativeTransactions: NarrativeTransaction[] = []
   ) => {
     // Skip caching in development mode
     if (isDevelopmentMode) {
@@ -128,7 +189,8 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
       const dataToCache = {
         transactions: currentTransactions,
         summary: currentSummary,
-        insights: currentInsights
+        insights: currentInsights,
+        narrativeTransactions: currentNarrativeTransactions
       };
       
       localStorage.setItem(TRANSACTION_CACHE_KEY, JSON.stringify(dataToCache));
@@ -141,6 +203,73 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     } catch (err) {
       console.error("Error caching data:", err);
       // Non-critical error, so just log it
+    }
+  };
+
+  // Create initial narrative transactions from regular transactions
+  const generateInitialNarrativeTransactions = (
+    parsedTransactions: Transaction[],
+    persona: FinancialPersona | null
+  ): NarrativeTransaction[] => {
+    if (!parsedTransactions.length) return [];
+    
+    console.log("Generating initial narrative transactions");
+    
+    // Extract personal background or use null if not available
+    const personalBackground = persona?.personalBackground || null;
+    
+    // Create narrative transaction for each regular transaction
+    const narratives = parsedTransactions.map(transaction => 
+      createNarrativeTransaction(transaction, personalBackground)
+    );
+    
+    console.log(`Generated ${narratives.length} initial narrative transactions`);
+    return narratives;
+  };
+
+  // Update financial persona with new data
+  const updateFinancialPersona = (
+    rawTransactions: Transaction[],
+    generatedNarrativeTransactions: NarrativeTransaction[]
+  ) => {
+    try {
+      // Get existing persona or create a new one
+      const currentPersona = financialPersona || {
+        personalBackground: {
+          name: "User",
+          birthDate: new Date(),
+          education: {
+            level: "",
+            school: "",
+            major: ""
+          },
+          locations: []
+        },
+        rawTransactions: [],
+        narrativeTransactions: [],
+        lifeChapters: [],
+        currentLifeChapter: "",
+        factoids: [],
+        lastUpdated: new Date()
+      };
+      
+      // Update with new transactions
+      const updatedPersona: FinancialPersona = {
+        ...currentPersona,
+        rawTransactions,
+        narrativeTransactions: generatedNarrativeTransactions,
+        lastUpdated: new Date()
+      };
+      
+      // Save to state and localStorage
+      setFinancialPersona(updatedPersona);
+      localStorage.setItem(FINANCIAL_PERSONA_KEY, JSON.stringify(updatedPersona));
+      
+      console.log("Updated financial persona:", updatedPersona);
+      return updatedPersona;
+    } catch (error) {
+      console.error("Error updating financial persona:", error);
+      return null;
     }
   };
 
@@ -212,18 +341,40 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
               duration: 5000
             });
           }
+          
+          // Generate narrative transactions with personal background context
+          const initialNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
+          setNarrativeTransactions(initialNarrativeTransactions);
+          
+          // Update financial persona with new data
+          updateFinancialPersona(parsedTransactions, initialNarrativeTransactions);
+          
         } catch (error) {
           console.error("Error enhancing transactions with Claude:", error);
           toast.error("Could not enhance all transactions with Claude AI", {
             description: "Using basic categorization instead for some transactions"
           });
           // We continue with partial results rather than failing completely
+          
+          // Generate narrative transactions with basic info
+          const basicNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
+          setNarrativeTransactions(basicNarrativeTransactions);
+          
+          // Update financial persona with basic narrative data
+          updateFinancialPersona(parsedTransactions, basicNarrativeTransactions);
         }
       } else {
         console.warn("No Claude API key available - skipping AI categorization");
         toast.info("Add a Claude API key to enhance transaction categorization", {
           description: "Click the 'Add Claude API' button in the navbar"
         });
+        
+        // Still generate basic narrative transactions
+        const basicNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
+        setNarrativeTransactions(basicNarrativeTransactions);
+        
+        // Update financial persona with basic narrative data
+        updateFinancialPersona(parsedTransactions, basicNarrativeTransactions);
       }
       
       // Sort by date descending
@@ -237,6 +388,11 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
       // Log a sample transaction to debug categorization issues
       if (parsedTransactions.length > 0) {
         console.log("Sample transaction:", JSON.stringify(parsedTransactions[0], null, 2));
+        
+        // Also log a sample narrative transaction if available
+        if (narrativeTransactions.length > 0) {
+          console.log("Sample narrative transaction:", JSON.stringify(narrativeTransactions[0], null, 2));
+        }
       }
       
       console.log(`Setting ${parsedTransactions.length} transactions`);
@@ -258,8 +414,8 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           const newInsights = generateInsights(parsedTransactions, newSummary);
           setInsights(newInsights);
           
-          // Cache the data for future use (unless in development mode)
-          cacheCurrentData(parsedTransactions, newSummary, newInsights);
+          // Cache all data for future use (unless in development mode)
+          cacheCurrentData(parsedTransactions, newSummary, newInsights, narrativeTransactions);
           
           const dateRange = newSummary.dateRange;
           const formattedStartDate = dateRange.start.toLocaleDateString();
@@ -311,6 +467,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     setFilteredTransactions([]);
     setSummary(null);
     setInsights([]);
+    setNarrativeTransactions([]);
     setIsUsingCache(false);
     // Clear the cache when explicitly clearing data
     localStorage.removeItem(TRANSACTION_CACHE_KEY);
@@ -329,6 +486,10 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     setSummary,
     insights,
     setInsights,
+    narrativeTransactions,
+    setNarrativeTransactions,
+    financialPersona,
+    setFinancialPersona,
     uploadQBOFile,
     clearData,
     isUsingCache
