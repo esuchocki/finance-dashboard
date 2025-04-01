@@ -3,13 +3,13 @@ import React from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import { CalendarDays, DollarSign, TrendingUp, AlertCircle } from "lucide-react";
+import { CalendarDays, DollarSign, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 
 const UploadSummary = () => {
-  const { summary, insights, transactions, clearData } = useFinance();
+  const { summary, transactions, clearData } = useFinance();
   const navigate = useNavigate();
   
   if (!summary || transactions.length === 0) {
@@ -90,33 +90,6 @@ const UploadSummary = () => {
             ))}
           </div>
         </div>
-        
-        {/* Key Insights */}
-        {insights.length > 0 && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Key Insights</h3>
-            <div className="space-y-2">
-              {insights.slice(0, 3).map(insight => (
-                <div 
-                  key={insight.id} 
-                  className={`p-3 border rounded flex items-start space-x-2 ${
-                    insight.type === "warning" ? "border-amber-200 bg-amber-50" :
-                    insight.type === "info" ? "border-blue-200 bg-blue-50" : "border-gray-200 bg-gray-50"
-                  }`}
-                >
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${
-                    insight.type === "warning" ? "text-amber-500" :
-                    insight.type === "info" ? "text-blue-500" : "text-gray-500"
-                  }`} />
-                  <div>
-                    <p className="font-medium text-sm">{insight.title}</p>
-                    <p className="text-xs text-muted-foreground">{insight.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         
         {/* Top Categories */}
         {summary.topExpenseCategories.length > 0 && (

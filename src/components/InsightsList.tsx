@@ -5,7 +5,7 @@ import { useFinance } from "@/context/FinanceContext";
 import { AlertCircle, Info, Lightbulb } from "lucide-react";
 
 const InsightsList = () => {
-  const { insights } = useFinance();
+  const { insights, summary } = useFinance();
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -32,6 +32,29 @@ const InsightsList = () => {
         return "border-l-gray-500 bg-gray-50";
     }
   };
+  
+  // Filter out any duplicate insights by combining both sources
+  const allInsights = [...insights];
+  
+  // Add insights from summary if they exist
+  if (summary && summary.topInsights && Array.isArray(summary.topInsights)) {
+    summary.topInsights.forEach(insight => {
+      // Check if this insight from summary already exists in our main insights list
+      const exists = allInsights.some(
+        existing => existing.title === insight.title || existing.description === insight.description
+      );
+      
+      if (!exists) {
+        allInsights.push({
+          id: `summary-${insight.id || Math.random().toString(36).substr(2, 9)}`,
+          title: insight.title || "Financial Insight",
+          description: insight.description,
+          type: insight.type || "info",
+          category: insight.category || "general"
+        });
+      }
+    });
+  }
 
   return (
     <Card>
@@ -39,13 +62,13 @@ const InsightsList = () => {
         <CardTitle>Financial Insights</CardTitle>
       </CardHeader>
       <CardContent>
-        {insights.length === 0 ? (
+        {allInsights.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             No insights available yet
           </div>
         ) : (
           <div className="space-y-3">
-            {insights.map((insight) => (
+            {allInsights.map((insight) => (
               <div 
                 key={insight.id}
                 className={`p-3 border-l-4 rounded ${getInsightColor(insight.type)}`}

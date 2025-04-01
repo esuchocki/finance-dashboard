@@ -101,8 +101,8 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           </TabsList>
           
           <TabsContent value="combined" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-3 h-[300px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-9 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -155,7 +155,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
+              <div className="md:col-span-3 bg-muted/30 rounded-lg p-4 flex flex-col justify-center">
                 <h4 className="font-medium mb-2">About This Chart</h4>
                 <p className="text-sm text-muted-foreground">
                   This bar chart displays your monthly income and expenses side by side,
@@ -172,8 +172,8 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           
           {/* Trends Tab showing income and expenses as line chart with dollar amounts */}
           <TabsContent value="trends" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-3 h-[300px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-9 h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -235,7 +235,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
+              <div className="md:col-span-3 bg-muted/30 rounded-lg p-4 flex flex-col justify-center">
                 <h4 className="font-medium mb-2">About This Chart</h4>
                 <p className="text-sm text-muted-foreground">
                   This line chart tracks your income and expenses over time,
@@ -253,8 +253,8 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           
           {/* Combined Percentage Change Tab */}
           <TabsContent value="percentage" className="mt-0">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              <div className="lg:col-span-3 h-[300px]">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-9 h-[300px]">
                 {monthlyTrendData.length > 1 ? (
                   <ChartContainer
                     config={chartConfig}
@@ -314,7 +314,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
+              <div className="md:col-span-3 bg-muted/30 rounded-lg p-4 flex flex-col justify-center">
                 <h4 className="font-medium mb-2">About This Chart</h4>
                 <p className="text-sm text-muted-foreground">
                   This chart shows month-over-month percentage changes in your income and expenses,
