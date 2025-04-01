@@ -38,6 +38,7 @@ export interface BackgroundFormData {
     level: string;
     school: string;
     major: string;
+    graduationDate: Date | null;
   };
 }
 
@@ -63,6 +64,7 @@ const defaultFormData: BackgroundFormData = {
     level: "",
     school: "",
     major: "",
+    graduationDate: null,
   },
 };
 
@@ -85,6 +87,60 @@ export function BackgroundFormDialog({
   const [formData, setFormData] = useState<BackgroundFormData>(
     initialData || defaultFormData
   );
+  
+  // Date input states
+  const [birthDateInput, setBirthDateInput] = useState<string>(
+    formData.birthDate ? format(formData.birthDate, "MM/dd/yyyy") : ""
+  );
+  const [locationDateInputs, setLocationDateInputs] = useState<{[key: string]: {start: string, end: string}}>(
+    formData.locations.reduce((acc, loc) => ({
+      ...acc,
+      [loc.id]: {
+        start: loc.startDate ? format(loc.startDate, "MM/dd/yyyy") : "",
+        end: loc.endDate ? format(loc.endDate, "MM/dd/yyyy") : ""
+      }
+    }), {})
+  );
+  const [graduationDateInput, setGraduationDateInput] = useState<string>(
+    formData.education.graduationDate ? format(formData.education.graduationDate, "MM/dd/yyyy") : ""
+  );
+
+  // Format function to add slashes automatically as user types
+  const formatDateInput = (input: string): string => {
+    // Remove any non-digit characters
+    const digitsOnly = input.replace(/\D/g, "");
+    
+    // Add slashes as the user types
+    if (digitsOnly.length <= 2) {
+      return digitsOnly;
+    } else if (digitsOnly.length <= 4) {
+      return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`;
+    } else {
+      return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+    }
+  };
+
+  // Parse dates from MM/DD/YYYY format
+  const parseDateInput = (dateString: string): Date | null => {
+    try {
+      const parts = dateString.split("/");
+      if (parts.length === 3) {
+        const month = parseInt(parts[0]) - 1; // 0-based month
+        const day = parseInt(parts[1]);
+        const year = parseInt(parts[2]);
+        
+        const date = new Date(year, month, day);
+        
+        // Validate date is valid
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  };
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -108,13 +164,30 @@ export function BackgroundFormDialog({
     }
   };
 
+  // Birth date handling
   const handleBirthDateChange = (date: Date | undefined) => {
     setFormData({
       ...formData,
       birthDate: date || null,
     });
+    
+    setBirthDateInput(date ? format(date, "MM/dd/yyyy") : "");
   };
 
+  const handleBirthDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formattedValue = formatDateInput(e.target.value);
+    setBirthDateInput(formattedValue);
+    
+    const parsedDate = parseDateInput(formattedValue);
+    if (parsedDate) {
+      setFormData({
+        ...formData,
+        birthDate: parsedDate,
+      });
+    }
+  };
+
+  // Location date handling
   const handleLocationChange = (
     id: string,
     field: keyof Omit<Location, "id">,
@@ -126,20 +199,89 @@ export function BackgroundFormDialog({
         loc.id === id ? { ...loc, [field]: value } : loc
       ),
     });
+    
+    // Update text inputs if Date value passed
+    if (field === "startDate" || field === "endDate") {
+      if (value instanceof Date) {
+        setLocationDateInputs({
+          ...locationDateInputs,
+          [id]: {
+            ...locationDateInputs[id],
+            [field === "startDate" ? "start" : "end"]: format(value, "MM/dd/yyyy")
+          }
+        });
+      }
+    }
+  };
+
+  const handleLocationDateInputChange = (id: string, field: "start" | "end", value: string) => {
+    const formattedValue = formatDateInput(value);
+    
+    // Update the text input state
+    setLocationDateInputs({
+      ...locationDateInputs,
+      [id]: {
+        ...locationDateInputs[id] || { start: "", end: "" },
+        [field]: formattedValue
+      }
+    });
+    
+    // Parse and update the actual date if valid
+    const parsedDate = parseDateInput(formattedValue);
+    if (parsedDate) {
+      handleLocationChange(id, field === "start" ? "startDate" : "endDate", parsedDate);
+    }
+  };
+
+  // Graduation date handling
+  const handleGraduationDateChange = (date: Date | undefined) => {
+    setFormData({
+      ...formData,
+      education: {
+        ...formData.education,
+        graduationDate: date || null,
+      },
+    });
+    
+    setGraduationDateInput(date ? format(date, "MM/dd/yyyy") : "");
+  };
+
+  const handleGraduationDateInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formattedValue = formatDateInput(e.target.value);
+    setGraduationDateInput(formattedValue);
+    
+    const parsedDate = parseDateInput(formattedValue);
+    if (parsedDate) {
+      setFormData({
+        ...formData,
+        education: {
+          ...formData.education,
+          graduationDate: parsedDate,
+        },
+      });
+    }
   };
 
   const addLocation = () => {
+    const newId = "loc-" + Math.random().toString(36).substring(2, 9);
+    
     setFormData({
       ...formData,
       locations: [
         ...formData.locations,
         {
-          id: "loc-" + Math.random().toString(36).substring(2, 9),
+          id: newId,
           place: "",
           startDate: null,
           endDate: null,
         },
       ],
+    });
+    
+    // Initialize the text inputs for the new location
+    setLocationDateInputs({
+      ...locationDateInputs,
+      [newId]: { start: "", end: "" }
     });
   };
 
@@ -153,6 +295,11 @@ export function BackgroundFormDialog({
       ...formData,
       locations: formData.locations.filter((loc) => loc.id !== id),
     });
+    
+    // Remove this location from the text inputs state
+    const newLocationDateInputs = { ...locationDateInputs };
+    delete newLocationDateInputs[id];
+    setLocationDateInputs(newLocationDateInputs);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -218,37 +365,49 @@ export function BackgroundFormDialog({
             <Label htmlFor="birthDate" className="text-base font-medium">
               When were you born?
             </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full pl-9 pr-3 text-left font-normal flex justify-between items-center",
-                    !formData.birthDate && "text-muted-foreground"
-                  )}
-                >
-                  <div className="flex items-center">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                    {formData.birthDate ? (
-                      format(formData.birthDate, "MMMM d, yyyy")
-                    ) : (
-                      <span>Select your birth date</span>
-                    )}
-                  </div>
-                  <CalendarLucideIcon className="h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={formData.birthDate || undefined}
-                  onSelect={handleBirthDateChange}
-                  disabled={(date) => date > new Date()}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="relative">
+                <Input
+                  id="birthDateInput"
+                  placeholder="MM/DD/YYYY"
+                  value={birthDateInput}
+                  onChange={handleBirthDateInputChange}
+                  className="pl-9"
                 />
-              </PopoverContent>
-            </Popover>
+                <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full pl-9 pr-3 text-left font-normal flex justify-between items-center",
+                      !formData.birthDate && "text-muted-foreground"
+                    )}
+                  >
+                    <div className="flex items-center">
+                      <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {formData.birthDate ? (
+                        format(formData.birthDate, "MMMM d, yyyy")
+                      ) : (
+                        <span>Select your birth date</span>
+                      )}
+                    </div>
+                    <CalendarLucideIcon className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={formData.birthDate || undefined}
+                    onSelect={handleBirthDateChange}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           {/* Locations */}
@@ -272,7 +431,7 @@ export function BackgroundFormDialog({
               {formData.locations.map((location) => (
                 <div
                   key={location.id}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-md relative"
+                  className="grid grid-cols-1 gap-3 p-3 border rounded-md relative"
                 >
                   {formData.locations.length > 1 && (
                     <Button
@@ -299,73 +458,81 @@ export function BackgroundFormDialog({
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   </div>
                   
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "pl-9 pr-3 text-left font-normal flex justify-between",
-                          !location.startDate && "text-muted-foreground"
-                        )}
-                      >
-                        <div className="flex items-center truncate">
-                          <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                          {location.startDate ? (
-                            format(location.startDate, "MMM yyyy")
-                          ) : (
-                            <span>From</span>
-                          )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm mb-1 text-muted-foreground">From (MM/DD/YYYY)</p>
+                      <div className="flex space-x-2">
+                        <div className="relative flex-1">
+                          <Input
+                            placeholder="MM/DD/YYYY"
+                            value={locationDateInputs[location.id]?.start || ""}
+                            onChange={(e) => handleLocationDateInputChange(location.id, "start", e.target.value)}
+                            className="pl-9"
+                          />
+                          <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         </div>
-                        <CalendarLucideIcon className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={location.startDate || undefined}
-                        onSelect={(date) =>
-                          handleLocationChange(location.id, "startDate", date || null)
-                        }
-                        disabled={(date) => location.endDate ? date > location.endDate : date > new Date()}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "pl-9 pr-3 text-left font-normal flex justify-between",
-                          !location.endDate && "text-muted-foreground"
-                        )}
-                      >
-                        <div className="flex items-center truncate">
-                          <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
-                          {location.endDate ? (
-                            format(location.endDate, "MMM yyyy")
-                          ) : (
-                            <span>To</span>
-                          )}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="h-10 w-10 p-0 flex items-center justify-center"
+                            >
+                              <CalendarLucideIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={location.startDate || undefined}
+                              onSelect={(date) =>
+                                handleLocationChange(location.id, "startDate", date || null)
+                              }
+                              disabled={(date) => location.endDate ? date > location.endDate : date > new Date()}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm mb-1 text-muted-foreground">To (MM/DD/YYYY)</p>
+                      <div className="flex space-x-2">
+                        <div className="relative flex-1">
+                          <Input
+                            placeholder="MM/DD/YYYY"
+                            value={locationDateInputs[location.id]?.end || ""}
+                            onChange={(e) => handleLocationDateInputChange(location.id, "end", e.target.value)}
+                            className="pl-9"
+                          />
+                          <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         </div>
-                        <CalendarLucideIcon className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={location.endDate || undefined}
-                        onSelect={(date) =>
-                          handleLocationChange(location.id, "endDate", date || null)
-                        }
-                        disabled={(date) => location.startDate ? date < location.startDate : date > new Date()}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="h-10 w-10 p-0 flex items-center justify-center"
+                            >
+                              <CalendarLucideIcon className="h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={location.endDate || undefined}
+                              onSelect={(date) =>
+                                handleLocationChange(location.id, "endDate", date || null)
+                              }
+                              disabled={(date) => location.startDate ? date < location.startDate : date > new Date()}
+                              initialFocus
+                              className="p-3 pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -415,6 +582,54 @@ export function BackgroundFormDialog({
                   className="pl-9"
                 />
                 <School className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+            
+            {/* Graduation Date */}
+            <div>
+              <Label className="text-sm font-medium mb-1 block">
+                Graduation Date (or Expected)
+              </Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="relative">
+                  <Input
+                    placeholder="MM/DD/YYYY"
+                    value={graduationDateInput}
+                    onChange={handleGraduationDateInputChange}
+                    className="pl-9"
+                  />
+                  <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-9 pr-3 text-left font-normal flex justify-between items-center",
+                        !formData.education.graduationDate && "text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex items-center">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                        {formData.education.graduationDate ? (
+                          format(formData.education.graduationDate, "MMMM d, yyyy")
+                        ) : (
+                          <span>Select graduation date</span>
+                        )}
+                      </div>
+                      <CalendarLucideIcon className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={formData.education.graduationDate || undefined}
+                      onSelect={handleGraduationDateChange}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>
