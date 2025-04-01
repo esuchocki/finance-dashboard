@@ -37,6 +37,23 @@ const TransactionPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Development Mode Toggle - Always visible */}
+      <div className="flex items-center justify-end space-x-2 p-2 bg-muted/40 rounded-md">
+        <Label htmlFor="development-mode-transactions" className="text-sm">
+          Development Mode
+        </Label>
+        <Switch
+          id="development-mode-transactions"
+          checked={isDevelopmentMode}
+          onCheckedChange={toggleDevelopmentMode}
+        />
+        {isDevelopmentMode && (
+          <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
+            Cache Disabled
+          </Badge>
+        )}
+      </div>
+      
       {transactions.length === 0 ? (
         <div className="animate-fade-in">
           <FileUploader />
@@ -49,21 +66,6 @@ const TransactionPage = () => {
               Transactions
             </h1>
             <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2 p-2 bg-muted/40 rounded-md">
-                <Label htmlFor="development-mode-transactions" className="text-sm">
-                  Development Mode
-                </Label>
-                <Switch
-                  id="development-mode-transactions"
-                  checked={isDevelopmentMode}
-                  onCheckedChange={toggleDevelopmentMode}
-                />
-                {isDevelopmentMode && (
-                  <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
-                    Cache Disabled
-                  </Badge>
-                )}
-              </div>
               <Button 
                 variant="outline" 
                 className="flex items-center gap-2 hover:bg-muted" 
