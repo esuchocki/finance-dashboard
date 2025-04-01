@@ -16,7 +16,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
+  InfoTooltipTrigger,
 } from "@/components/ui/tooltip";
 
 interface DashboardHeaderProps {
@@ -50,11 +50,11 @@ const DashboardHeader = ({ onClearData }: DashboardHeaderProps) => {
         
         <TooltipProvider>
           <Tooltip delayDuration={700}>
-            <TooltipTrigger asChild>
+            <InfoTooltipTrigger asChild>
               <Button variant="ghost" size="icon" className="h-6 w-6">
                 <Sailboat className="h-4 w-4 text-finance-primary" />
               </Button>
-            </TooltipTrigger>
+            </InfoTooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
               <p className="text-xs">At your current savings rate, you're approximately 147 financial quarters away from that 38-foot sloop. Keep charting the course!</p>
             </TooltipContent>

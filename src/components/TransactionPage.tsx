@@ -93,11 +93,11 @@ const TransactionPage = () => {
             <div className="flex items-center gap-4">
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>
+                  <InfoTooltipTrigger asChild>
                     <div className="flex items-center opacity-70">
                       <Anchor className="h-4 w-4 text-finance-primary mr-1" />
                     </div>
-                  </TooltipTrigger>
+                  </InfoTooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">Every expense avoided is another fathom closer to your nautical dreams.</p>
                   </TooltipContent>
