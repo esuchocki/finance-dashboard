@@ -62,9 +62,14 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
     },
   };
 
-  // Format currency values for tooltips to round to nearest dollar
+  // Format currency values for tooltips to round to nearest dollar without decimal places
   const formatTooltipCurrency = (value: number): string => {
-    return formatCurrency(Math.round(value));
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Math.round(value));
   };
 
   // Format percentage values for tooltips to round to nearest percent
