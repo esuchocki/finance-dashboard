@@ -31,7 +31,7 @@ const TransactionPage = () => {
   // Pagination handlers - removed window.scrollTo
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Removed scroll to top
+    // No scroll to top here
   };
 
   return (
