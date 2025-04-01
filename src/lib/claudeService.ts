@@ -1,4 +1,3 @@
-
 import { categoryHierarchy } from './qbo/categoryPatterns';
 import { Transaction } from './types';
 import { ClaudeEnhancementResponse } from './qbo/types';
@@ -9,7 +8,9 @@ const CLAUDE_API_KEY_STORAGE_KEY = 'claudeApiKey';
 
 // Check if a Claude API key is available
 export const hasClaudeApiKey = (): boolean => {
-  return !!localStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY);
+  const hasKey = !!localStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY);
+  console.log("Claude API key available:", hasKey);
+  return hasKey;
 };
 
 // Get the stored Claude API key
@@ -39,6 +40,8 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     throw new Error("Claude API key is required for transaction enhancement");
   }
 
+  console.log(`Starting Claude API enhancement for ${transactions.length} transactions`);
+
   // Process in batches of 50 transactions to avoid overwhelming the API
   const batchSize = 50;
   const batches = [];
@@ -63,7 +66,10 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
         });
       }
       
+      console.time(`claudeBatch${i+1}`);
       const batchResult = await enhanceTransactionBatch(batch, apiKey);
+      console.timeEnd(`claudeBatch${i+1}`);
+      
       enhancedTransactions = [...enhancedTransactions, ...batchResult];
       
       // Update toast for progress on large batches
@@ -85,6 +91,7 @@ export const enhanceTransactionsWithClaude = async (transactions: Transaction[])
     }
   }
   
+  console.log(`Claude enhancement complete. Enhanced ${enhancedTransactions.length} transactions`);
   return enhancedTransactions;
 };
 
@@ -276,6 +283,8 @@ RETURN ONLY THE JSON OBJECT WITH NO ADDITIONAL TEXT, EXPLANATION OR MARKDOWN.
 `;
 
     // Set up the API call to Claude
+    console.log(`Making Claude API request for ${transactions.length} transactions`);
+    console.time('claudeApiCall');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -294,9 +303,11 @@ RETURN ONLY THE JSON OBJECT WITH NO ADDITIONAL TEXT, EXPLANATION OR MARKDOWN.
         }]
       })
     });
+    console.timeEnd('claudeApiCall');
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`Claude API Error (${response.status}):`, errorText);
       throw new Error(`Claude API Error (${response.status}): ${errorText}`);
     }
 

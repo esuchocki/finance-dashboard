@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qbo";
@@ -20,6 +19,11 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
   const [isUsingCache, setIsUsingCache] = useState(false);
+
+  // Log development mode status whenever it changes
+  useEffect(() => {
+    console.log("Development mode status:", isDevelopmentMode);
+  }, [isDevelopmentMode]);
 
   // Check for cached data on initial load
   useEffect(() => {
@@ -151,6 +155,10 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
       const contentHash = btoa(content.slice(0, 1000)).substring(0, 20);
       const cachedHash = localStorage.getItem('financeDashboard_lastFileHash');
       
+      console.log("File content hash:", contentHash);
+      console.log("Previous file hash:", cachedHash);
+      console.log("Development mode active:", isDevelopmentMode);
+      
       // Only use file cache detection in non-development mode
       if (!isDevelopmentMode && contentHash === cachedHash) {
         toast.info("This appears to be the same file you uploaded before", {
@@ -173,9 +181,11 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
             duration: 5000
           });
           
+          console.log(`Calling Claude AI for ${parsedTransactions.length} transactions (Development mode: ${isDevelopmentMode})`);
+          
           // Wait for Claude AI to enhance the transactions
           parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
-          console.log(`Transactions enhanced: ${parsedTransactions.length}`);
+          console.log(`Transactions enhanced by Claude: ${parsedTransactions.length}`);
           
           // Check if categorization was successful
           const categorizedCount = parsedTransactions.filter(t => 
@@ -186,6 +196,8 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           
           // Count unique categories for better feedback
           const uniqueCategories = new Set(parsedTransactions.map(t => t.category)).size;
+          
+          console.log(`Categorization stats: ${categorizedCount}/${parsedTransactions.length} (${categorizedPercent}%) into ${uniqueCategories} categories`);
           
           if (categorizedPercent < 50) {
             toast.warning("Limited categorization success", {
@@ -206,6 +218,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           // We continue with partial results rather than failing completely
         }
       } else {
+        console.warn("No Claude API key available - skipping AI categorization");
         toast.info("Add a Claude API key to enhance transaction categorization", {
           description: "Click the 'Add Claude API' button in the navbar"
         });

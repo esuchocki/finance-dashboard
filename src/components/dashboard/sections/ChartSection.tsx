@@ -6,6 +6,7 @@ import MonthlyIncomeExpensesChart from "../MonthlyIncomeExpensesChart";
 import ClaudeEnhancedCategories from "../ClaudeEnhancedCategories";
 import { useFinance } from "@/context/FinanceContext";
 import { Badge } from "@/components/ui/badge";
+import ClaudeRawCategoryDebugger from "../ClaudeRawCategoryDebugger";
 
 interface ChartSectionProps {
   monthlyTrendData: any[];
@@ -19,7 +20,7 @@ const ChartSection = ({
   monthlyTrendData,
   balanceData,
   categoryData,
-  incomeData,
+  incomeData, 
   transactions
 }: ChartSectionProps) => {
   const { isDevelopmentMode } = useFinance();
@@ -49,6 +50,13 @@ const ChartSection = ({
           transactions={transactions} 
         />
       </div>
+      
+      {/* Claude Raw Category Debugger - Only visible in development mode */}
+      {isDevelopmentMode && (
+        <ClaudeRawCategoryDebugger 
+          transactions={transactions} 
+        />
+      )}
     </>
   );
 };

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Key, ShieldAlert } from "lucide-react";
+import { saveClaudeApiKey, getClaudeApiKey } from "@/lib/claudeService";
 
 interface ClaudeApiKeyModalProps {
   open: boolean;
@@ -18,20 +19,60 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
 }) => {
   const [apiKey, setApiKey] = useState<string>(() => {
     // Load from localStorage if available
-    const saved = localStorage.getItem("claude_api_key");
-    return saved ? saved : "";
+    return getClaudeApiKey();
   });
 
   const saveApiKey = () => {
     if (!apiKey.trim()) {
-      localStorage.removeItem("claude_api_key");
+      localStorage.removeItem("claudeApiKey");
       toast.info("Claude API key has been removed");
     } else {
       // Store the API key in localStorage
-      localStorage.setItem("claude_api_key", apiKey);
+      saveClaudeApiKey(apiKey);
       toast.success("Claude API key has been saved");
+      
+      // Log that the key was saved (without showing the key)
+      console.log("Claude API key saved. Length:", apiKey.length);
     }
     onOpenChange(false);
+  };
+
+  const testApiKey = async () => {
+    if (!apiKey.trim()) {
+      toast.error("Please enter an API key to test");
+      return;
+    }
+    
+    try {
+      toast.info("Testing Claude API key...");
+      
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-3-sonnet-20240229',
+          max_tokens: 50,
+          temperature: 0.1,
+          messages: [{
+            role: 'user',
+            content: "Please respond with 'API key is valid' and nothing else."
+          }]
+        })
+      });
+      
+      if (response.ok) {
+        toast.success("API key is valid!");
+      } else {
+        const errorData = await response.json();
+        toast.error(`API key is invalid: ${errorData.error?.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      toast.error(`Error testing API key: ${(error as Error).message}`);
+    }
   };
 
   return (
@@ -68,9 +109,14 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
           </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={saveApiKey}>Save API Key</Button>
+        <DialogFooter className="flex items-center justify-between sm:justify-between">
+          <Button variant="outline" onClick={testApiKey} type="button">
+            Test Key
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button onClick={saveApiKey}>Save API Key</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
