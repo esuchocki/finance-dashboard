@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
