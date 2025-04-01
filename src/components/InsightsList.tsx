@@ -60,13 +60,39 @@ const InsightsList = () => {
     });
   }
 
+  // Enhanced insight handling to show data counts
   const handleInsightClick = (insight: FinancialInsight) => {
-    setSelectedInsight(insight);
+    // For subscription insight, add a count of recurring expenses
+    if (insight.id === "subscription-spending" && summary && summary.recurringExpenses) {
+      const enhancedInsight = {
+        ...insight,
+        description: insight.description + 
+          (insight.description.includes("recurring items") ? "" : 
+          ` (${summary.recurringExpenses.length} recurring items identified)`)
+      };
+      setSelectedInsight(enhancedInsight);
+    } else {
+      setSelectedInsight(insight);
+    }
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
+  };
+
+  const getInsightIndicator = (insight: FinancialInsight) => {
+    // Add count indicators for insights that have related data
+    if (insight.id === "potential-duplicates" && insight.relatedTransactions) {
+      return `(${insight.relatedTransactions.length})`;
+    }
+    if (insight.id === "large-transactions" && insight.relatedTransactions) {
+      return `(${insight.relatedTransactions.length})`;
+    }
+    if (insight.id === "subscription-spending" && summary && summary.recurringExpenses) {
+      return `(${summary.recurringExpenses.length})`;
+    }
+    return "";
   };
 
   return (
@@ -93,7 +119,13 @@ const InsightsList = () => {
                       {getInsightIcon(insight.type)}
                     </div>
                     <div className="flex-grow">
-                      <h4 className="font-medium">{insight.title}</h4>
+                      <h4 className="font-medium">
+                        {insight.title} {getInsightIndicator(insight) && (
+                          <span className="text-sm font-normal text-muted-foreground ml-1">
+                            {getInsightIndicator(insight)}
+                          </span>
+                        )}
+                      </h4>
                       <p className="text-sm text-muted-foreground">
                         {insight.description}
                       </p>

@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/formatters";
 import TransactionList from "./TransactionList";
 import { FinancialInsight } from "@/lib/types";
 import { AlertCircle, Info, Lightbulb } from "lucide-react";
+import { useFinance } from "@/context/FinanceContext";
 
 interface InsightDetailsProps {
   insight: FinancialInsight | null;
@@ -21,7 +22,26 @@ interface InsightDetailsProps {
 }
 
 const InsightDetails = ({ insight, isOpen, onClose }: InsightDetailsProps) => {
+  const { summary } = useFinance();
+  
   if (!insight) return null;
+
+  // Get recurring expenses from summary for subscription insights
+  const getRelatedTransactions = () => {
+    // If the insight already has related transactions, use those
+    if (insight.relatedTransactions && insight.relatedTransactions.length > 0) {
+      return insight.relatedTransactions;
+    }
+    
+    // For subscription insight, get recurring expenses from summary
+    if (insight.id === "subscription-spending" && summary && summary.recurringExpenses) {
+      return summary.recurringExpenses;
+    }
+    
+    return [];
+  };
+
+  const relatedTransactions = getRelatedTransactions();
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -83,11 +103,13 @@ const InsightDetails = ({ insight, isOpen, onClose }: InsightDetailsProps) => {
           )}
 
           {/* If there are related transactions, show them in a transaction list */}
-          {insight.relatedTransactions && insight.relatedTransactions.length > 0 && (
+          {relatedTransactions.length > 0 && (
             <div className="mt-4">
-              <h4 className="font-medium mb-2">Related Transactions</h4>
+              <h4 className="font-medium mb-2">
+                {insight.id === "subscription-spending" ? "Recurring Expenses" : "Related Transactions"}
+              </h4>
               <TransactionList 
-                transactions={insight.relatedTransactions}
+                transactions={relatedTransactions}
                 title=""
               />
             </div>
