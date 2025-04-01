@@ -50,11 +50,15 @@ const TransactionFilters = () => {
     return Array.from(categorySet).sort();
   }, [transactions]);
   
-  // Handler for the slider change
+  // Handler for the slider change - modified to use whole numbers only
   const handleSliderChange = (values: number[]) => {
-    setSliderRange([values[0], values[1]]);
-    setMinAmount(values[0].toString());
-    setMaxAmount(values[1].toString());
+    const roundedValues: [number, number] = [
+      Math.round(values[0]), 
+      Math.round(values[1])
+    ];
+    setSliderRange(roundedValues);
+    setMinAmount(roundedValues[0].toString());
+    setMaxAmount(roundedValues[1].toString());
   };
 
   // Apply all filters - fixed to match TransactionFilterOptions type
@@ -76,8 +80,8 @@ const TransactionFilters = () => {
         end: dateRange?.end || null
       },
       amountRange: {
-        min: minAmount ? parseFloat(minAmount) : null,
-        max: maxAmount ? parseFloat(maxAmount) : null
+        min: minAmount ? Math.round(parseFloat(minAmount)) : null,
+        max: maxAmount ? Math.round(parseFloat(maxAmount)) : null
       },
       searchQuery: searchQuery,
       isRecurring: null,
@@ -86,8 +90,8 @@ const TransactionFilters = () => {
       category: category !== "all" ? category : undefined,
       type: transactionType,
       excludeTransfers: excludeTransfers,
-      minAmount: minAmount ? parseFloat(minAmount) : undefined,
-      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined
+      minAmount: minAmount ? Math.round(parseFloat(minAmount)) : undefined,
+      maxAmount: maxAmount ? Math.round(parseFloat(maxAmount)) : undefined
     });
   };
   
@@ -100,6 +104,21 @@ const TransactionFilters = () => {
   const formatDateRange = (range: any) => {
     if (!range) return "All dates";
     return `${format(range.start, "MMM d, yyyy")} - ${format(range.end, "MMM d, yyyy")}`;
+  };
+
+  // Handle input changes for amount values - ensuring they are whole numbers
+  const handleAmountInputChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
+    // Allow empty string for clearing
+    if (value === "") {
+      setter("");
+      return;
+    }
+    
+    // Ensure only whole numbers are entered
+    const numValue = parseInt(value);
+    if (!isNaN(numValue)) {
+      setter(numValue.toString());
+    }
   };
 
   return (
@@ -152,7 +171,7 @@ const TransactionFilters = () => {
             </Select>
           </div>
           
-          {/* Amount range with slider */}
+          {/* Amount range with slider - modified to use whole numbers */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex justify-between mb-2">
               <Label>Amount Range</Label>
@@ -162,9 +181,9 @@ const TransactionFilters = () => {
             </div>
             <Slider
               defaultValue={sliderRange}
-              min={stats?.minAmount || 0}
-              max={stats?.maxAmount || 1000}
-              step={(stats?.maxAmount || 1000) / 100}
+              min={Math.floor(stats?.minAmount || 0)}
+              max={Math.ceil(stats?.maxAmount || 1000)}
+              step={1} /* Changed to 1 for whole numbers */
               value={sliderRange}
               onValueChange={handleSliderChange}
               className="mb-4"
@@ -176,7 +195,7 @@ const TransactionFilters = () => {
                   id="min-amount"
                   placeholder="Min Amount"
                   value={minAmount}
-                  onChange={(e) => setMinAmount(e.target.value)}
+                  onChange={(e) => handleAmountInputChange(e.target.value, setMinAmount)}
                   type="number"
                   className="w-full"
                 />
@@ -187,7 +206,7 @@ const TransactionFilters = () => {
                   id="max-amount"
                   placeholder="Max Amount"
                   value={maxAmount}
-                  onChange={(e) => setMaxAmount(e.target.value)}
+                  onChange={(e) => handleAmountInputChange(e.target.value, setMaxAmount)}
                   type="number"
                   className="w-full"
                 />
@@ -195,7 +214,7 @@ const TransactionFilters = () => {
             </div>
           </div>
           
-          {/* Date Picker */}
+          {/* Date Picker - now with manual input option */}
           <div className="col-span-1 md:col-span-2">
             <Label className="mb-2 block">Date Range</Label>
             <div className="flex flex-col space-y-2">
@@ -282,7 +301,7 @@ const TransactionFilters = () => {
                 setMaxAmount("");
                 setExcludeTransfers(false);
                 if (stats) {
-                  setSliderRange([stats.minAmount, stats.maxAmount]);
+                  setSliderRange([Math.floor(stats.minAmount), Math.ceil(stats.maxAmount)]);
                 }
               }} 
               className="flex items-center space-x-2"

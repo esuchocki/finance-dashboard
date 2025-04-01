@@ -24,7 +24,9 @@ export const applyFilters = (transactions: Transaction[], filters: TransactionFi
   // Apply amount filters - support both new amountRange and older min/maxAmount properties
   if ((filters.amountRange?.min !== null && filters.amountRange?.min !== undefined) || 
       (filters.minAmount !== null && filters.minAmount !== undefined)) {
-    const minAmount = filters.amountRange?.min !== null ? filters.amountRange.min : filters.minAmount;
+    const minAmount = filters.amountRange?.min !== null && filters.amountRange?.min !== undefined 
+      ? filters.amountRange.min 
+      : filters.minAmount;
     if (minAmount !== null && minAmount !== undefined) {
       filtered = filtered.filter(t => Math.abs(t.amount) >= minAmount);
       console.log("After min amount filter:", filtered.length);
@@ -33,7 +35,9 @@ export const applyFilters = (transactions: Transaction[], filters: TransactionFi
   
   if ((filters.amountRange?.max !== null && filters.amountRange?.max !== undefined) || 
       (filters.maxAmount !== null && filters.maxAmount !== undefined)) {
-    const maxAmount = filters.amountRange?.max !== null ? filters.amountRange.max : filters.maxAmount;
+    const maxAmount = filters.amountRange?.max !== null && filters.amountRange?.max !== undefined 
+      ? filters.amountRange.max 
+      : filters.maxAmount;
     if (maxAmount !== null && maxAmount !== undefined) {
       filtered = filtered.filter(t => Math.abs(t.amount) <= maxAmount);
       console.log("After max amount filter:", filtered.length);

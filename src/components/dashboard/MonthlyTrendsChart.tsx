@@ -1,3 +1,4 @@
+
 import React from "react";
 import { 
   Card, 
@@ -48,7 +49,7 @@ interface MonthlyTrendsChartProps {
 }
 
 const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendData }) => {
-  // Configuration for charts - properly typed to fix the errors
+  // Configuration for charts - updated colors to match dashboard
   const chartConfig = {
     expense: { 
       theme: { light: "#F97316", dark: "#F97316" } 
@@ -141,12 +142,12 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Bar 
                         dataKey="income" 
                         name="income" 
-                        fill="#10B981" /* Adding green color for income bars */
+                        fill="#10B981" /* Using the same green color as dashboard */
                       />
                       <Bar 
                         dataKey="expenses" 
                         name="expense" 
-                        fill="#F97316" /* Adding orange color for expense bars */
+                        fill="#F97316" /* Using the same orange color as dashboard */
                       />
                       <Legend />
                     </BarChart>
@@ -157,23 +158,21 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 flex flex-col justify-center shadow-sm border border-border/40">
-                <h4 className="font-medium mb-2 text-primary flex items-center">
-                  <ChartBar className="h-4 w-4 mr-2 text-finance-primary" />
-                  About This Chart
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  This bar chart displays your monthly income and expenses side by side,
-                  making it easy to compare the two values for each month.
-                </p>
-                <h4 className="font-medium mt-4 mb-2 text-primary flex items-center">
-                  <Info className="h-4 w-4 mr-2 text-finance-accent" />
-                  How to Use
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Look for months where expenses exceed income (orange bars taller than green),
-                  which might indicate budget issues that need attention.
-                </p>
+              <div className="md:col-span-3">
+                <div className="mb-4">
+                  <h4 className="font-bold mb-2">About This Chart</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This bar chart displays your monthly income and expenses side by side,
+                    making it easy to compare the two values for each month.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Look for months where expenses exceed income (orange bars taller than green),
+                    which might indicate budget issues that need attention.
+                  </p>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -222,7 +221,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="income" 
                         name="income" 
-                        stroke="#10B981" 
+                        stroke="#10B981" /* Using the same green color as dashboard */ 
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -230,7 +229,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expenses" 
                         name="expense" 
-                        stroke="#F97316" 
+                        stroke="#F97316" /* Using the same orange color as dashboard */ 
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -243,24 +242,22 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 flex flex-col justify-center shadow-sm border border-border/40">
-                <h4 className="font-medium mb-2 text-primary flex items-center">
-                  <BarChart2 className="h-4 w-4 mr-2 text-finance-primary" />
-                  About This Chart
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  This line chart tracks your income and expenses over time,
-                  highlighting overall trends and recurring patterns.
-                </p>
-                <h4 className="font-medium mt-4 mb-2 text-primary flex items-center">
-                  <Info className="h-4 w-4 mr-2 text-finance-accent" />
-                  How to Use
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Look for consistent upward or downward trends. Steady income with 
-                  rising expenses may indicate lifestyle inflation. Seasonal 
-                  fluctuations might suggest predictable budget cycles.
-                </p>
+              <div className="md:col-span-3">
+                <div className="mb-4">
+                  <h4 className="font-bold mb-2">About This Chart</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This line chart tracks your income and expenses over time,
+                    highlighting overall trends and recurring patterns.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Look for consistent upward or downward trends. Steady income with 
+                    rising expenses may indicate lifestyle inflation. Seasonal 
+                    fluctuations might suggest predictable budget cycles.
+                  </p>
+                </div>
               </div>
             </div>
           </TabsContent>
@@ -307,7 +304,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="incomeChange" 
                         name="Income % Change" 
-                        stroke="#10B981" 
+                        stroke="#10B981" /* Using the same green color as dashboard */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -315,7 +312,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expensesChange" 
                         name="Expense % Change" 
-                        stroke="#F97316" 
+                        stroke="#F97316" /* Using the same orange color as dashboard */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -328,23 +325,21 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3 bg-gradient-to-br from-muted/50 to-muted/30 rounded-lg p-4 flex flex-col justify-center shadow-sm border border-border/40">
-                <h4 className="font-medium mb-2 text-primary flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2 text-finance-primary" />
-                  About This Chart
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  This chart shows month-over-month percentage changes in your income and expenses,
-                  helping you identify growth or reduction rates.
-                </p>
-                <h4 className="font-medium mt-4 mb-2 text-primary flex items-center">
-                  <Info className="h-4 w-4 mr-2 text-finance-accent" />
-                  How to Use
-                </h4>
-                <p className="text-sm text-muted-foreground">
-                  Large spikes may indicate unusual financial events. Income growing slower than 
-                  expenses (green line below orange) suggests increasing financial strain over time.
-                </p>
+              <div className="md:col-span-3">
+                <div className="mb-4">
+                  <h4 className="font-bold mb-2">About This Chart</h4>
+                  <p className="text-sm text-muted-foreground">
+                    This chart shows month-over-month percentage changes in your income and expenses,
+                    helping you identify growth or reduction rates.
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-bold mb-2">How to Use</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Large spikes may indicate unusual financial events. Income growing slower than 
+                    expenses (green line below orange) suggests increasing financial strain over time.
+                  </p>
+                </div>
               </div>
             </div>
           </TabsContent>
