@@ -56,58 +56,70 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
     try {
       toast.info("Testing Claude API key...");
       
-      // Test with a simple request to the Claude API
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 10,
-          temperature: 0.1,
-          messages: [{
-            role: 'user',
-            content: "Say hello"
-          }]
-        }),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        const data = await response.json();
-        toast.success("API key is valid!");
-      } else {
-        const errorText = await response.text();
-        let errorMessage = 'Unknown error';
+      // In development environment, we might hit CORS issues, so let's handle that better
+      try {
+        // Test with a simple request to the Claude API
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
         
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error?.message || 'API validation failed';
-        } catch (e) {
-          errorMessage = `HTTP error ${response.status}`;
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-haiku-20240307',
+            max_tokens: 10,
+            temperature: 0.1,
+            messages: [{
+              role: 'user',
+              content: "Say hello"
+            }]
+          }),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          toast.success("API key is valid!");
+        } else {
+          const errorText = await response.text();
+          let errorMessage = 'Unknown error';
+          
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error?.message || 'API validation failed';
+          } catch (e) {
+            errorMessage = `HTTP error ${response.status}`;
+          }
+          
+          toast.error(`API key is invalid: ${errorMessage}`);
         }
+      } catch (fetchError) {
+        console.error("Fetch error during API test:", fetchError);
         
-        toast.error(`API key is invalid: ${errorMessage}`);
+        // Special handling for development environment
+        if (fetchError.name === 'AbortError') {
+          toast.error("API request timed out. Please check your internet connection and try again.");
+        } else if (fetchError.message === 'Failed to fetch') {
+          // In development environment, this might be due to CORS
+          toast.warning(
+            "Network error detected. This may be due to CORS restrictions in the development environment. The key may still be valid for actual use."
+          );
+          // Save the key anyway since this might just be a development environment issue
+          saveClaudeApiKey(apiKey);
+          toast.info("API key has been saved despite network error");
+        } else {
+          toast.error(`Error testing API key: ${fetchError.message || 'Network error'}`);
+        }
       }
     } catch (error) {
-      console.error("Error testing API key:", error);
-      
-      // Handle specific errors
-      if (error.name === 'AbortError') {
-        toast.error("API request timed out. Please check your internet connection and try again.");
-      } else if (error.message === 'Failed to fetch') {
-        toast.error("Network error: Please check your internet connection and try again."); 
-      } else {
-        toast.error(`Error testing API key: ${error.message || 'Network error'}`);
-      }
+      console.error("Error in test API key function:", error);
+      toast.error(`Unexpected error: ${error.message || 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +127,7 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl md:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
@@ -135,6 +147,7 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
               placeholder="sk-ant-api..."
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
+              className="font-mono text-sm"
             />
           </div>
           
@@ -145,9 +158,16 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
               It's used only for direct API calls from your device to Claude.
             </p>
           </div>
+          
+          <div className="bg-amber-50 border border-amber-200 p-3 rounded-md mt-2">
+            <p className="text-sm text-amber-800">
+              <strong>Note:</strong> When testing in development environments, you may see network errors due to CORS restrictions. 
+              If you encounter a "Failed to fetch" error, the key may still be valid for actual use.
+            </p>
+          </div>
         </div>
         
-        <DialogFooter className="flex flex-row items-center justify-between gap-4">
+        <DialogFooter className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex gap-2">
             <Button 
               variant="secondary" 
