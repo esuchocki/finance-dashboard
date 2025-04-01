@@ -7,9 +7,18 @@ import AnalysisSectionWrapper from "./AnalysisSectionWrapper";
 import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const TransactionPage = () => {
-  const { transactions, filteredTransactions, clearData } = useFinance();
+  const { 
+    transactions, 
+    filteredTransactions, 
+    clearData, 
+    isDevelopmentMode, 
+    toggleDevelopmentMode 
+  } = useFinance();
   const [currentPage, setCurrentPage] = useState(1);
   const transactionsPerPage = 10;
   
@@ -39,14 +48,31 @@ const TransactionPage = () => {
               <FileText className="h-6 w-6 mr-2 text-finance-primary" />
               Transactions
             </h1>
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2 hover:bg-muted" 
-              onClick={clearData}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Change QBO File
-            </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2 p-2 bg-muted/40 rounded-md">
+                <Label htmlFor="development-mode-transactions" className="text-sm">
+                  Development Mode
+                </Label>
+                <Switch
+                  id="development-mode-transactions"
+                  checked={isDevelopmentMode}
+                  onCheckedChange={toggleDevelopmentMode}
+                />
+                {isDevelopmentMode && (
+                  <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
+                    Cache Disabled
+                  </Badge>
+                )}
+              </div>
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2 hover:bg-muted" 
+                onClick={clearData}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Change QBO File
+              </Button>
+            </div>
           </div>
           
           <div className="animate-fade-in stagger-1">
