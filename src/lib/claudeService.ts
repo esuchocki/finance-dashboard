@@ -1,3 +1,4 @@
+
 import { categoryHierarchy } from './qbo/categoryPatterns';
 import { Transaction } from './types';
 import { ClaudeEnhancementResponse } from './qbo/types';
@@ -94,7 +95,7 @@ const enhanceTransactionBatch = async (transactions: Transaction[], apiKey: stri
   }
 
   try {
-    // Prepare transaction data for Claude
+    // Prepare transaction data for Claude with MORE DETAILED information
     const transactionData = transactions.map(t => ({
       id: t.id,
       date: t.date.toISOString().split('T')[0], // Just the date portion
@@ -104,45 +105,134 @@ const enhanceTransactionBatch = async (transactions: Transaction[], apiKey: stri
       memo: t.memo || '',
       name: t.name || '',
       payee: t.payee || '',
-      verboseDescription: t.verboseDescription || ''
+      verboseDescription: t.verboseDescription || '',
+      isRecurring: t.isRecurring || false,
+      // Include these to help Claude understand current categorization attempts
+      currentCategory: t.category || 'Uncategorized',
+      currentSubCategory: t.subCategory || '',
+      // Adding more context about transaction types
+      isDebit: ['DEBIT', 'CHECK', 'WITHDRAWAL', 'FEE'].includes(t.type),
+      isCredit: ['CREDIT', 'DEPOSIT', 'INTEREST'].includes(t.type),
+      isTransfer: t.type === 'TRANSFER'
     }));
 
-    // Create a rich prompt for Claude with detailed instructions and examples
+    // Create a richer prompt for Claude with detailed instructions, examples and context
     const prompt = `
-You are an expert financial transaction categorizer. You will analyze the following financial transactions and categorize them accurately.
-The transactions come from a QBO file (Quickbooks Online) or similar financial export.
+You are a FINANCIAL EXPERT CATEGORIZATION SYSTEM tasked with accurately categorizing financial transactions into precise categories and subcategories.
 
-Here is the list of available categories and subcategories:
+Your task is to analyze each transaction in detail, examining its:
+- Description, memo, and name fields
+- Transaction type (DEBIT, CREDIT, etc.)
+- Amount
+- Whether it's recurring
+- Any merchant patterns, keywords, or contextual clues
+
+## CATEGORIZATION STRUCTURE
+
+Here is the EXACT category hierarchy you MUST use. DO NOT CREATE NEW CATEGORIES:
 ${JSON.stringify(categoryHierarchy, null, 2)}
 
-Each transaction will be enhanced with:
-1. A precise category from the provided hierarchy
-2. An appropriate subcategory from the same hierarchy
-3. A human-readable verbose description that makes the transaction clearer
-4. A confidence level (high, medium, low) for the categorization
-5. A category type (income, expense, transfer, other)
+## CATEGORIZATION RULES - READ THESE CAREFULLY:
 
-Rules for categorization:
-- Use only categories and subcategories listed in the hierarchy
-- For ambiguous transactions, choose the most likely category based on description, amount, and type
-- Assign "high" confidence only when you're very sure of the category
-- Create clear, human-readable descriptions that explain what the transaction is for
-- For recurring payments, try to identify the service or subscription
-- For transactions with abbreviations or codes, try to expand them into readable text
-- Pay attention to transaction type (DEBIT, CREDIT, etc.) to determine if it's income or expense
+1. ALWAYS assign a category from the provided hierarchy - NEVER invent new categories
+2. Choose the MOST SPECIFIC subcategory possible within each main category
+3. For transactions like "AMAZON" or "PAYPAL", look at the description/memo for clues about what was purchased
+4. For each transaction, determine if it's:
+   - INCOME: money received (deposits, credits, payments received)
+   - EXPENSE: money spent (purchases, bills, fees)
+   - TRANSFER: money moved between accounts (not income or expense)
 
-Here are the transactions to categorize:
+5. Create a CLEAR, HELPFUL "verboseDescription" that explains what the transaction is in plain English
+   - Example: "AMZN MKTP US" → "Amazon purchase: Office supplies"
+   - Example: "SLING 9.99" → "Sling TV streaming subscription"
+   - Example: "XXXXXX2983 PYMT" → "Credit card payment to account ending in 2983"
+
+6. Assign a confidence level:
+   - HIGH: Very clear what the transaction is
+   - MEDIUM: Reasonable certainty but some ambiguity
+   - LOW: Significant uncertainty about the correct category
+
+## EXAMPLES OF IDEAL CATEGORIZATION:
+
+Example 1:
+Input: { "description": "NETFLIX.COM", "amount": 15.99, "type": "DEBIT", "isRecurring": true }
+Output: { 
+  "category": "Entertainment", 
+  "subCategory": "Streaming Services", 
+  "verboseDescription": "Netflix monthly subscription", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
+Example 2:
+Input: { "description": "WHOLEFDS LAX 10087", "amount": 82.47, "type": "DEBIT" }
+Output: { 
+  "category": "Food & Dining", 
+  "subCategory": "Groceries", 
+  "verboseDescription": "Whole Foods grocery purchase in Los Angeles", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
+Example 3:
+Input: { "description": "VENMO PAYMENT 9583", "memo": "rent", "amount": 1200, "type": "DEBIT" }
+Output: { 
+  "category": "Housing", 
+  "subCategory": "Rent", 
+  "verboseDescription": "Rent payment via Venmo", 
+  "confidence": "high", 
+  "categoryType": "expense" 
+}
+
+Example 4:
+Input: { "description": "AMZN MKTP US", "amount": 29.99, "type": "DEBIT" }
+Output: { 
+  "category": "Shopping", 
+  "subCategory": "Online Shopping", 
+  "verboseDescription": "Amazon marketplace purchase", 
+  "confidence": "medium", 
+  "categoryType": "expense" 
+}
+
+Example 5:
+Input: { "description": "ACH DEPOSIT PAYROLL", "amount": 2500, "type": "CREDIT" }
+Output: { 
+  "category": "Income", 
+  "subCategory": "Salary", 
+  "verboseDescription": "Payroll direct deposit", 
+  "confidence": "high", 
+  "categoryType": "income" 
+}
+
+Example 6:
+Input: { "description": "TRANSFER TO CHECKING", "amount": 500, "type": "WITHDRAWAL" }
+Output: { 
+  "category": "Transfers", 
+  "subCategory": "Account Transfer", 
+  "verboseDescription": "Transfer to checking account", 
+  "confidence": "high", 
+  "categoryType": "transfer" 
+}
+
+## TRANSACTIONS TO CATEGORIZE:
 ${JSON.stringify(transactionData, null, 2)}
 
-Respond with a JSON object containing an array of enhanced transactions. Each object in the array should have these properties:
-- id: The original transaction ID
-- category: The main category
-- subCategory: The subcategory
-- verboseDescription: A clear human-readable description of what this transaction is
-- confidence: "high", "medium", or "low"
-- categoryType: "income", "expense", "transfer", or "other"
+Respond with ONLY a valid JSON object containing:
+1. An array of transactions with these fields for each:
+   - id: The original transaction ID
+   - category: The main category (MUST match one from the hierarchy)
+   - subCategory: The subcategory (MUST match one from the hierarchy)
+   - verboseDescription: A clear, helpful human-readable description
+   - confidence: "high", "medium", or "low"
+   - categoryType: "income", "expense", "transfer", or "other"
 
-Return ONLY the JSON object with no additional text or explanation.
+2. A summary object with:
+   - categorizedCount: Total number of transactions categorized
+   - totalCount: Total number of transactions processed
+   - uniqueCategories: Number of unique categories used
+   - confidenceDistribution: Counts of high/medium/low confidence categorizations
+
+RETURN ONLY THE JSON OBJECT WITH NO ADDITIONAL TEXT, EXPLANATION OR MARKDOWN.
 `;
 
     // Set up the API call to Claude
@@ -156,8 +246,8 @@ Return ONLY the JSON object with no additional text or explanation.
       body: JSON.stringify({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 4000,
-        temperature: 0.2,
-        system: "You are a financial transaction categorization expert. You respond only with valid JSON containing categorized transactions.",
+        temperature: 0.1, // Lower temperature for more consistent categorization
+        system: "You are a financial expert specializing in transaction categorization. Always respond with valid JSON containing categorized transactions matching the provided category hierarchy exactly.",
         messages: [{
           role: 'user',
           content: prompt
@@ -171,7 +261,7 @@ Return ONLY the JSON object with no additional text or explanation.
     }
 
     const data = await response.json();
-    console.log("Claude API response:", data);
+    console.log("Claude API response received");
 
     // Extract the content from Claude's response
     const content = data.content;
@@ -197,6 +287,11 @@ Return ONLY the JSON object with no additional text or explanation.
       // Validate that we have a transactions array
       if (!claudeData.transactions || !Array.isArray(claudeData.transactions)) {
         throw new Error("Missing transactions array in Claude response");
+      }
+      
+      // Log the summary data if available
+      if (claudeData.summary) {
+        console.log("Claude categorization summary:", claudeData.summary);
       }
     } catch (parseError) {
       console.error("Error parsing Claude response:", parseError);

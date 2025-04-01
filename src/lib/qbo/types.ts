@@ -25,8 +25,8 @@ export interface CategoryHierarchy {
 }
 
 // Enhanced transaction with detailed information
-export interface EnhancedTransaction extends Transaction {
-  // Ensure this matches the Transaction interface
+export interface EnhancedTransaction extends Omit<Transaction, 'categoryType'> {
+  // Override the categoryType to match the expected type in the Transaction interface
   categoryType: "income" | "expense" | "transfer";
   // Additional properties that Claude might add
   confidence: "high" | "medium" | "low";

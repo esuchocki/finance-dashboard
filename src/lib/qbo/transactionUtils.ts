@@ -1,3 +1,4 @@
+
 import { Transaction, TransactionType } from '../types';
 import { categoryPatterns, locationPatterns, categoryHierarchy } from './categoryPatterns';
 
@@ -30,13 +31,33 @@ export function processTransaction(trn: any): Transaction | null {
     
     // Create a richer description by combining available fields
     const baseDescription = `${name} ${memo} ${checkNum}`.trim();
+    
     // Create a more verbose initial description for user readability
-    const verboseDescription = memo ? (name ? `${name}: ${memo}` : memo) : name;
+    // Prioritize giving meaningful information
+    let verboseDescription = "";
+    if (name && memo) {
+      // If we have both name and memo, combine them
+      verboseDescription = `${name}: ${memo}`;
+    } else if (memo) {
+      // Just memo
+      verboseDescription = memo;
+    } else if (name) {
+      // Just name
+      verboseDescription = name;
+    } else if (checkNum) {
+      // Just check number
+      verboseDescription = checkNum;
+    }
+    
+    // Add check number to verbose description if not already included
+    if (checkNum && !verboseDescription.includes(checkNum)) {
+      verboseDescription = verboseDescription ? `${verboseDescription} (${checkNum})` : checkNum;
+    }
     
     const amount = parseFloat(amountStr);
     if (isNaN(amount)) return null;
     
-    // Determine transaction type
+    // Determine transaction type more accurately
     let type = TransactionType.OTHER;
     if (trnType) {
       switch (trnType.toUpperCase()) {
@@ -72,9 +93,10 @@ export function processTransaction(trn: any): Transaction | null {
       categoryType = "transfer";
     }
     
-    // Apply category pattern matching for initial categorization
+    // Apply category pattern matching for initial categorization with more contextual info
     for (const { pattern, category: cat, subcategory: subcat } of categoryPatterns) {
-      if (pattern.test(baseDescription)) {
+      // Check against both the base description and verbose description for better matching
+      if (pattern.test(baseDescription) || pattern.test(verboseDescription)) {
         category = cat;
         subCategory = subcat;
         
@@ -93,15 +115,19 @@ export function processTransaction(trn: any): Transaction | null {
     // Extract location if available in the description
     let location = "";
     for (const { pattern, extract } of locationPatterns) {
-      const match = baseDescription.match(pattern);
+      // Try to match location in both base description and verbose description
+      const baseMatch = baseDescription.match(pattern);
+      const verboseMatch = verboseDescription.match(pattern);
+      const match = baseMatch || verboseMatch;
+      
       if (match) {
         location = extract(match);
         break;
       }
     }
     
-    // Check for recurring transactions with expanded pattern matching
-    const isRecurring = /monthly|recurring|subscription|bill payment|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon|gym|fitness|insurance|mortgage|rent|loan payment/i.test(baseDescription);
+    // Enhanced check for recurring transactions with expanded pattern matching
+    const isRecurring = /monthly|recurring|subscription|bill payment|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon|gym|fitness|insurance|mortgage|rent|loan payment|utility|phone|internet|cable|service fee/i.test(baseDescription + " " + verboseDescription);
     
     // Parse the date
     const date = parseQBODate(trn.DTPOSTED || "");
@@ -150,10 +176,29 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     
     // Create a richer description
     const baseDescription = `${name} ${memo} ${checkNum}`.trim();
-    // Create a more verbose initial description for user readability
-    const verboseDescription = memo ? (name ? `${name}: ${memo}` : memo) : name;
     
-    // Determine transaction type
+    // Create a more verbose initial description for user readability with better formatting
+    let verboseDescription = "";
+    if (name && memo) {
+      // If we have both name and memo, combine them
+      verboseDescription = `${name}: ${memo}`;
+    } else if (memo) {
+      // Just memo
+      verboseDescription = memo;
+    } else if (name) {
+      // Just name
+      verboseDescription = name;
+    } else if (checkNum) {
+      // Just check number
+      verboseDescription = checkNum;
+    }
+    
+    // Add check number to verbose description if not already included
+    if (checkNum && !verboseDescription.includes(checkNum)) {
+      verboseDescription = verboseDescription ? `${verboseDescription} (${checkNum})` : checkNum;
+    }
+    
+    // Determine transaction type more precisely
     let type = TransactionType.OTHER;
     if (data.TRNTYPE) {
       switch (data.TRNTYPE.toUpperCase()) {
@@ -191,7 +236,8 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     
     // Apply category pattern matching for initial categorization
     for (const { pattern, category: cat, subcategory: subcat } of categoryPatterns) {
-      if (pattern.test(baseDescription)) {
+      // Check against both the base description and verbose description for better matching
+      if (pattern.test(baseDescription) || pattern.test(verboseDescription)) {
         category = cat;
         subCategory = subcat;
         
@@ -210,15 +256,19 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     // Extract location if available in the description
     let location = "";
     for (const { pattern, extract } of locationPatterns) {
-      const match = baseDescription.match(pattern);
+      // Try to match location in both descriptions for better results
+      const baseMatch = baseDescription.match(pattern);
+      const verboseMatch = verboseDescription.match(pattern);
+      const match = baseMatch || verboseMatch;
+      
       if (match) {
         location = extract(match);
         break;
       }
     }
     
-    // Check for recurring transactions with expanded pattern matching
-    const isRecurring = /monthly|recurring|subscription|bill payment|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon|gym|fitness|insurance|mortgage|rent|loan payment/i.test(baseDescription);
+    // Enhanced check for recurring transactions with expanded pattern matching
+    const isRecurring = /monthly|recurring|subscription|bill payment|netflix|spotify|hulu|disney\+|hbo|\bprime\b|anthropic|patreon|gym|fitness|insurance|mortgage|rent|loan payment|utility|phone|internet|cable|service fee/i.test(baseDescription + " " + verboseDescription);
     
     // Parse the date
     const date = parseQBODate(data.DTPOSTED);
