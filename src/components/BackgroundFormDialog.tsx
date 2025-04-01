@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
@@ -261,6 +262,7 @@ export function BackgroundFormDialog({
     }
   };
 
+  // Location management
   const addLocation = () => {
     const newId = "loc-" + Math.random().toString(36).substring(2, 9);
     
@@ -282,6 +284,8 @@ export function BackgroundFormDialog({
       ...locationDateInputs,
       [newId]: { start: "", end: "" }
     });
+
+    toast.success("New location added");
   };
 
   const removeLocation = (id: string) => {
@@ -299,6 +303,8 @@ export function BackgroundFormDialog({
     const newLocationDateInputs = { ...locationDateInputs };
     delete newLocationDateInputs[id];
     setLocationDateInputs(newLocationDateInputs);
+
+    toast.success("Location removed");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -332,7 +338,7 @@ export function BackgroundFormDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
-            <User className="h-5 w-5 text-finance-primary" />
+            <User className="h-5 w-5 text-primary" />
             Personal Background
           </DialogTitle>
           <DialogDescription>
@@ -427,23 +433,29 @@ export function BackgroundFormDialog({
             </div>
             
             <div className="space-y-4">
-              {formData.locations.map((location) => (
+              {formData.locations.map((location, index) => (
                 <div
                   key={location.id}
-                  className="grid grid-cols-1 gap-3 p-3 border rounded-md relative"
+                  className="grid grid-cols-1 gap-3 p-3 border rounded-md relative bg-card shadow-sm"
                 >
-                  {formData.locations.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 absolute right-2 top-2"
-                      onClick={() => removeLocation(location.id)}
-                    >
-                      <X className="h-4 w-4" />
-                      <span className="sr-only">Remove</span>
-                    </Button>
-                  )}
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium flex items-center">
+                      <MapPin className="h-4 w-4 mr-1 text-primary" />
+                      Location {index + 1}
+                    </h4>
+                    {formData.locations.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => removeLocation(location.id)}
+                      >
+                        <X className="h-4 w-4 text-muted-foreground" />
+                        <span className="sr-only">Remove</span>
+                      </Button>
+                    )}
+                  </div>
                   
                   <div className="relative">
                     <Input
@@ -534,6 +546,20 @@ export function BackgroundFormDialog({
                   </div>
                 </div>
               ))}
+              
+              {formData.locations.length > 0 && (
+                <div className="flex justify-center mt-2">
+                  <Button
+                    type="button"
+                    onClick={addLocation}
+                    variant="secondary"
+                    size="sm"
+                    className="h-8"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Another Location
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
