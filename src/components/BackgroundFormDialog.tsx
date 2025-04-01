@@ -1,7 +1,7 @@
 
 import React, { useState } from "react";
 import { format } from "date-fns";
-import { CalendarIcon, MapPin, School, User, X, Plus, Calendar } from "lucide-react";
+import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -235,7 +235,7 @@ export function BackgroundFormDialog({
                       <span>Select your birth date</span>
                     )}
                   </div>
-                  <Calendar className="h-4 w-4 opacity-50" />
+                  <CalendarLucideIcon className="h-4 w-4 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -316,7 +316,7 @@ export function BackgroundFormDialog({
                             <span>From</span>
                           )}
                         </div>
-                        <Calendar className="h-4 w-4 opacity-50" />
+                        <CalendarLucideIcon className="h-4 w-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -350,7 +350,7 @@ export function BackgroundFormDialog({
                             <span>To</span>
                           )}
                         </div>
-                        <Calendar className="h-4 w-4 opacity-50" />
+                        <CalendarLucideIcon className="h-4 w-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
