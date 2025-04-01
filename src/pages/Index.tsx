@@ -138,28 +138,7 @@ const Index = () => {
       
       <Dashboard />
       
-      {transactions.length > 0 && (
-        <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
-          <p>
-            Financial data visualization powered by QBO Parser & Claude AI
-            {isUsingCache && !isDevelopmentMode && (
-              <TooltipProvider>
-                <Tooltip>
-                  <InfoTooltipTrigger asChild>
-                    <span className="ml-1">
-                      (using cached data)
-                    </span>
-                  </InfoTooltipTrigger>
-                  <TooltipContent>
-                    <p>Data is being served from cache for faster performance</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {isDevelopmentMode && " (development mode - cache disabled)"}
-          </p>
-        </div>
-      )}
+      {/* Removed financial attribution footer */}
     </div>
   );
 };

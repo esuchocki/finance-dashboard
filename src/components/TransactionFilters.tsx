@@ -1,412 +1,278 @@
 
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import React, { useState, useEffect } from "react";
+import { useFinance } from "@/context/FinanceContext";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { TransactionFilterOptions, TransactionType } from "@/lib/types";
-import { useFinance } from "@/context/FinanceContext";
+import { Slider } from "@/components/ui/slider";
+import { CheckCircle, XCircle, Search, Filter, RefreshCw } from "lucide-react";
+import { formatCurrency } from "@/lib/formatters";
+import { DateRange } from "@/lib/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, Search, X } from "lucide-react";
+import { addDays, format, isSameDay, isWithinInterval, parse } from "date-fns";
+import { Switch } from "@/components/ui/switch";
+import { DatePicker } from "@/components/ui/date-picker";
 
-// Remove the props interface as we'll get everything from the context
 const TransactionFilters = () => {
-  const { applyFilters, transactions } = useFinance();
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [startDateInput, setStartDateInput] = useState<string>("");
-  const [endDateInput, setEndDateInput] = useState<string>("");
-  const [minAmount, setMinAmount] = useState<string>("");
-  const [maxAmount, setMaxAmount] = useState<string>("");
-  const [selectedTypes, setSelectedTypes] = useState<TransactionType[]>([]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [isRecurring, setIsRecurring] = useState<boolean | undefined>(undefined);
-  const [showStartCalendar, setShowStartCalendar] = useState<boolean>(false);
-  const [showEndCalendar, setShowEndCalendar] = useState<boolean>(false);
-
+  const { 
+    transactions, 
+    updateFilters, 
+    filters,
+    stats,
+    resetFilters,
+    applyPresetDateRange
+  } = useFinance();
+  
+  const [searchQuery, setSearchQuery] = useState(filters.searchQuery || "");
+  const [category, setCategory] = useState(filters.category || "");
+  const [transactionType, setTransactionType] = useState(filters.type || "all");
+  const [dateRange, setDateRange] = useState<DateRange | null>(filters.dateRange || null);
+  const [minAmount, setMinAmount] = useState(filters.minAmount?.toString() || "");
+  const [maxAmount, setMaxAmount] = useState(filters.maxAmount?.toString() || "");
+  const [excludeTransfers, setExcludeTransfers] = useState(filters.excludeTransfers || false);
+  const [sliderRange, setSliderRange] = useState<[number, number]>([
+    filters.minAmount || 0,
+    filters.maxAmount || (stats?.maxAmount || 1000)
+  ]);
+  
   // Extract unique categories from transactions
-  const uniqueCategories = Array.from(
-    new Set(transactions.map((t) => t.category))
-  ).sort();
-
-  // Auto-format date inputs
-  const autoFormatDateInput = (value: string): string => {
-    // If it's already in a valid date format, return it
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value)) return value;
+  const categories = React.useMemo(() => {
+    if (!transactions.length) return [];
     
-    // Strip all non-digits
-    const digitsOnly = value.replace(/\D/g, '');
+    const categorySet = new Set<string>();
+    transactions.forEach(transaction => {
+      if (transaction.category) {
+        categorySet.add(transaction.category);
+      }
+    });
     
-    // Format based on number of digits entered
-    if (digitsOnly.length <= 2) {
-      return digitsOnly;
-    } else if (digitsOnly.length <= 4) {
-      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2)}`;
-    } else if (digitsOnly.length <= 8) {
-      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}/${digitsOnly.substring(4)}`;
-    } else {
-      return `${digitsOnly.substring(0, 2)}/${digitsOnly.substring(2, 4)}/${digitsOnly.substring(4, 8)}`;
-    }
+    return Array.from(categorySet).sort();
+  }, [transactions]);
+  
+  // Handler for the slider change
+  const handleSliderChange = (values: number[]) => {
+    setSliderRange([values[0], values[1]]);
+    setMinAmount(values[0].toString());
+    setMaxAmount(values[1].toString());
   };
 
-  // Handle date input changes with auto-formatting
-  const handleStartDateInput = (value: string) => {
-    const formattedValue = autoFormatDateInput(value);
-    setStartDateInput(formattedValue);
-    
-    try {
-      // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
-      const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
-      let parsedDate: Date | null = null;
-      
-      for (const dateFormat of formats) {
-        const attemptedDate = parse(formattedValue, dateFormat, new Date());
-        if (isValid(attemptedDate)) {
-          parsedDate = attemptedDate;
-          break;
-        }
-      }
-      
-      if (parsedDate && isValid(parsedDate)) {
-        setStartDate(parsedDate);
-      } else if (formattedValue === "") {
-        setStartDate(undefined);
-      }
-    } catch (error) {
-      console.error("Error parsing date:", error);
-    }
+  // Apply all filters
+  const applyFilters = () => {
+    updateFilters({
+      searchQuery,
+      category,
+      type: transactionType,
+      dateRange,
+      minAmount: minAmount ? parseFloat(minAmount) : undefined,
+      maxAmount: maxAmount ? parseFloat(maxAmount) : undefined,
+      excludeTransfers
+    });
   };
   
-  const handleEndDateInput = (value: string) => {
-    const formattedValue = autoFormatDateInput(value);
-    setEndDateInput(formattedValue);
-    
-    try {
-      // Try different formats: MM/DD/YYYY, YYYY-MM-DD, etc.
-      const formats = ["MM/dd/yyyy", "yyyy-MM-dd", "dd/MM/yyyy", "MM-dd-yyyy"];
-      let parsedDate: Date | null = null;
-      
-      for (const dateFormat of formats) {
-        const attemptedDate = parse(formattedValue, dateFormat, new Date());
-        if (isValid(attemptedDate)) {
-          parsedDate = attemptedDate;
-          break;
-        }
-      }
-      
-      if (parsedDate && isValid(parsedDate)) {
-        setEndDate(parsedDate);
-      } else if (formattedValue === "") {
-        setEndDate(undefined);
-      }
-    } catch (error) {
-      console.error("Error parsing date:", error);
-    }
-  };
+  // Apply filters when they change and when component mounts
+  useEffect(() => {
+    applyFilters();
+    // Commenting out the dependency array to avoid re-filtering on every change
+    // This makes the filter button explicitly required for applying changes
+  }, []); // Only run once on mount
 
-  const handleCalendarStartDateSelect = (date: Date | undefined) => {
-    setStartDate(date);
-    if (date) {
-      setStartDateInput(format(date, "MM/dd/yyyy"));
-    } else {
-      setStartDateInput("");
-    }
-    setShowStartCalendar(false);
-  };
-
-  const handleCalendarEndDateSelect = (date: Date | undefined) => {
-    setEndDate(date);
-    if (date) {
-      setEndDateInput(format(date, "MM/dd/yyyy"));
-    } else {
-      setEndDateInput("");
-    }
-    setShowEndCalendar(false);
-  };
-
-  const handleClearStartDate = () => {
-    setStartDate(undefined);
-    setStartDateInput("");
-  };
-
-  const handleClearEndDate = () => {
-    setEndDate(undefined);
-    setEndDateInput("");
-  };
-
-  const handleApplyFilters = () => {
-    const filters: TransactionFilterOptions = {
-      dateRange: {
-        start: startDate || null,
-        end: endDate || null
-      },
-      amountRange: {
-        min: minAmount ? parseFloat(minAmount) : null,
-        max: maxAmount ? parseFloat(maxAmount) : null
-      },
-      types: selectedTypes,
-      categories: selectedCategories,
-      searchQuery: searchTerm,
-      isRecurring: isRecurring === undefined ? null : isRecurring,
-      // Keep backward compatibility with older filter properties
-      startDate: startDate || null,
-      endDate: endDate || null,
-      minAmount: minAmount ? parseFloat(minAmount) : null,
-      maxAmount: maxAmount ? parseFloat(maxAmount) : null,
-      search: searchTerm
-    };
-
-    applyFilters(filters);
-  };
-
-  const handleResetFilters = () => {
-    setStartDate(undefined);
-    setEndDate(undefined);
-    setStartDateInput("");
-    setEndDateInput("");
-    setMinAmount("");
-    setMaxAmount("");
-    setSelectedTypes([]);
-    setSelectedCategories([]);
-    setSearchTerm("");
-    setIsRecurring(undefined);
-    
-    // Create an empty filter object with all required properties
-    const emptyFilters: TransactionFilterOptions = {
-      dateRange: { start: null, end: null },
-      amountRange: { min: null, max: null },
-      types: [],
-      categories: [],
-      searchQuery: "",
-      isRecurring: null
-    };
-    
-    applyFilters(emptyFilters);
-  };
-
-  const handleTypeChange = (type: TransactionType) => {
-    setSelectedTypes((prev) =>
-      prev.includes(type)
-        ? prev.filter((t) => t !== type)
-        : [...prev, type]
-    );
-  };
-
-  const handleCategoryChange = (category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
-    );
+  // Helper to format date range for display
+  const formatDateRange = (range: DateRange | null) => {
+    if (!range) return "All dates";
+    return `${format(range.start, "MMM d, yyyy")} - ${format(range.end, "MMM d, yyyy")}`;
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span>Filter Transactions</span>
-          <Button variant="ghost" size="sm" onClick={handleResetFilters}>
-            <X className="h-4 w-4 mr-1" /> Clear All Filters
-          </Button>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Date Range */}
-          <div className="space-y-2">
-            <Label>Start Date</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-grow">
-                <Input
-                  type="text"
-                  value={startDateInput}
-                  onChange={(e) => handleStartDateInput(e.target.value)}
-                  placeholder="MM/DD/YYYY"
-                  className="pr-8"
-                />
-                {startDateInput && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1 h-6 w-6"
-                    onClick={handleClearStartDate}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <Popover open={showStartCalendar} onOpenChange={setShowStartCalendar}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <CalendarIcon className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={startDate}
-                    onSelect={handleCalendarStartDateSelect}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>End Date</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-grow">
-                <Input
-                  type="text"
-                  value={endDateInput}
-                  onChange={(e) => handleEndDateInput(e.target.value)}
-                  placeholder="MM/DD/YYYY"
-                  className="pr-8"
-                />
-                {endDateInput && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1 h-6 w-6"
-                    onClick={handleClearEndDate}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-              <Popover open={showEndCalendar} onOpenChange={setShowEndCalendar}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <CalendarIcon className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={endDate}
-                    onSelect={handleCalendarEndDateSelect}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Amount Range */}
-          <div className="space-y-2">
-            <Label>Min Amount</Label>
-            <Input
-              type="number"
-              value={minAmount}
-              onChange={(e) => setMinAmount(e.target.value)}
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Max Amount</Label>
-            <Input
-              type="number"
-              value={maxAmount}
-              onChange={(e) => setMaxAmount(e.target.value)}
-              placeholder="9999.99"
-              min="0"
-              step="0.01"
-            />
-          </div>
-
-          {/* Transaction Type */}
-          <div className="space-y-2 col-span-full">
-            <Label>Transaction Types</Label>
-            <div className="flex flex-wrap gap-2">
-              {Object.values(TransactionType).map((type) => (
-                <label
-                  key={type}
-                  className="flex items-center space-x-2 border rounded-md p-2 cursor-pointer hover:bg-muted"
-                >
-                  <Checkbox
-                    checked={selectedTypes.includes(type)}
-                    onCheckedChange={() => handleTypeChange(type)}
-                  />
-                  <span>{type}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Categories */}
-          <div className="space-y-2 col-span-full">
-            <Label>Categories</Label>
-            <div className="flex flex-wrap gap-2">
-              {uniqueCategories.map((category) => (
-                <label
-                  key={category}
-                  className="flex items-center space-x-2 border rounded-md p-2 cursor-pointer hover:bg-muted"
-                >
-                  <Checkbox
-                    checked={selectedCategories.includes(category)}
-                    onCheckedChange={() => handleCategoryChange(category)}
-                  />
-                  <span>{category}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Search Term */}
-          <div className="space-y-2 col-span-full">
-            <Label>Search</Label>
+    <Card className="mb-6">
+      <CardContent className="pt-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Search Query */}
+          <div className="col-span-1 md:col-span-2">
+            <Label htmlFor="search-query" className="mb-2 block">Search</Label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by description, memo, or payee"
+                id="search-query"
+                placeholder="Search transactions..."
                 className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
-
-          {/* Recurring Filter */}
-          <div className="space-y-2 col-span-full">
-            <Label>Recurring Transactions</Label>
-            <Select
-              value={isRecurring === undefined ? "undefined" : String(isRecurring)}
-              onValueChange={(value) => {
-                if (value === "undefined") {
-                  setIsRecurring(undefined);
-                } else {
-                  setIsRecurring(value === "true");
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select Filter" />
+          
+          {/* Category dropdown */}
+          <div>
+            <Label htmlFor="category-filter" className="mb-2 block">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger id="category-filter">
+                <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="undefined">All Transactions</SelectItem>
-                <SelectItem value="true">Recurring Only</SelectItem>
-                <SelectItem value="false">Non-Recurring Only</SelectItem>
+                <SelectItem value="">All categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-
-          {/* Apply Button */}
-          <div className="col-span-full pt-2">
-            <Button
-              className="w-full"
-              onClick={handleApplyFilters}
+          
+          {/* Type dropdown */}
+          <div>
+            <Label htmlFor="type-filter" className="mb-2 block">Type</Label>
+            <Select value={transactionType} onValueChange={setTransactionType}>
+              <SelectTrigger id="type-filter">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="debit">Expenses</SelectItem>
+                <SelectItem value="credit">Income</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Amount range with slider */}
+          <div className="col-span-1 md:col-span-2">
+            <div className="flex justify-between mb-2">
+              <Label>Amount Range</Label>
+              <div className="text-xs text-muted-foreground">
+                {formatCurrency(sliderRange[0])} - {formatCurrency(sliderRange[1])}
+              </div>
+            </div>
+            <Slider
+              defaultValue={sliderRange}
+              min={stats?.minAmount || 0}
+              max={stats?.maxAmount || 1000}
+              step={(stats?.maxAmount || 1000) / 100}
+              value={sliderRange}
+              onValueChange={handleSliderChange}
+              className="mb-4"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="min-amount" className="sr-only">Minimum Amount</Label>
+                <Input
+                  id="min-amount"
+                  placeholder="Min Amount"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                  type="number"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <Label htmlFor="max-amount" className="sr-only">Maximum Amount</Label>
+                <Input
+                  id="max-amount"
+                  placeholder="Max Amount"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                  type="number"
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Date Picker */}
+          <div className="col-span-1 md:col-span-2">
+            <Label className="mb-2 block">Date Range</Label>
+            <div className="flex flex-col space-y-2">
+              <DatePicker
+                dateRange={dateRange}
+                onChange={setDateRange}
+                className="w-full"
+              />
+              <div className="flex gap-2 flex-wrap">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    applyPresetDateRange('lastMonth');
+                    setDateRange(filters.dateRange);
+                  }}
+                >
+                  Last Month
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    applyPresetDateRange('last3Months');
+                    setDateRange(filters.dateRange);
+                  }}
+                >
+                  Last 3 Months
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    applyPresetDateRange('lastYear');
+                    setDateRange(filters.dateRange);
+                  }}
+                >
+                  Last Year
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    applyPresetDateRange('ytd');
+                    setDateRange(filters.dateRange);
+                  }}
+                >
+                  YTD
+                </Button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Toggle switches */}
+          <div>
+            <div className="flex items-center space-x-2 pt-8">
+              <Switch 
+                id="exclude-transfers"
+                checked={excludeTransfers}
+                onCheckedChange={setExcludeTransfers}
+              />
+              <Label htmlFor="exclude-transfers">Exclude transfers</Label>
+            </div>
+          </div>
+          
+          {/* Filter buttons */}
+          <div className="flex items-end space-x-2">
+            <Button 
+              onClick={applyFilters} 
+              className="flex items-center space-x-2"
+              variant="default"
             >
-              Apply Filters
+              <Filter className="w-4 h-4" />
+              <span>Apply Filters</span>
+            </Button>
+            <Button 
+              onClick={() => {
+                resetFilters();
+                setSearchQuery("");
+                setCategory("");
+                setTransactionType("all");
+                setDateRange(null);
+                setMinAmount("");
+                setMaxAmount("");
+                setExcludeTransfers(false);
+                if (stats) {
+                  setSliderRange([stats.minAmount, stats.maxAmount]);
+                }
+              }} 
+              className="flex items-center space-x-2"
+              variant="outline"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Reset</span>
             </Button>
           </div>
         </div>
