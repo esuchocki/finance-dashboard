@@ -104,12 +104,17 @@ const Index = () => {
     <div className="max-w-7xl mx-auto">
       {/* Development Mode Toggle */}
       <div className="flex items-center justify-end space-x-2 mb-4 p-2 bg-muted/40 rounded-md">
+        <Label htmlFor="development-mode" className="text-sm">
+          Development Mode
+        </Label>
         <TooltipProvider>
           <Tooltip>
             <InfoTooltipTrigger asChild>
-              <Label htmlFor="development-mode" className="text-sm cursor-help">
-                Development Mode
-              </Label>
+              <Switch
+                id="development-mode"
+                checked={isDevelopmentMode}
+                onCheckedChange={toggleDevelopmentMode}
+              />
             </InfoTooltipTrigger>
             <TooltipContent className="max-w-xs">
               <div className="space-y-2">
@@ -119,11 +124,6 @@ const Index = () => {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <Switch
-          id="development-mode"
-          checked={isDevelopmentMode}
-          onCheckedChange={toggleDevelopmentMode}
-        />
         {isDevelopmentMode && (
           <TooltipProvider>
             <Tooltip>

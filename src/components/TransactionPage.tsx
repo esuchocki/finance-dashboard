@@ -44,12 +44,17 @@ const TransactionPage = () => {
     <div className="space-y-6">
       {/* Development Mode Toggle - Always visible */}
       <div className="flex items-center justify-end space-x-2 p-2 bg-muted/40 rounded-md">
+        <Label htmlFor="development-mode-transactions" className="text-sm">
+          Development Mode
+        </Label>
         <TooltipProvider>
           <Tooltip>
             <InfoTooltipTrigger asChild>
-              <Label htmlFor="development-mode-transactions" className="text-sm cursor-help">
-                Development Mode
-              </Label>
+              <Switch
+                id="development-mode-transactions"
+                checked={isDevelopmentMode}
+                onCheckedChange={toggleDevelopmentMode}
+              />
             </InfoTooltipTrigger>
             <TooltipContent className="max-w-xs">
               <div className="space-y-2">
@@ -59,11 +64,6 @@ const TransactionPage = () => {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <Switch
-          id="development-mode-transactions"
-          checked={isDevelopmentMode}
-          onCheckedChange={toggleDevelopmentMode}
-        />
         {isDevelopmentMode && (
           <TooltipProvider>
             <Tooltip>
