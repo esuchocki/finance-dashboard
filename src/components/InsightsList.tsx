@@ -81,20 +81,6 @@ const InsightsList = () => {
     setDialogOpen(false);
   };
 
-  const getInsightIndicator = (insight: FinancialInsight) => {
-    // Add count indicators for insights that have related data
-    if (insight.id === "potential-duplicates" && insight.relatedTransactions) {
-      return `(${insight.relatedTransactions.length})`;
-    }
-    if (insight.id === "large-transactions" && insight.relatedTransactions) {
-      return `(${insight.relatedTransactions.length})`;
-    }
-    if (insight.id === "subscription-spending" && summary && summary.recurringExpenses) {
-      return `(${summary.recurringExpenses.length})`;
-    }
-    return "";
-  };
-
   return (
     <>
       <Card>
@@ -120,11 +106,7 @@ const InsightsList = () => {
                     </div>
                     <div className="flex-grow">
                       <h4 className="font-medium">
-                        {insight.title} {getInsightIndicator(insight) && (
-                          <span className="text-sm font-normal text-muted-foreground ml-1">
-                            {getInsightIndicator(insight)}
-                          </span>
-                        )}
+                        {insight.title}
                       </h4>
                       <p className="text-sm text-muted-foreground">
                         {insight.description}
