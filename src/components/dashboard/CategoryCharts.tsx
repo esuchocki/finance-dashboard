@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Sector, Legend } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -100,6 +100,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   incomeData,
   transactions 
 }) => {
+  // State for controlling the UI
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activePieIndex, setActivePieIndex] = useState<number>(0);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -107,6 +108,45 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
   const [drilldownTotal, setDrilldownTotal] = useState<number>(0);
   const [drilldownTransactions, setDrilldownTransactions] = useState<Transaction[] | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("all");
+  
+  // Combine the expense and income data for the "All" tab
+  const allCategoriesData = useMemo(() => {
+    return [...expenseData, ...incomeData].map(item => ({
+      ...item,
+      totalValue: [...expenseData, ...incomeData].reduce((sum, i) => sum + i.value, 0),
+      transactionCount: item.transactions?.length || 0
+    }));
+  }, [expenseData, incomeData]);
+  
+  // Filter transactions based on active tab
+  const filteredTransactions = useMemo(() => {
+    if (activeTab === "all") return transactions;
+    
+    return transactions.filter(transaction => {
+      if (activeTab === "expenses") return transaction.categoryType === "expense";
+      if (activeTab === "income") return transaction.categoryType === "income";
+      if (activeTab === "transfers") return transaction.categoryType === "transfer";
+      return true;
+    });
+  }, [transactions, activeTab]);
+  
+  // Get the appropriate category data based on the active tab
+  const getCategoryData = () => {
+    if (activeTab === "all") return allCategoriesData;
+    if (activeTab === "expenses") return expenseData.map(item => ({
+      ...item,
+      totalValue: expenseData.reduce((sum, i) => sum + i.value, 0),
+      transactionCount: item.transactions?.length || 0
+    }));
+    if (activeTab === "income") return incomeData.map(item => ({
+      ...item,
+      totalValue: incomeData.reduce((sum, i) => sum + i.value, 0),
+      transactionCount: item.transactions?.length || 0
+    }));
+    // For transfers tab - we could add transfer data here if needed
+    return [];
+  };
 
   // Function to get color for a category, with fallback
   const getCategoryColor = (category: string, index: number) => {
@@ -163,37 +203,14 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
       )
     : [];
 
-  // Debug logging to verify the data we're receiving from Claude
-  console.log("Expense category data:", expenseData.map(d => ({ 
-    name: d.name, 
-    value: d.value,
-    transactionCount: d.transactions?.length || 0,
-    subcategoryCount: d.subcategories?.length || 0
-  })));
-
-  // Prepare the data for rendering - ensure we're using Claude's categorizations
-  const currentExpenseData = expenseData
-    .filter(item => item.name !== "Uncategorized" || item.value > 0) // Only show Uncategorized if it has value
-    .map(item => ({
-      ...item,
-      totalValue: expenseData.reduce((sum, i) => sum + i.value, 0),
-      transactionCount: item.transactions?.length || 0
-    }));
-  
-  const currentIncomeData = incomeData
-    .filter(item => item.name !== "Uncategorized" || item.value > 0) // Only show Uncategorized if it has value
-    .map(item => ({
-      ...item,
-      totalValue: incomeData.reduce((sum, i) => sum + i.value, 0),
-      transactionCount: item.transactions?.length || 0
-    }));
+  // Get the data for the current view
+  const currentData = getCategoryData()
+    .filter(item => item.name !== "Uncategorized" || item.value > 0); // Only show Uncategorized if it has value
 
   // Helper for rendering either the main pie chart or drill-down view
   const renderPieChart = (data: any[], title: string, isEmpty: boolean) => {
-    // If we're in drill-down mode for this chart
-    if (selectedCategory && drilldownData && 
-        ((activePieIndex === 0 && title.includes("Spending")) || 
-         (activePieIndex === 1 && title.includes("Income")))) {
+    // If we're in drill-down mode
+    if (selectedCategory && drilldownData) {
       return (
         <div className="h-full flex flex-col">
           <div className="flex items-center mb-4">
@@ -355,13 +372,13 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
 
   // Calculate the percentage of transactions that are categorized
   const calculateCategorizedPercentage = () => {
-    const totalExpenseCount = expenseData.reduce((sum, category) => 
-      sum + (category.transactions?.length || 0), 0);
+    const totalTransactionCount = transactions.length;
+    const uncategorizedCount = transactions.filter(t => 
+      t.category === "Uncategorized" || t.category === "Other"
+    ).length;
     
-    const uncategorizedCount = expenseData.find(c => c.name === "Uncategorized" || c.name === "Other")?.transactions?.length || 0;
-    
-    if (totalExpenseCount === 0) return 100;
-    return Math.round(((totalExpenseCount - uncategorizedCount) / totalExpenseCount) * 100);
+    if (totalTransactionCount === 0) return 100;
+    return Math.round(((totalTransactionCount - uncategorizedCount) / totalTransactionCount) * 100);
   };
 
   const categorizedPercentage = calculateCategorizedPercentage();
@@ -371,9 +388,9 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Category Breakdown</CardTitle>
+            <CardTitle>AI-Enhanced Categories</CardTitle>
             <CardDescription>
-              Your spending and income categorized by type
+              Claude AI-powered transaction categorization
             </CardDescription>
           </div>
           
@@ -401,26 +418,44 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
       </CardHeader>
       <CardContent>
         <Tabs 
-          defaultValue="expenses" 
-          className="w-full" 
+          defaultValue="all" 
+          className="w-full"
+          value={activeTab}
           onValueChange={(value) => {
-            setActivePieIndex(value === "expenses" ? 0 : 1);
+            setActiveTab(value);
+            setActivePieIndex(0);
             setSelectedCategory(null);
             setDrilldownData(null);
             setSearchQuery("");
           }}
         >
-          <TabsList className="grid grid-cols-2 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
+            <TabsTrigger value="all">All Categories</TabsTrigger>
             <TabsTrigger value="expenses">Expenses</TabsTrigger>
             <TabsTrigger value="income">Income</TabsTrigger>
+            <TabsTrigger value="transfers">Transfers</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="all" className="mt-0">
+            <div className="animate-in zoom-in-50 duration-300">
+              {renderPieChart(
+                currentData, 
+                "All Categories", 
+                currentData.length === 0
+              )}
+            </div>
+          </TabsContent>
           
           <TabsContent value="expenses" className="mt-0">
             <div className="animate-in zoom-in-50 duration-300">
               {renderPieChart(
-                currentExpenseData, 
-                "Spending by Category", 
-                currentExpenseData.length === 0
+                expenseData.map(item => ({
+                  ...item,
+                  totalValue: expenseData.reduce((sum, i) => sum + i.value, 0),
+                  transactionCount: item.transactions?.length || 0
+                })), 
+                "Expenses", 
+                expenseData.length === 0
               )}
             </div>
           </TabsContent>
@@ -428,9 +463,28 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
           <TabsContent value="income" className="mt-0">
             <div className="animate-in zoom-in-50 duration-300">
               {renderPieChart(
-                currentIncomeData, 
-                "Income Sources", 
-                currentIncomeData.length === 0
+                incomeData.map(item => ({
+                  ...item,
+                  totalValue: incomeData.reduce((sum, i) => sum + i.value, 0),
+                  transactionCount: item.transactions?.length || 0
+                })), 
+                "Income", 
+                incomeData.length === 0
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="transfers" className="mt-0">
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              {transactions.filter(t => t.categoryType === "transfer").length > 0 ? (
+                <div className="text-center">
+                  <p>Transfer categories will be displayed here</p>
+                  <p className="text-sm mt-2">
+                    {transactions.filter(t => t.categoryType === "transfer").length} transfer transactions found
+                  </p>
+                </div>
+              ) : (
+                <p>No transfer transactions found</p>
               )}
             </div>
           </TabsContent>

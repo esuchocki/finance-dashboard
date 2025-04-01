@@ -41,7 +41,7 @@ export interface ClaudeEnhancementResponse {
     subCategory: string;
     verboseDescription: string;
     confidence: "high" | "medium" | "low";
-    categoryType: "income" | "expense" | "transfer" | "other";
+    categoryType: "income" | "expense" | "transfer";
   }>;
   summary?: {
     categorizedCount: number;

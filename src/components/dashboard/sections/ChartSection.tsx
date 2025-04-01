@@ -3,6 +3,7 @@ import React from "react";
 import MonthlyTrendsChart from "../MonthlyTrendsChart";
 import BalanceChart from "../BalanceChart";
 import CategoryCharts from "../CategoryCharts";
+import MonthlyIncomeExpensesChart from "../MonthlyIncomeExpensesChart";
 
 interface ChartSectionProps {
   monthlyTrendData: any[];
@@ -24,6 +25,9 @@ const ChartSection = ({
       {/* Monthly Trends Chart */}
       <MonthlyTrendsChart monthlyTrendData={monthlyTrendData} />
 
+      {/* Monthly Income & Expenses Chart */}
+      <MonthlyIncomeExpensesChart monthlyTrendData={monthlyTrendData} />
+      
       {/* Balance Over Time Chart */}
       <BalanceChart balanceData={balanceData} />
       
