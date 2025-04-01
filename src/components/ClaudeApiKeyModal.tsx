@@ -56,6 +56,10 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
     try {
       toast.info("Testing Claude API key...");
       
+      // Test with a simple request to the Claude API
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -64,26 +68,46 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
-          model: 'claude-3-sonnet-20240229',
-          max_tokens: 50,
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 10,
           temperature: 0.1,
           messages: [{
             role: 'user',
-            content: "Please respond with 'API key is valid' and nothing else."
+            content: "Say hello"
           }]
-        })
+        }),
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
         toast.success("API key is valid!");
       } else {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        toast.error(`API key is invalid: ${errorData.error?.message || 'Unknown error'}`);
+        const errorText = await response.text();
+        let errorMessage = 'Unknown error';
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error?.message || 'API validation failed';
+        } catch (e) {
+          errorMessage = `HTTP error ${response.status}`;
+        }
+        
+        toast.error(`API key is invalid: ${errorMessage}`);
       }
     } catch (error) {
       console.error("Error testing API key:", error);
-      toast.error(`Error testing API key: ${(error as Error).message || 'Network error'}`);
+      
+      // Handle specific errors
+      if (error.name === 'AbortError') {
+        toast.error("API request timed out. Please check your internet connection and try again.");
+      } else if (error.message === 'Failed to fetch') {
+        toast.error("Network error: Please check your internet connection and try again."); 
+      } else {
+        toast.error(`Error testing API key: ${error.message || 'Network error'}`);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -123,13 +147,13 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
           </div>
         </div>
         
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
+        <DialogFooter className="flex flex-row items-center justify-between gap-4">
           <div className="flex gap-2">
             <Button 
-              variant="outline" 
+              variant="secondary" 
               onClick={testApiKey} 
-              type="button"
               disabled={isLoading}
+              className="flex-shrink-0"
             >
               {isLoading ? "Testing..." : "Test Key"}
             </Button>
@@ -138,18 +162,23 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
               <Button 
                 variant="outline" 
                 onClick={clearApiKey}
-                type="button"
-                className="text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive flex items-center gap-2"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4" />
                 Clear Key
               </Button>
             )}
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={saveApiKey} disabled={isLoading}>Save API Key</Button>
+            <Button 
+              onClick={saveApiKey} 
+              disabled={isLoading}
+              className="bg-sky-500 hover:bg-sky-600"
+            >
+              Save API Key
+            </Button>
           </div>
         </DialogFooter>
       </DialogContent>
