@@ -2,7 +2,6 @@
 import React from "react";
 import MonthlyTrendsChart from "../MonthlyTrendsChart";
 import BalanceChart from "../BalanceChart";
-import MonthlyIncomeExpensesChart from "../MonthlyIncomeExpensesChart";
 import ClaudeEnhancedCategories from "../ClaudeEnhancedCategories";
 import { useFinance } from "@/context/FinanceContext";
 import { Badge } from "@/components/ui/badge";
@@ -27,11 +26,8 @@ const ChartSection = ({
   
   return (
     <>
-      {/* Monthly Trends Chart */}
+      {/* Monthly Trends Chart - Now includes the Trends tab */}
       <MonthlyTrendsChart monthlyTrendData={monthlyTrendData} />
-
-      {/* Monthly Income & Expenses Chart */}
-      <MonthlyIncomeExpensesChart monthlyTrendData={monthlyTrendData} />
       
       {/* Balance Over Time Chart */}
       <BalanceChart balanceData={balanceData} />

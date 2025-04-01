@@ -16,7 +16,10 @@ import {
   YAxis, 
   CartesianGrid, 
   Area, 
-  AreaChart 
+  AreaChart,
+  Legend,
+  ResponsiveContainer,
+  Tooltip
 } from "recharts";
 import { 
   Tabs, 
@@ -25,7 +28,7 @@ import {
   TabsTrigger 
 } from "@/components/ui/tabs";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { ChartBar, TrendingUp, TrendingDown } from "lucide-react";
+import { ChartBar, TrendingUp, TrendingDown, BarChart2 } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 
 interface MonthlyTrendsChartProps {
@@ -66,13 +69,17 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
               <ChartBar className="h-4 w-4" />
               <span>Combined</span>
             </TabsTrigger>
+            <TabsTrigger value="trends" className="flex items-center gap-1">
+              <BarChart2 className="h-4 w-4" />
+              <span>Trends</span>
+            </TabsTrigger>
             <TabsTrigger value="income" className="flex items-center gap-1">
               <TrendingUp className="h-4 w-4" />
-              <span>Income</span>
+              <span>Income %</span>
             </TabsTrigger>
             <TabsTrigger value="expenses" className="flex items-center gap-1">
               <TrendingDown className="h-4 w-4" />
-              <span>Expenses</span>
+              <span>Expenses %</span>
             </TabsTrigger>
           </TabsList>
           
@@ -127,6 +134,72 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
               ) : (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   No monthly data available
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          
+          {/* New Trends Tab showing income and expenses as line chart with dollar amounts */}
+          <TabsContent value="trends" className="mt-0">
+            <div className="h-[300px]">
+              {monthlyTrendData.length > 0 ? (
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[300px]"
+                >
+                  <LineChart
+                    data={monthlyTrendData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                      tickMargin={20}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => `$${Math.abs(value) >= 1000 
+                        ? `${(value / 1000).toFixed(1)}k` 
+                        : value}`}
+                    />
+                    <ChartTooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <ChartTooltipContent
+                              active={active}
+                              payload={payload}
+                              formatter={(value) => formatCurrency(value as number)}
+                            />
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="income" 
+                      name="income" 
+                      stroke="#10B981" 
+                      activeDot={{ r: 8 }} 
+                      strokeWidth={2}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="expenses" 
+                      name="expense" 
+                      stroke="#F97316" 
+                      activeDot={{ r: 8 }} 
+                      strokeWidth={2}
+                    />
+                    <Legend />
+                  </LineChart>
+                </ChartContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  No trend data available
                 </div>
               )}
             </div>
