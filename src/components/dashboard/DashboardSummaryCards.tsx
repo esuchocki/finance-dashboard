@@ -85,7 +85,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
   
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <Card className="dashboard-card border-l-4 border-l-finance-positive animate-fade-in stagger-1">
+      <Card className="dashboard-card border-l-4 border-l-finance-positive animate-fade-in stagger-1 relative">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
             <TrendingUp className="text-finance-positive h-4 w-4 mr-2" />
@@ -95,7 +95,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div>
+                  <div className="cursor-help">
                     <ComparisonIndicator 
                       value={incomeTrajectory.percentageChange} 
                       suffix="%" 
@@ -103,7 +103,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                     />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
+                <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Income Trajectory</p>
                   <p>{incomeTrajectory.description}</p>
                   <div className="mt-2 pt-2 border-t border-border">
@@ -131,7 +131,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
         </CardContent>
       </Card>
       
-      <Card className="dashboard-card border-l-4 border-l-finance-negative animate-fade-in stagger-2">
+      <Card className="dashboard-card border-l-4 border-l-finance-negative animate-fade-in stagger-2 relative">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
             <TrendingDown className="text-finance-negative h-4 w-4 mr-2" />
@@ -141,7 +141,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div>
+                  <div className="cursor-help">
                     <ComparisonIndicator 
                       value={expensesTrajectory.percentageChange} 
                       suffix="%" 
@@ -149,7 +149,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                     />
                   </div>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
+                <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Expense Trajectory</p>
                   <p>{expensesTrajectory.description}</p>
                   <div className="mt-2 pt-2 border-t border-border">
@@ -177,7 +177,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
         </CardContent>
       </Card>
       
-      <Card className="dashboard-card border-l-4 border-l-finance-accent animate-fade-in stagger-3">
+      <Card className="dashboard-card border-l-4 border-l-finance-accent animate-fade-in stagger-3 relative">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-sm font-medium text-muted-foreground flex items-center">
             <CalendarClock className="h-4 w-4 mr-2 text-accent" />
@@ -187,7 +187,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div>
+                  <div className="cursor-help">
                     <Badge variant={balanceTrajectory.isPositive ? "success" : "destructive"} className="ml-2 whitespace-nowrap">
                       {balanceTrajectory.isUpward ? (
                         <ArrowUpRight className="h-3 w-3 mr-1" />
@@ -198,7 +198,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
                     </Badge>
                   </div>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
+                <TooltipContent side="top" align="end" className="max-w-xs">
                   <p className="font-medium mb-1">Full-span Cashflow Trajectory</p>
                   <p>{balanceTrajectory.description}</p>
                   <div className="mt-2 pt-2 border-t border-border">

@@ -7,6 +7,12 @@ import { CalendarDays, DollarSign, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const UploadSummary = () => {
   const { summary, transactions, clearData } = useFinance();
@@ -84,9 +90,18 @@ const UploadSummary = () => {
           <h3 className="text-sm font-medium mb-2">Transaction Types</h3>
           <div className="flex flex-wrap gap-2">
             {Object.entries(typeCount).map(([type, count]) => (
-              <Badge key={type} variant="outline" className="text-xs">
-                {type}: {count}
-              </Badge>
+              <TooltipProvider key={type}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-help">
+                      {type}: {count}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{count} transactions of type "{type}"</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
           </div>
         </div>
@@ -97,18 +112,30 @@ const UploadSummary = () => {
             <h3 className="text-sm font-medium mb-2">Top Expense Categories</h3>
             <div className="space-y-2">
               {summary.topExpenseCategories.slice(0, 3).map((category, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div 
-                      className="w-3 h-3 rounded-full mr-2"
-                      style={{ backgroundColor: getColorForIndex(index) }}
-                    ></div>
-                    <span className="text-sm">{category.category}</span>
-                  </div>
-                  <span className="text-sm font-medium">
-                    {formatCurrency(category.amount)}
-                  </span>
-                </div>
+                <TooltipProvider key={index}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div key={index} className="flex items-center justify-between cursor-help">
+                        <div className="flex items-center">
+                          <div 
+                            className="w-3 h-3 rounded-full mr-2"
+                            style={{ backgroundColor: getColorForIndex(index) }}
+                          ></div>
+                          <span className="text-sm">{category.category}</span>
+                        </div>
+                        <span className="text-sm font-medium">
+                          {formatCurrency(category.amount)}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatCurrency(category.amount)} in "{category.category}" expenses</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {((category.amount / summary.totalExpenses) * 100).toFixed(1)}% of total expenses
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ))}
             </div>
           </div>
@@ -116,14 +143,26 @@ const UploadSummary = () => {
       </CardContent>
       
       <CardFooter className="text-sm text-muted-foreground border-t pt-4">
-        <div className="flex items-center">
-          <TrendingUp className="h-4 w-4 mr-1" />
-          <span>
-            Net cashflow: <span className={summary.netCashflow >= 0 ? "text-green-600" : "text-red-600"}>
-              {formatCurrency(summary.netCashflow)}
-            </span>
-          </span>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center cursor-help">
+                <TrendingUp className="h-4 w-4 mr-1" />
+                <span>
+                  Net cashflow: <span className={summary.netCashflow >= 0 ? "text-green-600" : "text-red-600"}>
+                    {formatCurrency(summary.netCashflow)}
+                  </span>
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Net cashflow is the difference between your total income and expenses</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formatCurrency(summary.totalIncome)} income - {formatCurrency(summary.totalExpenses)} expenses
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </CardFooter>
     </Card>
   );

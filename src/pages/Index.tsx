@@ -3,10 +3,16 @@ import React, { useEffect, useState } from "react";
 import { Dashboard } from "@/components/dashboard";
 import { useFinance } from "@/context/FinanceContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { Loader2, Info } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const Index = () => {
   const { 
@@ -107,9 +113,21 @@ const Index = () => {
           onCheckedChange={toggleDevelopmentMode}
         />
         {isDevelopmentMode && (
-          <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800">
-            Cache Disabled
-          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="ml-2 bg-yellow-100 text-yellow-800 cursor-help">
+                  Cache Disabled
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <div className="space-y-2">
+                  <p className="font-medium">Cache Disabled in Development Mode</p>
+                  <p className="text-sm">In development mode, requests are not cached and data is fetched fresh each time.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </div>
       
@@ -119,7 +137,18 @@ const Index = () => {
         <div className="mt-8 mb-4 text-center text-sm text-muted-foreground animate-fade-in">
           <p>
             Financial data visualization powered by QBO Parser & Claude AI
-            {isUsingCache && !isDevelopmentMode && " (using cached data)"}
+            {isUsingCache && !isDevelopmentMode && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-help ml-1">(using cached data)</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Data is being served from cache for faster performance</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {isDevelopmentMode && " (development mode - cache disabled)"}
           </p>
         </div>
