@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Transactions from "./pages/Transactions";
+import Persona from "./pages/Persona";
 import NotFound from "./pages/NotFound";
 import MainLayout from "./layouts/MainLayout";
 
@@ -16,6 +17,7 @@ const App = () => (
         <Route element={<MainLayout />}>
           <Route path="/" element={<Index />} />
           <Route path="/transactions" element={<Transactions />} />
+          <Route path="/persona" element={<Persona />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

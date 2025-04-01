@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useFinance } from "@/context/FinanceContext";
-import { CircleDollarSign, Key } from "lucide-react";
+import { CircleDollarSign, Key, UserCircle2 } from "lucide-react";
 import ClaudeApiKeyModal from "./ClaudeApiKeyModal";
 import { hasClaudeApiKey } from "@/lib/claudeService";
 
@@ -38,6 +38,12 @@ const AppNavbar = () => {
               </Button>
               <Button asChild variant="ghost">
                 <Link to="/transactions">Transactions</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to="/persona">
+                  <UserCircle2 className="h-4 w-4 mr-1" />
+                  Persona
+                </Link>
               </Button>
             </>
           )}
