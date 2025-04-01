@@ -16,12 +16,7 @@ import { toast } from "sonner";
 // Define the types for our LocationData
 export interface LocationData {
   id: string;
-  city: string;
-  state: string;
-  country: string;
-  startDate: Date | null;
-  endDate: Date | null;
-  isPrimary?: boolean;
+  name: string;
 }
 
 // Define the types for our BackgroundFormData
@@ -57,21 +52,11 @@ export const BackgroundFormDialog: React.FC<BackgroundFormDialogProps> = ({
     }
   );
 
-  // State for the new location form
-  const [newLocation, setNewLocation] = useState<Omit<LocationData, "id">>({
-    city: "",
-    state: "",
-    country: "",
-    startDate: null,
-    endDate: null,
-    isPrimary: formData.locations.length === 0, // First location is primary by default
-  });
-
+  // State for the new location
+  const [newLocation, setNewLocation] = useState("");
+  
   // State to track if we're in location edit mode
   const [isAddingLocation, setIsAddingLocation] = useState(false);
-  
-  // State for the locations management dialog
-  const [locationManagerOpen, setLocationManagerOpen] = useState(false);
 
   // Helper function to generate a unique ID
   const generateId = () => {
@@ -99,112 +84,36 @@ export const BackgroundFormDialog: React.FC<BackgroundFormDialogProps> = ({
     }
   };
 
-  // Handle input changes for the new location form
-  const handleLocationInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    field: keyof Omit<LocationData, "id">
-  ) => {
-    setNewLocation({
-      ...newLocation,
-      [field]: e.target.value,
-    });
-  };
-
-  // Handle date change for location dates
-  const handleLocationDateChange = (
-    date: Date | undefined,
-    field: "startDate" | "endDate"
-  ) => {
-    if (date) {
-      setNewLocation({
-        ...newLocation,
-        [field]: date,
-      });
-    }
-  };
-
   // Add a new location
   const addLocation = () => {
     // Basic validation
-    if (!newLocation.city || !newLocation.country) {
-      toast.error("Please provide at least a city and country");
+    if (!newLocation.trim()) {
+      toast.error("Please enter a location name");
       return;
     }
 
     const newLocationWithId: LocationData = {
-      ...newLocation,
       id: generateId(),
+      name: newLocation.trim()
     };
 
-    // If this is marked as primary, update other locations
-    let updatedLocations = [...formData.locations];
-    
-    if (newLocation.isPrimary) {
-      updatedLocations = updatedLocations.map(loc => ({
-        ...loc,
-        isPrimary: false
-      }));
-    }
-
     // Add the new location
-    updatedLocations.push(newLocationWithId);
-
-    // Update the form data
     setFormData({
       ...formData,
-      locations: updatedLocations,
+      locations: [...formData.locations, newLocationWithId],
     });
 
-    // Reset the new location form
-    setNewLocation({
-      city: "",
-      state: "",
-      country: "",
-      startDate: null,
-      endDate: null,
-      isPrimary: false,
-    });
-
-    // Close the location form
-    setIsAddingLocation(false);
+    // Reset the new location input
+    setNewLocation("");
     
     toast.success("Location added successfully");
   };
 
-  // Set a location as primary
-  const setPrimaryLocation = (id: string) => {
-    const updatedLocations = formData.locations.map(loc => ({
-      ...loc,
-      isPrimary: loc.id === id
-    }));
-
-    setFormData({
-      ...formData,
-      locations: updatedLocations,
-    });
-    
-    toast.success("Primary location updated");
-  };
-
   // Remove a location
   const removeLocation = (id: string) => {
-    // Find if we're removing the primary location
-    const removingPrimary = formData.locations.find(loc => loc.id === id)?.isPrimary;
-    
-    // Filter out the location to remove
-    let updatedLocations = formData.locations.filter(loc => loc.id !== id);
-    
-    // If we removed the primary and we have other locations, set the first one as primary
-    if (removingPrimary && updatedLocations.length > 0) {
-      updatedLocations = updatedLocations.map((loc, index) => ({
-        ...loc,
-        isPrimary: index === 0
-      }));
-    }
-    
     setFormData({
       ...formData,
-      locations: updatedLocations,
+      locations: formData.locations.filter(loc => loc.id !== id),
     });
     
     toast.success("Location removed");
@@ -348,143 +257,20 @@ export const BackgroundFormDialog: React.FC<BackgroundFormDialogProps> = ({
                   {isAddingLocation && (
                     <Card>
                       <CardContent className="pt-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="city">City</Label>
-                            <Input
-                              id="city"
-                              value={newLocation.city}
-                              onChange={(e) =>
-                                handleLocationInputChange(e, "city")
-                              }
-                              placeholder="San Francisco"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="state">State/Province</Label>
-                            <Input
-                              id="state"
-                              value={newLocation.state}
-                              onChange={(e) =>
-                                handleLocationInputChange(e, "state")
-                              }
-                              placeholder="California"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label htmlFor="country">Country</Label>
-                            <Input
-                              id="country"
-                              value={newLocation.country}
-                              onChange={(e) =>
-                                handleLocationInputChange(e, "country")
-                              }
-                              placeholder="United States"
-                            />
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Duration</Label>
-                            <div className="flex items-center gap-2">
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !newLocation.startDate &&
-                                        "text-muted-foreground"
-                                    )}
-                                  >
-                                    <CalendarLucideIcon className="mr-2 h-4 w-4" />
-                                    {newLocation.startDate ? (
-                                      format(newLocation.startDate, "MMM yyyy")
-                                    ) : (
-                                      <span>Start Date</span>
-                                    )}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                  <Calendar
-                                    mode="single"
-                                    selected={
-                                      newLocation.startDate || undefined
-                                    }
-                                    onSelect={(date) =>
-                                      handleLocationDateChange(
-                                        date,
-                                        "startDate"
-                                      )
-                                    }
-                                    initialFocus
-                                    disabled={(date) => date > new Date()}
-                                  />
-                                </PopoverContent>
-                              </Popover>
-
-                              <span>to</span>
-
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    className={cn(
-                                      "w-full justify-start text-left font-normal",
-                                      !newLocation.endDate &&
-                                        "text-muted-foreground"
-                                    )}
-                                  >
-                                    <CalendarLucideIcon className="mr-2 h-4 w-4" />
-                                    {newLocation.endDate ? (
-                                      format(newLocation.endDate, "MMM yyyy")
-                                    ) : (
-                                      <span>End Date</span>
-                                    )}
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                  <Calendar
-                                    mode="single"
-                                    selected={newLocation.endDate || undefined}
-                                    onSelect={(date) =>
-                                      handleLocationDateChange(date, "endDate")
-                                    }
-                                    initialFocus
-                                    disabled={(date) =>
-                                      date >
-                                        new Date() ||
-                                      (newLocation.startDate !== null &&
-                                        date < newLocation.startDate)
-                                    }
-                                  />
-                                </PopoverContent>
-                              </Popover>
+                            <Label htmlFor="location">Location Name</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="location"
+                                value={newLocation}
+                                onChange={(e) => setNewLocation(e.target.value)}
+                                placeholder="New York, NY"
+                                className="flex-1"
+                              />
+                              <Button onClick={addLocation}>Add</Button>
                             </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center mt-4">
-                          <input
-                            type="checkbox"
-                            id="isPrimary"
-                            className="mr-2"
-                            checked={newLocation.isPrimary}
-                            onChange={(e) =>
-                              setNewLocation({
-                                ...newLocation,
-                                isPrimary: e.target.checked,
-                              })
-                            }
-                          />
-                          <Label htmlFor="isPrimary">
-                            This is my primary residence
-                          </Label>
-                        </div>
-
-                        <div className="flex justify-end mt-4">
-                          <Button onClick={addLocation}>Add Location</Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -494,61 +280,23 @@ export const BackgroundFormDialog: React.FC<BackgroundFormDialogProps> = ({
                   {formData.locations.length > 0 ? (
                     <div className="grid gap-4">
                       {formData.locations.map((location) => (
-                        <Card
-                          key={location.id}
-                          className={cn(
-                            "relative",
-                            location.isPrimary
-                              ? "border-green-500"
-                              : "border-border"
-                          )}
-                        >
+                        <Card key={location.id}>
                           <CardContent className="p-4">
-                            <div className="flex flex-wrap justify-between items-start gap-2">
-                              <div>
-                                <h4 className="font-medium flex items-center gap-1">
-                                  {location.city}, {location.state && `${location.state}, `}
-                                  {location.country}
-                                  {location.isPrimary && (
-                                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
-                                      Primary
-                                    </span>
-                                  )}
-                                </h4>
-                                {location.startDate && (
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {format(location.startDate, "MMM yyyy")} -{" "}
-                                    {location.endDate
-                                      ? format(location.endDate, "MMM yyyy")
-                                      : "Present"}
-                                  </p>
-                                )}
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-muted-foreground" />
+                                <span>{location.name}</span>
                               </div>
-                              <div className="flex gap-2">
-                                {!location.isPrimary && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs h-8"
-                                    onClick={() =>
-                                      setPrimaryLocation(location.id)
-                                    }
-                                  >
-                                    Set as Primary
-                                  </Button>
-                                )}
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => removeLocation(location.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  <span className="sr-only">Remove</span>
-                                </Button>
-                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => removeLocation(location.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Remove</span>
+                              </Button>
                             </div>
                           </CardContent>
                         </Card>
