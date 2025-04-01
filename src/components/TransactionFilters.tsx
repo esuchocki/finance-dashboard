@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { DatePicker } from "@/components/ui/date-picker";
 
 const TransactionFilters = () => {
+  
   const { 
     transactions, 
     updateFilters, 
@@ -50,7 +50,7 @@ const TransactionFilters = () => {
     return Array.from(categorySet).sort();
   }, [transactions]);
   
-  // Handler for the slider change - modified to use whole numbers only
+  // Handler for the slider change - uses whole numbers
   const handleSliderChange = (values: number[]) => {
     const roundedValues: [number, number] = [
       Math.round(values[0]), 
@@ -61,7 +61,29 @@ const TransactionFilters = () => {
     setMaxAmount(roundedValues[1].toString());
   };
 
-  // Apply all filters - fixed to match TransactionFilterOptions type
+  // Updated handler for manual amount input changes
+  const handleAmountInputChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>, isMin: boolean) => {
+    // Allow empty string for clearing
+    if (value === "") {
+      setter("");
+      return;
+    }
+    
+    // Ensure only whole numbers are entered
+    const numValue = parseInt(value);
+    if (!isNaN(numValue)) {
+      setter(numValue.toString());
+      
+      // Also update the slider range
+      if (isMin) {
+        setSliderRange([numValue, sliderRange[1]]);
+      } else {
+        setSliderRange([sliderRange[0], numValue]);
+      }
+    }
+  };
+
+  // Apply all filters
   const applyFilters = () => {
     let typeValue: TransactionType[] = [];
     
@@ -98,27 +120,12 @@ const TransactionFilters = () => {
   // Apply filters when component mounts
   useEffect(() => {
     applyFilters();
-  }, []); // Only run once on mount
+  }, []); 
 
   // Helper to format date range for display
   const formatDateRange = (range: any) => {
     if (!range) return "All dates";
     return `${format(range.start, "MMM d, yyyy")} - ${format(range.end, "MMM d, yyyy")}`;
-  };
-
-  // Handle input changes for amount values - ensuring they are whole numbers
-  const handleAmountInputChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>) => {
-    // Allow empty string for clearing
-    if (value === "") {
-      setter("");
-      return;
-    }
-    
-    // Ensure only whole numbers are entered
-    const numValue = parseInt(value);
-    if (!isNaN(numValue)) {
-      setter(numValue.toString());
-    }
   };
 
   return (
@@ -171,7 +178,7 @@ const TransactionFilters = () => {
             </Select>
           </div>
           
-          {/* Amount range with slider - modified to use whole numbers */}
+          {/* Amount range with slider - updated to sync input and slider */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex justify-between mb-2">
               <Label>Amount Range</Label>
@@ -183,7 +190,7 @@ const TransactionFilters = () => {
               defaultValue={sliderRange}
               min={Math.floor(stats?.minAmount || 0)}
               max={Math.ceil(stats?.maxAmount || 1000)}
-              step={1} /* Changed to 1 for whole numbers */
+              step={1}
               value={sliderRange}
               onValueChange={handleSliderChange}
               className="mb-4"
@@ -195,7 +202,7 @@ const TransactionFilters = () => {
                   id="min-amount"
                   placeholder="Min Amount"
                   value={minAmount}
-                  onChange={(e) => handleAmountInputChange(e.target.value, setMinAmount)}
+                  onChange={(e) => handleAmountInputChange(e.target.value, setMinAmount, true)}
                   type="number"
                   className="w-full"
                 />
@@ -206,7 +213,7 @@ const TransactionFilters = () => {
                   id="max-amount"
                   placeholder="Max Amount"
                   value={maxAmount}
-                  onChange={(e) => handleAmountInputChange(e.target.value, setMaxAmount)}
+                  onChange={(e) => handleAmountInputChange(e.target.value, setMaxAmount, false)}
                   type="number"
                   className="w-full"
                 />
@@ -214,7 +221,7 @@ const TransactionFilters = () => {
             </div>
           </div>
           
-          {/* Date Picker - now with manual input option */}
+          {/* Date Picker - with manual input */}
           <div className="col-span-1 md:col-span-2">
             <Label className="mb-2 block">Date Range</Label>
             <div className="flex flex-col space-y-2">

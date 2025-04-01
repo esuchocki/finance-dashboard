@@ -49,10 +49,10 @@ interface MonthlyTrendsChartProps {
 }
 
 const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendData }) => {
-  // Configuration for charts - updated colors to match dashboard
+  // Configuration for charts - update colors to match dashboard
   const chartConfig = {
     expense: { 
-      theme: { light: "#F97316", dark: "#F97316" } 
+      theme: { light: "#EF4444", dark: "#EF4444" } 
     },
     income: { 
       theme: { light: "#10B981", dark: "#10B981" } 
@@ -142,12 +142,12 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Bar 
                         dataKey="income" 
                         name="income" 
-                        fill="#10B981" /* Using the same green color as dashboard */
+                        fill="#10B981" /* Green color to match Dashboard */
                       />
                       <Bar 
                         dataKey="expenses" 
                         name="expense" 
-                        fill="#F97316" /* Using the same orange color as dashboard */
+                        fill="#EF4444" /* Red color to match Dashboard */
                       />
                       <Legend />
                     </BarChart>
@@ -158,7 +158,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 flex flex-col justify-center">
                 <div className="mb-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
@@ -169,7 +169,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                 <div>
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
-                    Look for months where expenses exceed income (orange bars taller than green),
+                    Look for months where expenses exceed income (red bars taller than green),
                     which might indicate budget issues that need attention.
                   </p>
                 </div>
@@ -221,7 +221,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="income" 
                         name="income" 
-                        stroke="#10B981" /* Using the same green color as dashboard */ 
+                        stroke="#10B981" /* Green color to match Dashboard */
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -229,7 +229,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expenses" 
                         name="expense" 
-                        stroke="#F97316" /* Using the same orange color as dashboard */ 
+                        stroke="#EF4444" /* Red color to match Dashboard */
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
                       />
@@ -242,7 +242,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 flex flex-col justify-center">
                 <div className="mb-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
@@ -304,7 +304,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="incomeChange" 
                         name="Income % Change" 
-                        stroke="#10B981" /* Using the same green color as dashboard */
+                        stroke="#10B981" /* Green color to match Dashboard */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -312,7 +312,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                         type="monotone" 
                         dataKey="expensesChange" 
                         name="Expense % Change" 
-                        stroke="#F97316" /* Using the same orange color as dashboard */
+                        stroke="#EF4444" /* Red color to match Dashboard */
                         dot={true}
                         strokeWidth={2}
                       />
@@ -325,7 +325,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   </div>
                 )}
               </div>
-              <div className="md:col-span-3">
+              <div className="md:col-span-3 flex flex-col justify-center">
                 <div className="mb-4">
                   <h4 className="font-bold mb-2">About This Chart</h4>
                   <p className="text-sm text-muted-foreground">
@@ -337,7 +337,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                   <h4 className="font-bold mb-2">How to Use</h4>
                   <p className="text-sm text-muted-foreground">
                     Large spikes may indicate unusual financial events. Income growing slower than 
-                    expenses (green line below orange) suggests increasing financial strain over time.
+                    expenses (green line below red) suggests increasing financial strain over time.
                   </p>
                 </div>
               </div>
