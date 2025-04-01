@@ -1,11 +1,15 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
-import { AlertCircle, Info, Lightbulb } from "lucide-react";
+import { AlertCircle, Info, Lightbulb, ChevronRight } from "lucide-react";
+import InsightDetails from "./InsightDetails";
+import { FinancialInsight } from "@/lib/types";
 
 const InsightsList = () => {
   const { insights, summary } = useFinance();
+  const [selectedInsight, setSelectedInsight] = useState<FinancialInsight | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -56,40 +60,61 @@ const InsightsList = () => {
     });
   }
 
+  const handleInsightClick = (insight: FinancialInsight) => {
+    setSelectedInsight(insight);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Financial Insights</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {allInsights.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground">
-            No insights available yet
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {allInsights.map((insight) => (
-              <div 
-                key={insight.id}
-                className={`p-3 border-l-4 rounded ${getInsightColor(insight.type)}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5">
-                    {getInsightIcon(insight.type)}
-                  </div>
-                  <div>
-                    <h4 className="font-medium">{insight.title}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {insight.description}
-                    </p>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Financial Insights</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {allInsights.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground">
+              No insights available yet
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {allInsights.map((insight) => (
+                <div 
+                  key={insight.id}
+                  className={`p-3 border-l-4 rounded ${getInsightColor(insight.type)} cursor-pointer transition-colors hover:bg-opacity-80`}
+                  onClick={() => handleInsightClick(insight)}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      {getInsightIcon(insight.type)}
+                    </div>
+                    <div className="flex-grow">
+                      <h4 className="font-medium">{insight.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {insight.description}
+                      </p>
+                    </div>
+                    <div className="self-center">
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <InsightDetails 
+        insight={selectedInsight} 
+        isOpen={dialogOpen} 
+        onClose={handleCloseDialog} 
+      />
+    </>
   );
 };
 
