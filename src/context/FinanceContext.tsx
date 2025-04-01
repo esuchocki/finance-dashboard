@@ -36,7 +36,10 @@ const defaultFilterOptions: TransactionFilterOptions = {
   dateRange: { start: null, end: null },
   amountRange: { min: null, max: null },
   searchQuery: "",
-  isRecurring: null
+  isRecurring: null,
+  type: "all",
+  category: undefined,
+  excludeTransfers: false
 };
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -82,17 +85,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   }, [transactions]);
 
   const handleApplyFilters = (filters: TransactionFilterOptions) => {
+    console.log("Applying filters in context:", filters);
     setFilterOptions(filters);
     const filtered = applyFilters(transactions, filters);
+    console.log(`Filtered transactions: ${filtered.length} (from ${transactions.length})`);
     setFilteredTransactions(filtered);
   };
   
   const updateFilters = (newFilters: TransactionFilterOptions) => {
+    console.log("Updating filters:", newFilters);
     setFilters(newFilters);
     handleApplyFilters(newFilters);
   };
   
   const resetFilters = () => {
+    console.log("Resetting filters to default");
     setFilters(defaultFilterOptions);
     handleApplyFilters(defaultFilterOptions);
   };

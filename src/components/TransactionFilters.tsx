@@ -59,11 +59,13 @@ const TransactionFilters = () => {
 
   // Apply all filters - fixed to match TransactionFilterOptions type
   const applyFilters = () => {
-    const typeValue = transactionType === "all" 
-      ? [] 
-      : transactionType === "debit" 
+    let typeValue: TransactionType[] = [];
+    
+    if (transactionType !== "all") {
+      typeValue = transactionType === "debit" 
         ? [TransactionType.DEBIT, TransactionType.WITHDRAWAL, TransactionType.FEE, TransactionType.CHECK] 
         : [TransactionType.CREDIT, TransactionType.DEPOSIT, TransactionType.INTEREST];
+    }
     
     updateFilters({
       // Required properties from TransactionFilterOptions
@@ -89,11 +91,9 @@ const TransactionFilters = () => {
     });
   };
   
-  // Apply filters when they change and when component mounts
+  // Apply filters when component mounts
   useEffect(() => {
     applyFilters();
-    // Commenting out the dependency array to avoid re-filtering on every change
-    // This makes the filter button explicitly required for applying changes
   }, []); // Only run once on mount
 
   // Helper to format date range for display
