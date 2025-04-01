@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import TransactionList from "./TransactionList";
@@ -85,7 +84,7 @@ const TransactionPage = () => {
           <div className="flex flex-col md:flex-row justify-between space-y-4 md:space-y-0 items-start md:items-center">
             <h1 className="text-2xl font-bold flex items-center">
               <Anchor className="h-6 w-6 mr-2 text-finance-primary" />
-              Transactions Logbook
+              Transactions
             </h1>
             <div className="flex items-center gap-4">
               <Button 
