@@ -26,7 +26,7 @@ const ChartSection = ({
   
   return (
     <>
-      {/* Monthly Trends Chart - Now includes the Trends tab */}
+      {/* Monthly Trends Chart - Now includes combined percentage changes */}
       <MonthlyTrendsChart monthlyTrendData={monthlyTrendData} />
       
       {/* Balance Over Time Chart */}
