@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Key, ShieldAlert } from "lucide-react";
-import { saveClaudeApiKey, getClaudeApiKey } from "@/lib/claudeService";
+import { Key, ShieldAlert, Trash2 } from "lucide-react";
+import { saveClaudeApiKey, getClaudeApiKey, clearClaudeApiKey } from "@/lib/claudeService";
 
 interface ClaudeApiKeyModalProps {
   open: boolean;
@@ -21,10 +21,11 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
     // Load from localStorage if available
     return getClaudeApiKey();
   });
+  const [isLoading, setIsLoading] = useState(false);
 
   const saveApiKey = () => {
     if (!apiKey.trim()) {
-      localStorage.removeItem("claudeApiKey");
+      clearClaudeApiKey();
       toast.info("Claude API key has been removed");
     } else {
       // Store the API key in localStorage
@@ -37,11 +38,20 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
     onOpenChange(false);
   };
 
+  const clearApiKey = () => {
+    setApiKey("");
+    clearClaudeApiKey();
+    toast.info("Claude API key has been removed");
+    onOpenChange(false);
+  };
+
   const testApiKey = async () => {
     if (!apiKey.trim()) {
       toast.error("Please enter an API key to test");
       return;
     }
+    
+    setIsLoading(true);
     
     try {
       toast.info("Testing Claude API key...");
@@ -65,13 +75,17 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
       });
       
       if (response.ok) {
+        const data = await response.json();
         toast.success("API key is valid!");
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
         toast.error(`API key is invalid: ${errorData.error?.message || 'Unknown error'}`);
       }
     } catch (error) {
-      toast.error(`Error testing API key: ${(error as Error).message}`);
+      console.error("Error testing API key:", error);
+      toast.error(`Error testing API key: ${(error as Error).message || 'Network error'}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -110,12 +124,32 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
         </div>
         
         <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <Button variant="outline" onClick={testApiKey} type="button">
-            Test Key
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={testApiKey} 
+              type="button"
+              disabled={isLoading}
+            >
+              {isLoading ? "Testing..." : "Test Key"}
+            </Button>
+            
+            {apiKey && (
+              <Button 
+                variant="outline" 
+                onClick={clearApiKey}
+                type="button"
+                className="text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Key
+              </Button>
+            )}
+          </div>
+          
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={saveApiKey}>Save API Key</Button>
+            <Button onClick={saveApiKey} disabled={isLoading}>Save API Key</Button>
           </div>
         </DialogFooter>
       </DialogContent>
