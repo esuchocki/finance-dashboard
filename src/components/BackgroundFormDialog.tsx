@@ -104,12 +104,12 @@ export function BackgroundFormDialog({
     formData.education.graduationDate ? format(formData.education.graduationDate, "MM/dd/yyyy") : ""
   );
 
-  // Format function to add slashes automatically as user types
+  // Format function to ensure 4-digit years
   const formatDateInput = (input: string): string => {
     // Remove any non-digit characters
     const digitsOnly = input.replace(/\D/g, "");
     
-    // Add slashes as the user types, allowing for full 4-digit years
+    // Add slashes as the user types, always allowing for FULL 4-digit years
     if (digitsOnly.length <= 2) {
       return digitsOnly;
     } else if (digitsOnly.length <= 4) {
@@ -119,27 +119,22 @@ export function BackgroundFormDialog({
     }
   };
 
-  // Parse dates from MM/DD/YYYY format - FIXED to properly handle years
+  // Parse dates from MM/DD/YYYY format - only accept 4-digit years
   const parseDateInput = (dateString: string): Date | null => {
     try {
       const parts = dateString.split("/");
       if (parts.length === 3) {
         const month = parseInt(parts[0]) - 1; // 0-based month
         const day = parseInt(parts[1]);
+        
+        // Only accept 4-digit years
+        if (parts[2].length !== 4) return null;
+        
         const year = parseInt(parts[2]);
+        const date = new Date(year, month, day);
         
-        // Check that we have a valid year (at least 2 digits)
-        if (parts[2].length < 2) return null;
-        
-        // Handle 2-digit years - assume 20xx for years < 50, 19xx for years >= 50
-        const fullYear = parts[2].length <= 2 
-          ? (year < 50 ? 2000 + year : 1900 + year)
-          : year;
-        
-        const date = new Date(fullYear, month, day);
-        
-        // Validate date is valid and year is correctly set
-        if (!isNaN(date.getTime()) && date.getFullYear() === fullYear) {
+        // Validate date is valid
+        if (!isNaN(date.getTime()) && date.getFullYear() === year) {
           return date;
         }
       }
