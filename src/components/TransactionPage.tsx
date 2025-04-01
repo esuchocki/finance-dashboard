@@ -8,7 +8,8 @@ import FileUploader from "./FileUploader";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const TransactionPage = () => {
   const { 
