@@ -1,4 +1,3 @@
-
 // Enum for transaction types
 export enum TransactionType {
   DEBIT = "DEBIT",
@@ -36,6 +35,8 @@ export interface Transaction {
   confidence: "high" | "medium" | "low";
   categoryType: "income" | "expense" | "transfer";
   tags: string[];
+  note?: string;
+  isTransfer?: boolean;
 }
 
 // Options for filtering transactions

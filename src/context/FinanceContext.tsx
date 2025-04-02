@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { 
   Transaction, 
   TransactionFilterOptions,
@@ -24,6 +24,8 @@ interface FinanceContextType {
   uploadProgress: number;
   handleFileUpload: (files: File[]) => Promise<void>;
   clearTransactions: () => void;
+  error: string | null;
+  isUsingCache: boolean;
   
   // Transaction filtering
   filteredTransactions: Transaction[];
@@ -71,6 +73,9 @@ const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 // Provider component
 export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // State for development mode toggle
+  const [developmentMode, setDevelopmentMode] = useState<boolean>(false);
+  
   // Use our custom hooks to manage different aspects of the finance data
   const {
     uploadedFiles,
@@ -85,9 +90,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     isApiKeyValid,
     isValidatingApiKey,
     uploadQBOFile,
-    isDevelopmentMode,
-    toggleDevelopmentMode,
-  } = useFinanceUpload();
+    error,
+    isUsingCache
+  } = useFinanceUpload(developmentMode);
   
   const {
     filteredTransactions,
@@ -112,6 +117,11 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     financialPersona,
     updatePersonalBackground,
   } = useFinancialPersona();
+  
+  // Toggle development mode
+  const toggleDevelopmentMode = () => {
+    setDevelopmentMode(prev => !prev);
+  };
   
   // Calculate basic stats for filters
   const stats = transactions.length > 0 
@@ -164,6 +174,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     uploadProgress,
     handleFileUpload,
     clearTransactions,
+    error,
+    isUsingCache,
     
     filteredTransactions,
     filterOptions,
@@ -192,7 +204,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     // Additional properties needed by components
     uploadQBOFile,
-    isDevelopmentMode,
+    isDevelopmentMode: developmentMode,
     toggleDevelopmentMode,
     filters: filterOptions,
     updateFilters: updateFilterOptions,

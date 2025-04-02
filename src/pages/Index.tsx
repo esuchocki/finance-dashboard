@@ -137,8 +137,6 @@ const Index = () => {
       </div>
       
       <Dashboard />
-      
-      {/* Removed financial attribution footer */}
     </div>
   );
 };

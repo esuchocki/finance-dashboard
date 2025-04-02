@@ -272,7 +272,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     }
   };
 
-  const uploadQBOFile = async (file: File): Promise<number> => {
+  const uploadQBOFile = async (file: File): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
@@ -450,7 +450,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
         throw new Error("No transactions found in the file. Please check the file format.");
       }
       
-      return transactionCount;
+      return;
     } catch (error) {
       console.error("Error uploading QBO file:", error);
       setError((error as Error).message);
@@ -474,7 +474,9 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     toast.success("Data cleared. You can now upload a new file.");
   };
 
+  // Return object that matches what's expected in FinanceContext
   return {
+    uploadedFiles: [],
     transactions,
     setTransactions,
     filteredTransactions,
@@ -491,6 +493,20 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
     setFinancialPersona,
     uploadQBOFile,
     clearData,
-    isUsingCache
+    isUsingCache,
+    handleFileUpload: async (files: File[]) => {
+      if (files.length > 0) {
+        await uploadQBOFile(files[0]);
+      }
+    },
+    clearTransactions: clearData,
+    claudeApiKey: null,
+    setClaudeApiKey: () => {},
+    isApiKeyValid: false,
+    isValidatingApiKey: false,
+    isProcessingQbo: false,
+    uploadProgress: 0,
+    isDevelopmentMode: isDevelopmentMode,
+    toggleDevelopmentMode: () => {}
   };
 };
