@@ -1,5 +1,6 @@
-
+import { useState } from "react";
 import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
+import { claudeFinancialAnalysis } from "@/lib/claudeService";
 
 // Generate financial insights based on transaction data and summary
 export const generateInsights = (txns: Transaction[], summary: FinancialSummary): FinancialInsight[] => {
@@ -142,4 +143,42 @@ export const findPotentialDuplicates = (txns: Transaction[]): string[] => {
   }
   
   return [...new Set(duplicateIds)];
+};
+
+// This is the hook that was missing
+export const useFinanceInsights = (financialSummary: FinancialSummary | null) => {
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [hasGeneratedInsights, setHasGeneratedInsights] = useState(false);
+  const [insights, setInsights] = useState<FinancialInsight[]>([]);
+
+  const generateFinanceInsights = async () => {
+    if (!financialSummary || !financialSummary.transactions) {
+      return;
+    }
+
+    setIsGeneratingInsights(true);
+    
+    try {
+      // Generate basic insights based on transaction data
+      const basicInsights = generateInsights(
+        financialSummary.transactions,
+        financialSummary
+      );
+      
+      // Set the insights
+      setInsights(basicInsights);
+      setHasGeneratedInsights(true);
+    } catch (error) {
+      console.error("Error generating insights:", error);
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
+  return {
+    generateInsights: generateFinanceInsights,
+    isGeneratingInsights,
+    hasGeneratedInsights,
+    insights
+  };
 };

@@ -5,7 +5,8 @@ import {
   TransactionFilterOptions,
   FinancialSummary,
   FinancialPersona,
-  PersonalBackground
+  PersonalBackground,
+  FinancialInsight
 } from '@/lib/types';
 import { useFinanceUpload } from '@/context/hooks/useFinanceUpload';
 import { useTransactionFilters } from '@/context/hooks/useTransactionFilters';
@@ -38,6 +39,7 @@ interface FinanceContextType {
   generateInsights: () => Promise<void>;
   isGeneratingInsights: boolean;
   hasGeneratedInsights: boolean;
+  insights: FinancialInsight[];
   
   // Claude API
   claudeApiKey: string | null;
@@ -48,6 +50,10 @@ interface FinanceContextType {
   // Financial persona
   financialPersona: FinancialPersona | null;
   updatePersonalBackground: (personalBackground: PersonalBackground) => boolean;
+  
+  // Additional properties used by components
+  summary: FinancialSummary | null; // Alias for financialSummary
+  clearData: () => void; // Alias for clearTransactions
 }
 
 // Create the context
@@ -86,6 +92,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     generateInsights,
     isGeneratingInsights,
     hasGeneratedInsights,
+    insights
   } = useFinanceInsights(financialSummary);
   
   const {
@@ -114,6 +121,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     generateInsights,
     isGeneratingInsights,
     hasGeneratedInsights,
+    insights,
     
     claudeApiKey,
     setClaudeApiKey,
@@ -122,6 +130,10 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     financialPersona,
     updatePersonalBackground,
+
+    // Aliases for backward compatibility with existing components
+    summary: financialSummary,
+    clearData: clearTransactions
   };
   
   return (
