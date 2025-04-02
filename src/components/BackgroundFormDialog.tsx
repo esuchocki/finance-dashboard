@@ -268,6 +268,18 @@ export function BackgroundFormDialog({
   const addLocation = () => {
     const newId = "loc-" + Math.random().toString(36).substring(2, 9);
     
+    // Get the last location's end date if available
+    let startDate = null;
+    let startDateInput = "";
+    
+    if (formData.locations.length > 0) {
+      const lastLocation = formData.locations[formData.locations.length - 1];
+      if (lastLocation.endDate) {
+        startDate = lastLocation.endDate;
+        startDateInput = format(lastLocation.endDate, "MM/dd/yyyy");
+      }
+    }
+    
     setFormData({
       ...formData,
       locations: [
@@ -275,16 +287,19 @@ export function BackgroundFormDialog({
         {
           id: newId,
           place: "",
-          startDate: null,
+          startDate: startDate,
           endDate: null,
         },
       ],
     });
     
-    // Initialize the text inputs for the new location
+    // Initialize the text inputs for the new location, with the start date from the previous location
     setLocationDateInputs({
       ...locationDateInputs,
-      [newId]: { start: "", end: "" }
+      [newId]: { 
+        start: startDateInput, 
+        end: "" 
+      }
     });
 
     toast.success("New location added");
