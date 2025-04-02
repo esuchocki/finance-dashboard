@@ -156,6 +156,32 @@ export const useFinancialPersona = () => {
     }
   };
   
+  // Update the personal background data
+  const updatePersonalBackground = (personalBackground: PersonalBackground): boolean => {
+    try {
+      const updatedPersona = {
+        ...financialPersona,
+        personalBackground,
+        lastUpdated: new Date()
+      };
+      
+      setFinancialPersona(updatedPersona);
+      
+      // Save to localStorage
+      localStorage.setItem('full_financial_persona', JSON.stringify(updatedPersona));
+      localStorage.setItem('financial_persona', JSON.stringify(personalBackground));
+      
+      setIsInitialized(true);
+      return true;
+    } catch (error) {
+      console.error("Error updating personal background:", error);
+      toast.error("Error saving personal data", {
+        description: "There was a problem updating your personal background"
+      });
+      return false;
+    }
+  };
+  
   // Determine the user's age at a specific date
   const calculateAgeAtDate = (date: Date): number => {
     return differenceInYears(date, financialPersona.personalBackground.birthDate);
@@ -245,6 +271,7 @@ export const useFinancialPersona = () => {
   // Reset the financial persona
   const resetFinancialPersona = () => {
     localStorage.removeItem('full_financial_persona');
+    localStorage.removeItem('financial_persona');
     setFinancialPersona(createEmptyFinancialPersona());
     setIsInitialized(false);
   };
@@ -258,7 +285,7 @@ export const useFinancialPersona = () => {
     updateWithTransactions,
     resetFinancialPersona,
     calculateAgeAtDate,
-    determineLocationAtDate
+    determineLocationAtDate,
+    updatePersonalBackground
   };
 };
-

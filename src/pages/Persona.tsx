@@ -1,18 +1,45 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { PersonaDetail } from "@/components/persona/PersonaDetail";
 import { NarrativeTransactionList } from "@/components/persona/NarrativeTransactionList";
 import { FactoidList } from "@/components/persona/FactoidList";
 import { LifeChaptersList } from "@/components/persona/LifeChaptersList";
+import { BackgroundFormDialog } from "@/components/BackgroundFormDialog";
+import { UserCircle2, Plus } from "lucide-react";
 
 const Persona = () => {
   // Get financial persona data from context
-  const { financialPersona } = useFinance();
+  const { financialPersona, updatePersonalBackground } = useFinance();
+  const [showBackgroundForm, setShowBackgroundForm] = useState(false);
+
+  // Handle saving background data
+  const handleSaveBackground = (formData: any) => {
+    // Convert BackgroundFormData to PersonalBackground format
+    const personalBackground = {
+      name: formData.name,
+      birthDate: formData.birthDate,
+      education: {
+        level: formData.education.level,
+        school: formData.education.school,
+        major: formData.education.major
+      },
+      locations: formData.locations.map((loc: any) => ({
+        id: loc.id,
+        location: loc.place,
+        startDate: loc.startDate,
+        endDate: loc.endDate
+      }))
+    };
+    
+    // Update the personal background
+    updatePersonalBackground(personalBackground);
+  };
 
   // Handle case when no persona data is available
   if (!financialPersona) {
@@ -25,12 +52,26 @@ const Persona = () => {
               No personal background information available yet
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Complete your personal background information by clicking the "Add Claude API" button and then filling out your details.
+              Complete your personal background information to get started with your financial persona.
             </p>
+            <Button 
+              onClick={() => setShowBackgroundForm(true)}
+              className="mt-4"
+            >
+              <UserCircle2 className="mr-2 h-4 w-4" />
+              Add Personal Information
+            </Button>
           </CardContent>
         </Card>
+        
+        {/* Background Form Dialog for new users */}
+        <BackgroundFormDialog
+          open={showBackgroundForm}
+          onOpenChange={setShowBackgroundForm}
+          onSubmit={handleSaveBackground}
+        />
       </div>
     );
   }
@@ -50,9 +91,11 @@ const Persona = () => {
     <div className="container py-8 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Financial Persona</h1>
-        <Badge variant="outline" className="px-3 py-1">
-          Profile {completionPercentage}% Complete
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="px-3 py-1">
+            Profile {completionPercentage}% Complete
+          </Badge>
+        </div>
       </div>
       
       <Tabs defaultValue="overview" className="w-full">

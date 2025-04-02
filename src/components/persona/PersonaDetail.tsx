@@ -1,40 +1,108 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { FinancialPersona, PersonalBackground } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
-import { User, GraduationCap, MapPin, Clock } from "lucide-react";
+import { User, GraduationCap, MapPin, Clock, Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BackgroundFormDialog } from "@/components/BackgroundFormDialog";
+import { useFinance } from "@/context/FinanceContext";
+import { toast } from "sonner";
 
 interface PersonaDetailProps {
   persona: FinancialPersona;
 }
 
 export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
-  const { personalBackground, rawTransactions, narrativeTransactions, lifeChapters, factoids, lastUpdated } = persona;
+  const { rawTransactions, narrativeTransactions, lifeChapters, factoids, lastUpdated } = persona;
+  const { updatePersonalBackground } = useFinance();
+  const [showBackgroundForm, setShowBackgroundForm] = useState(false);
+  
+  // Convert PersonalBackground to BackgroundFormData format
+  const getInitialFormData = () => {
+    const { personalBackground } = persona;
+    
+    if (!personalBackground) return undefined;
+    
+    return {
+      name: personalBackground.name || "",
+      birthDate: personalBackground.birthDate || null,
+      locations: personalBackground.locations.map(loc => ({
+        id: loc.id,
+        place: loc.location,
+        startDate: loc.startDate,
+        endDate: loc.endDate
+      })) || [],
+      education: {
+        level: personalBackground.education?.level || "",
+        school: personalBackground.education?.school || "",
+        major: personalBackground.education?.major || "",
+        graduationDate: null // This field isn't in the PersonalBackground type, so default to null
+      }
+    };
+  };
+
+  const handleSaveBackground = (formData: any) => {
+    // Convert BackgroundFormData to PersonalBackground format
+    const personalBackground: PersonalBackground = {
+      name: formData.name,
+      birthDate: formData.birthDate,
+      education: {
+        level: formData.education.level,
+        school: formData.education.school,
+        major: formData.education.major
+      },
+      locations: formData.locations.map((loc: any) => ({
+        id: loc.id,
+        location: loc.place,
+        startDate: loc.startDate,
+        endDate: loc.endDate
+      }))
+    };
+    
+    // Update the personal background
+    const success = updatePersonalBackground(personalBackground);
+    
+    if (success) {
+      toast.success("Personal background updated successfully");
+    } else {
+      toast.error("Failed to update personal background");
+    }
+  };
   
   return (
     <div className="grid gap-6 md:grid-cols-2">
       {/* Personal Background Card */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Personal Background
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Personal Background
+            </CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8"
+              onClick={() => setShowBackgroundForm(true)}
+            >
+              <Edit className="h-4 w-4 mr-1" /> Edit
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          {personalBackground ? (
+          {persona.personalBackground ? (
             <div className="space-y-4">
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Name</h3>
-                <p className="text-lg">{personalBackground.name || "Not provided"}</p>
+                <p className="text-lg">{persona.personalBackground.name || "Not provided"}</p>
               </div>
               
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Birth Date</h3>
                 <p className="text-lg">
-                  {personalBackground.birthDate 
-                    ? format(new Date(personalBackground.birthDate), "MMMM d, yyyy")
+                  {persona.personalBackground.birthDate 
+                    ? format(new Date(persona.personalBackground.birthDate), "MMMM d, yyyy")
                     : "Not provided"}
                 </p>
               </div>
@@ -44,13 +112,13 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
                 <div className="flex items-start gap-2">
                   <GraduationCap className="h-5 w-5 mt-0.5 text-muted-foreground" />
                   <div>
-                    {personalBackground.education?.level ? (
+                    {persona.personalBackground.education?.level ? (
                       <>
-                        <p className="text-lg">{personalBackground.education.level}</p>
-                        {personalBackground.education.school && (
+                        <p className="text-lg">{persona.personalBackground.education.level}</p>
+                        {persona.personalBackground.education.school && (
                           <p className="text-muted-foreground">
-                            {personalBackground.education.school}
-                            {personalBackground.education.major && ` - ${personalBackground.education.major}`}
+                            {persona.personalBackground.education.school}
+                            {persona.personalBackground.education.major && ` - ${persona.personalBackground.education.major}`}
                           </p>
                         )}
                       </>
@@ -76,9 +144,9 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {personalBackground?.locations && personalBackground.locations.length > 0 ? (
+          {persona.personalBackground?.locations && persona.personalBackground.locations.length > 0 ? (
             <div className="space-y-4">
-              {personalBackground.locations.map(location => (
+              {persona.personalBackground.locations.map(location => (
                 <div key={location.id} className="border-l-2 border-primary pl-4 py-1">
                   <p className="font-medium">{location.location}</p>
                   <p className="text-sm text-muted-foreground">
@@ -132,6 +200,14 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Background Form Dialog */}
+      <BackgroundFormDialog
+        open={showBackgroundForm}
+        onOpenChange={setShowBackgroundForm}
+        onSubmit={handleSaveBackground}
+        initialData={getInitialFormData()}
+      />
     </div>
   );
 };
