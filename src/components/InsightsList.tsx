@@ -37,28 +37,32 @@ const InsightsList = () => {
     }
   };
   
-  // Filter out any duplicate insights by combining both sources
-  const allInsights = [...insights];
+  // Ensure we have an array to work with
+  const insightsArray = Array.isArray(insights) ? insights : [];
+  const summaryInsights = summary && summary.topInsights && Array.isArray(summary.topInsights) 
+    ? summary.topInsights 
+    : [];
+  
+  // Combine insights from both sources
+  const allInsights = [...insightsArray];
   
   // Add insights from summary if they exist
-  if (summary && summary.topInsights && Array.isArray(summary.topInsights)) {
-    summary.topInsights.forEach(insight => {
-      // Check if this insight from summary already exists in our main insights list
-      const exists = allInsights.some(
-        existing => existing.title === insight.title || existing.description === insight.description
-      );
-      
-      if (!exists) {
-        allInsights.push({
-          id: `summary-${insight.id || Math.random().toString(36).substr(2, 9)}`,
-          title: insight.title || "Financial Insight",
-          description: insight.description,
-          type: insight.type || "info",
-          category: insight.category || "general"
-        });
-      }
-    });
-  }
+  summaryInsights.forEach(insight => {
+    // Check if this insight from summary already exists in our main insights list
+    const exists = allInsights.some(
+      existing => existing.title === insight.title || existing.description === insight.description
+    );
+    
+    if (!exists) {
+      allInsights.push({
+        id: `summary-${insight.id || Math.random().toString(36).substr(2, 9)}`,
+        title: insight.title || "Financial Insight",
+        description: insight.description,
+        type: insight.type || "info",
+        category: insight.category || "general"
+      });
+    }
+  });
 
   // Enhanced insight handling to show data counts
   const handleInsightClick = (insight: FinancialInsight) => {

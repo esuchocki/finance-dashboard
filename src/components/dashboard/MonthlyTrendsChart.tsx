@@ -72,9 +72,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
     }).format(Math.round(value));
   };
 
-  // Format percentage values for tooltips to round to nearest percent
-  const formatTooltipPercentage = (value: number): string => {
-    return `${Math.round(value)}%`;
+  // Format percentage values for tooltips to include label and round to nearest percent
+  const formatTooltipPercentage = (value: number, name: string): string => {
+    const label = name === "incomeChange" ? "Income Change" : 
+                  name === "expensesChange" ? "Expense Change" : name;
+    return `${label}: ${Math.round(value)}%`;
   };
 
   return (
@@ -152,9 +154,13 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                                 active={active}
                                 payload={payload.map(item => ({
                                   ...item,
-                                  name: item.dataKey === "income" ? "Income" : "Expense"
+                                  name: item.dataKey === "income" ? "Income" : 
+                                         item.dataKey === "expenses" ? "Expenses" : 
+                                         item.name
                                 }))}
-                                formatter={(value) => formatTooltipCurrency(value as number)}
+                                formatter={(value, name) => {
+                                  return `${name}: ${formatTooltipCurrency(value as number)}`;
+                                }}
                               />
                             );
                           }
@@ -243,9 +249,13 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                                 active={active}
                                 payload={payload.map(item => ({
                                   ...item,
-                                  name: item.dataKey === "income" ? "Income" : "Expense"
+                                  name: item.dataKey === "income" ? "Income" : 
+                                         item.dataKey === "expenses" ? "Expenses" : 
+                                         item.name
                                 }))}
-                                formatter={(value) => formatTooltipCurrency(value as number)}
+                                formatter={(value, name) => {
+                                  return `${name}: ${formatTooltipCurrency(value as number)}`;
+                                }}
                               />
                             );
                           }
@@ -263,7 +273,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Line 
                         type="monotone" 
                         dataKey="expenses" 
-                        name="Expense" 
+                        name="Expenses" 
                         stroke="#E57373" // Muted red
                         activeDot={{ r: 8 }} 
                         strokeWidth={2}
@@ -337,9 +347,13 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                                 active={active}
                                 payload={payload.map(item => ({
                                   ...item,
-                                  name: item.dataKey === "incomeChange" ? "Income % Change" : "Expense % Change"
+                                  name: item.dataKey === "incomeChange" ? "Income Change" : 
+                                         item.dataKey === "expensesChange" ? "Expense Change" : 
+                                         item.name
                                 }))}
-                                formatter={(value) => formatTooltipPercentage(value as number)}
+                                formatter={(value, name) => {
+                                  return `${name}: ${Math.round(value as number)}%`;
+                                }}
                               />
                             );
                           }
@@ -349,7 +363,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Line 
                         type="monotone" 
                         dataKey="incomeChange" 
-                        name="Income % Change" 
+                        name="Income Change" 
                         stroke="#81C784" // Muted green
                         dot={true}
                         strokeWidth={2}
@@ -357,7 +371,7 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                       <Line 
                         type="monotone" 
                         dataKey="expensesChange" 
-                        name="Expense % Change" 
+                        name="Expense Change" 
                         stroke="#E57373" // Muted red
                         dot={true}
                         strokeWidth={2}

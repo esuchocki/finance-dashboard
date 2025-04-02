@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,6 @@ import { Switch } from "@/components/ui/switch";
 import { DatePicker } from "@/components/ui/date-picker";
 
 const TransactionFilters = () => {
-  
   const { 
     transactions, 
     updateFilters, 
@@ -35,6 +35,16 @@ const TransactionFilters = () => {
     filters.minAmount || 0,
     filters.maxAmount || (stats?.maxAmount || 1000)
   ]);
+  
+  // Display values for the amount inputs (formatted as currency)
+  const [displayMinAmount, setDisplayMinAmount] = useState("");
+  const [displayMaxAmount, setDisplayMaxAmount] = useState("");
+  
+  // Update display values when slider range changes
+  useEffect(() => {
+    setDisplayMinAmount(formatCurrency(sliderRange[0], "USD", 0));
+    setDisplayMaxAmount(formatCurrency(sliderRange[1], "USD", 0));
+  }, [sliderRange]);
   
   // Extract unique categories from transactions
   const categories = React.useMemo(() => {
@@ -59,27 +69,49 @@ const TransactionFilters = () => {
     setSliderRange(roundedValues);
     setMinAmount(roundedValues[0].toString());
     setMaxAmount(roundedValues[1].toString());
+    
+    // Update display values
+    setDisplayMinAmount(formatCurrency(roundedValues[0], "USD", 0));
+    setDisplayMaxAmount(formatCurrency(roundedValues[1], "USD", 0));
   };
 
-  // Updated handler for manual amount input changes
-  const handleAmountInputChange = (value: string, setter: React.Dispatch<React.SetStateAction<string>>, isMin: boolean) => {
-    // Allow empty string for clearing
-    if (value === "") {
-      setter("");
-      return;
-    }
+  // Parse currency input to number
+  const parseCurrencyInput = (value: string): number | null => {
+    // Remove currency symbol, commas and any other non-numeric chars except decimal point
+    const numericValue = value.replace(/[^0-9.-]/g, '');
+    const parsed = parseFloat(numericValue);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  // Format display input for min amount
+  const handleMinAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    setDisplayMinAmount(inputValue);
     
-    // Ensure only whole numbers are entered
-    const numValue = parseInt(value);
-    if (!isNaN(numValue)) {
-      setter(numValue.toString());
+    // Parse numeric value from the input
+    const parsedValue = parseCurrencyInput(inputValue);
+    if (parsedValue !== null) {
+      const roundedValue = Math.round(parsedValue);
+      setMinAmount(roundedValue.toString());
       
-      // Also update the slider range
-      if (isMin) {
-        setSliderRange([numValue, sliderRange[1]]);
-      } else {
-        setSliderRange([sliderRange[0], numValue]);
-      }
+      // Update slider
+      setSliderRange([roundedValue, sliderRange[1]]);
+    }
+  };
+  
+  // Format display input for max amount
+  const handleMaxAmountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const inputValue = e.target.value;
+    setDisplayMaxAmount(inputValue);
+    
+    // Parse numeric value from the input
+    const parsedValue = parseCurrencyInput(inputValue);
+    if (parsedValue !== null) {
+      const roundedValue = Math.round(parsedValue);
+      setMaxAmount(roundedValue.toString());
+      
+      // Update slider
+      setSliderRange([sliderRange[0], roundedValue]);
     }
   };
 
@@ -120,12 +152,25 @@ const TransactionFilters = () => {
   // Apply filters when component mounts
   useEffect(() => {
     applyFilters();
+    
+    // Initialize display values
+    if (minAmount) {
+      setDisplayMinAmount(formatCurrency(parseInt(minAmount), "USD", 0));
+    }
+    if (maxAmount) {
+      setDisplayMaxAmount(formatCurrency(parseInt(maxAmount), "USD", 0));
+    }
   }, []); 
 
   // Helper to format date range for display
   const formatDateRange = (range: any) => {
     if (!range) return "All dates";
     return `${format(range.start, "MMM d, yyyy")} - ${format(range.end, "MMM d, yyyy")}`;
+  };
+
+  // Helper to format slider tick labels without decimals
+  const formatSliderValue = (value: number) => {
+    return formatCurrency(value, "USD", 0);
   };
 
   return (
@@ -178,12 +223,12 @@ const TransactionFilters = () => {
             </Select>
           </div>
           
-          {/* Amount range with slider - updated to sync input and slider */}
+          {/* Amount range with slider - updated to format as currency */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex justify-between mb-2">
               <Label>Amount Range</Label>
               <div className="text-xs text-muted-foreground">
-                {formatCurrency(sliderRange[0])} - {formatCurrency(sliderRange[1])}
+                {formatSliderValue(sliderRange[0])} - {formatSliderValue(sliderRange[1])}
               </div>
             </div>
             <Slider
@@ -201,9 +246,8 @@ const TransactionFilters = () => {
                 <Input
                   id="min-amount"
                   placeholder="Min Amount"
-                  value={minAmount}
-                  onChange={(e) => handleAmountInputChange(e.target.value, setMinAmount, true)}
-                  type="number"
+                  value={displayMinAmount}
+                  onChange={handleMinAmountInputChange}
                   className="w-full"
                 />
               </div>
@@ -212,9 +256,8 @@ const TransactionFilters = () => {
                 <Input
                   id="max-amount"
                   placeholder="Max Amount"
-                  value={maxAmount}
-                  onChange={(e) => handleAmountInputChange(e.target.value, setMaxAmount, false)}
-                  type="number"
+                  value={displayMaxAmount}
+                  onChange={handleMaxAmountInputChange}
                   className="w-full"
                 />
               </div>
@@ -306,9 +349,15 @@ const TransactionFilters = () => {
                 setDateRange(null);
                 setMinAmount("");
                 setMaxAmount("");
+                setDisplayMinAmount("");
+                setDisplayMaxAmount("");
                 setExcludeTransfers(false);
                 if (stats) {
-                  setSliderRange([Math.floor(stats.minAmount), Math.ceil(stats.maxAmount)]);
+                  const min = Math.floor(stats.minAmount);
+                  const max = Math.ceil(stats.maxAmount);
+                  setSliderRange([min, max]);
+                  setDisplayMinAmount(formatCurrency(min, "USD", 0));
+                  setDisplayMaxAmount(formatCurrency(max, "USD", 0));
                 }
               }} 
               className="flex items-center space-x-2"
