@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { format, parse } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
@@ -91,15 +92,15 @@ export function BackgroundFormDialog({
   const [birthDateInput, setBirthDateInput] = useState<string>(
     formData.birthDate ? format(formData.birthDate, "MM/dd/yyyy") : ""
   );
-  const [locationDateInputs, setLocationDateInputs] = useState<{[key: string]: {start: string, end: string}}>(
-    formData.locations.reduce((acc, loc) => ({
+  const [locationDateInputs, setLocationDateInputs] = useState<{[key: string]: {start: string, end: string}}>({
+    ...formData.locations.reduce((acc, loc) => ({
       ...acc,
       [loc.id]: {
         start: loc.startDate ? format(loc.startDate, "MM/dd/yyyy") : "",
         end: loc.endDate ? format(loc.endDate, "MM/dd/yyyy") : ""
       }
     }), {})
-  );
+  });
   const [graduationDateInput, setGraduationDateInput] = useState<string>(
     formData.education.graduationDate ? format(formData.education.graduationDate, "MM/dd/yyyy") : ""
   );
@@ -288,28 +289,6 @@ export function BackgroundFormDialog({
           ...formData.education,
           graduationDate: parsedDate,
         },
-      });
-    }
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    
-    if (name.startsWith("education.")) {
-      const field = name.split(".")[1];
-      setFormData({
-        ...formData,
-        education: {
-          ...formData.education,
-          [field]: value,
-        },
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
       });
     }
   };
