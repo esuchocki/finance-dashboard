@@ -1,6 +1,6 @@
+
 import { useState } from "react";
 import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
-import { claudeFinancialAnalysis } from "@/lib/claudeService";
 
 // Generate financial insights based on transaction data and summary
 export const generateInsights = (txns: Transaction[], summary: FinancialSummary): FinancialInsight[] => {
@@ -152,16 +152,19 @@ export const useFinanceInsights = (financialSummary: FinancialSummary | null) =>
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
 
   const generateFinanceInsights = async () => {
-    if (!financialSummary || !financialSummary.transactions) {
+    if (!financialSummary) {
       return;
     }
 
     setIsGeneratingInsights(true);
     
     try {
+      // Get transactions from the financial summary or use an empty array
+      const txns = (financialSummary as any).transactions || [];
+      
       // Generate basic insights based on transaction data
       const basicInsights = generateInsights(
-        financialSummary.transactions,
+        txns,
         financialSummary
       );
       

@@ -1,5 +1,5 @@
-
-import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Transaction, FinancialSummary } from "@/lib/types";
 
 // Calculate financial summary from transactions
 export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
@@ -97,5 +97,49 @@ export const calculateDateRange = (txns: Transaction[]) => {
   return {
     start: sortedByDate[0].date,
     end: sortedByDate[sortedByDate.length - 1].date
+  };
+};
+
+// Add the missing hook
+export const useFinanceSummary = (transactions: Transaction[]) => {
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Calculate summary when transactions or date range changes
+  useEffect(() => {
+    if (transactions.length === 0) {
+      setFinancialSummary(null);
+      return;
+    }
+
+    // Filter transactions by date range if present
+    let filteredTxns = transactions;
+    if (dateRange && dateRange.start && dateRange.end) {
+      filteredTxns = transactions.filter(txn => {
+        const txnDate = txn.date;
+        return txnDate >= dateRange.start && txnDate <= dateRange.end;
+      });
+    }
+
+    // Calculate the summary
+    const summary = calculateSummary(filteredTxns);
+    
+    // Add the transactions to the summary for reference
+    const enhancedSummary = {
+      ...summary,
+      transactions: filteredTxns
+    };
+    
+    setFinancialSummary(enhancedSummary);
+  }, [transactions, dateRange]);
+
+  // Update date range function
+  const updateDateRange = (start: Date, end: Date) => {
+    setDateRange({ start, end });
+  };
+
+  return { 
+    financialSummary, 
+    updateDateRange 
   };
 };

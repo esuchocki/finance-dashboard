@@ -54,6 +54,16 @@ interface FinanceContextType {
   // Additional properties used by components
   summary: FinancialSummary | null; // Alias for financialSummary
   clearData: () => void; // Alias for clearTransactions
+  
+  // These properties are used in components but missing from context definition
+  uploadQBOFile: (file: File) => Promise<void>;
+  isDevelopmentMode: boolean;
+  toggleDevelopmentMode: () => void;
+  filters: TransactionFilterOptions;
+  updateFilters: (updates: Partial<TransactionFilterOptions>) => void;
+  resetFilters: () => void;
+  applyPresetDateRange: (preset: string) => void;
+  stats: { minAmount: number; maxAmount: number } | null;
 }
 
 // Create the context
@@ -74,6 +84,9 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setClaudeApiKey,
     isApiKeyValid,
     isValidatingApiKey,
+    uploadQBOFile,
+    isDevelopmentMode,
+    toggleDevelopmentMode,
   } = useFinanceUpload();
   
   const {
@@ -99,6 +112,48 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     financialPersona,
     updatePersonalBackground,
   } = useFinancialPersona();
+  
+  // Calculate basic stats for filters
+  const stats = transactions.length > 0 
+    ? {
+        minAmount: Math.min(...transactions.map(t => t.amount)),
+        maxAmount: Math.max(...transactions.map(t => t.amount))
+      }
+    : null;
+  
+  // Helper function for preset date ranges
+  const applyPresetDateRange = (preset: string) => {
+    const now = new Date();
+    let start: Date, end: Date;
+    
+    switch (preset) {
+      case 'lastMonth':
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date(now.getFullYear(), now.getMonth(), 0);
+        break;
+      case 'last3Months':
+        start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+        end = new Date();
+        break;
+      case 'lastYear':
+        start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
+        end = new Date();
+        break;
+      case 'ytd':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date();
+        break;
+      default:
+        start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        end = new Date();
+    }
+    
+    updateFilterOptions({
+      dateRange: { start, end }
+    });
+    
+    updateDateRange(start, end);
+  };
   
   // Combine all values into the context
   const contextValue: FinanceContextType = {
@@ -133,7 +188,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Aliases for backward compatibility with existing components
     summary: financialSummary,
-    clearData: clearTransactions
+    clearData: clearTransactions,
+    
+    // Additional properties needed by components
+    uploadQBOFile,
+    isDevelopmentMode,
+    toggleDevelopmentMode,
+    filters: filterOptions,
+    updateFilters: updateFilterOptions,
+    resetFilters: clearFilters,
+    applyPresetDateRange,
+    stats
   };
   
   return (
