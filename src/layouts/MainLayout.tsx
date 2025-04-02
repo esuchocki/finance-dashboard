@@ -6,7 +6,6 @@ import { FinanceProvider } from "@/context/FinanceContext";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserCircle2, BookOpen } from "lucide-react";
-import { PersonalBackground, FinancialPersona } from "@/lib/types";
 
 const MainLayout = () => {
   const [hasPersonaData, setHasPersonaData] = React.useState(false);
@@ -18,7 +17,7 @@ const MainLayout = () => {
       try {
         const savedData = localStorage.getItem('financial_persona');
         if (savedData) {
-          const parsedData = JSON.parse(savedData) as FinancialPersona;
+          const parsedData = JSON.parse(savedData);
           
           // Check for personal background data
           if (parsedData.personalBackground?.name && parsedData.personalBackground?.birthDate) {
@@ -39,10 +38,10 @@ const MainLayout = () => {
   }, []);
 
   return (
-    <FinanceProvider>
+    <div className="min-h-screen flex flex-col">
       <TooltipProvider>
-        <Toaster position="top-right" />
-        <div className="min-h-screen flex flex-col">
+        <FinanceProvider>
+          <Toaster position="top-right" />
           <AppNavbar />
           <main className="flex-1 container py-6 px-4">
             {/* Show banner with appropriate information based on available data */}
@@ -79,9 +78,9 @@ const MainLayout = () => {
               <p className="text-xs mt-1">Data is processed locally and never leaves your device</p>
             </div>
           </footer>
-        </div>
+        </FinanceProvider>
       </TooltipProvider>
-    </FinanceProvider>
+    </div>
   );
 };
 
