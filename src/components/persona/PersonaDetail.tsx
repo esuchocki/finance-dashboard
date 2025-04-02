@@ -171,18 +171,24 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
         <CardContent>
           {persona.personalBackground?.locations && persona.personalBackground.locations.length > 0 ? (
             <div className="space-y-4">
-              {persona.personalBackground.locations.map(location => (
-                <div key={location.id} className="border-l-2 border-primary pl-4 py-1">
-                  <p className="font-medium">{location.location}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatLocationDate(location.startDate)} - {
-                      location.endDate 
-                        ? formatLocationDate(location.endDate)
-                        : "Present"
-                    }
-                  </p>
-                </div>
-              ))}
+              {persona.personalBackground.locations
+                .sort((a, b) => {
+                  const aDate = a.startDate instanceof Date ? a.startDate.getTime() : 0;
+                  const bDate = b.startDate instanceof Date ? b.startDate.getTime() : 0;
+                  return bDate - aDate; // Sort newest first
+                })
+                .map(location => (
+                  <div key={location.id} className="border-l-2 border-primary pl-4 py-1">
+                    <p className="font-medium">{location.location || "Unknown location"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatLocationDate(location.startDate)} - {
+                        location.endDate 
+                          ? formatLocationDate(location.endDate)
+                          : "Present"
+                      }
+                    </p>
+                  </div>
+                ))}
             </div>
           ) : (
             <p className="text-muted-foreground italic">No location history available</p>

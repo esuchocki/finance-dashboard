@@ -34,6 +34,25 @@ const createEmptyFinancialPersona = (): FinancialPersona => ({
   lastUpdated: new Date()
 });
 
+// Helper function to ensure dates are properly converted to Date objects
+const ensureDate = (value: any): Date | null => {
+  if (!value) return null;
+  
+  if (value instanceof Date) {
+    return new Date(value); // Create a new instance to avoid reference issues
+  }
+  
+  try {
+    const date = new Date(value);
+    // Check if it's a valid date
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch (error) {
+    console.error("Failed to convert to date:", value, error);
+    return null;
+  }
+};
+
 export const useFinancialPersona = () => {
   const [financialPersona, setFinancialPersona] = useState<FinancialPersona>(createEmptyFinancialPersona());
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
@@ -61,15 +80,17 @@ export const useFinancialPersona = () => {
       const parsedBackground = JSON.parse(backgroundData) as PersonalBackground;
       
       // Convert date strings to Date objects
-      if (typeof parsedBackground.birthDate === 'string') {
-        parsedBackground.birthDate = new Date(parsedBackground.birthDate);
+      if (parsedBackground.birthDate) {
+        parsedBackground.birthDate = ensureDate(parsedBackground.birthDate) || new Date();
       }
       
-      parsedBackground.locations = parsedBackground.locations.map(loc => ({
-        ...loc,
-        startDate: typeof loc.startDate === 'string' ? new Date(loc.startDate) : loc.startDate,
-        endDate: loc.endDate ? (typeof loc.endDate === 'string' ? new Date(loc.endDate) : loc.endDate) : null
-      }));
+      if (parsedBackground.locations) {
+        parsedBackground.locations = parsedBackground.locations.map(loc => ({
+          ...loc,
+          startDate: ensureDate(loc.startDate) || new Date(),
+          endDate: loc.endDate ? ensureDate(loc.endDate) : null
+        }));
+      }
       
       // Check for full financial persona data
       const fullPersonaData = localStorage.getItem('full_financial_persona');
@@ -84,27 +105,33 @@ export const useFinancialPersona = () => {
         persona.personalBackground = parsedBackground;
         
         // Convert dates in narrative transactions
-        persona.narrativeTransactions = persona.narrativeTransactions.map(t => ({
-          ...t,
-          date: new Date(t.date)
-        }));
+        if (persona.narrativeTransactions) {
+          persona.narrativeTransactions = persona.narrativeTransactions.map(t => ({
+            ...t,
+            date: ensureDate(t.date) || new Date()
+          }));
+        }
         
         // Convert dates in life chapters
-        persona.lifeChapters = persona.lifeChapters.map(ch => ({
-          ...ch,
-          startDate: new Date(ch.startDate),
-          endDate: ch.endDate ? new Date(ch.endDate) : null,
-          majorLifeEvents: ch.majorLifeEvents.map(e => ({
-            ...e,
-            date: new Date(e.date)
-          }))
-        }));
+        if (persona.lifeChapters) {
+          persona.lifeChapters = persona.lifeChapters.map(ch => ({
+            ...ch,
+            startDate: ensureDate(ch.startDate) || new Date(),
+            endDate: ch.endDate ? ensureDate(ch.endDate) : null,
+            majorLifeEvents: ch.majorLifeEvents.map(e => ({
+              ...e,
+              date: ensureDate(e.date) || new Date()
+            }))
+          }));
+        }
         
         // Convert dates in factoids
-        persona.factoids = persona.factoids.map(f => ({
-          ...f,
-          date: new Date(f.date)
-        }));
+        if (persona.factoids) {
+          persona.factoids = persona.factoids.map(f => ({
+            ...f,
+            date: ensureDate(f.date) || new Date()
+          }));
+        }
         
         console.log("Loaded full financial persona", persona);
       } else {
@@ -159,17 +186,30 @@ export const useFinancialPersona = () => {
   // Update the personal background data
   const updatePersonalBackground = (personalBackground: PersonalBackground): boolean => {
     try {
+      // Ensure dates are proper Date objects
+      const processedBackground: PersonalBackground = {
+        ...personalBackground,
+        birthDate: ensureDate(personalBackground.birthDate) || new Date(),
+        locations: personalBackground.locations.map(loc => ({
+          ...loc,
+          startDate: ensureDate(loc.startDate) || new Date(),
+          endDate: loc.endDate ? ensureDate(loc.endDate) : null
+        }))
+      };
+      
       const updatedPersona = {
         ...financialPersona,
-        personalBackground,
+        personalBackground: processedBackground,
         lastUpdated: new Date()
       };
+      
+      console.log("Updating financial persona with background:", processedBackground);
       
       setFinancialPersona(updatedPersona);
       
       // Save to localStorage
       localStorage.setItem('full_financial_persona', JSON.stringify(updatedPersona));
-      localStorage.setItem('financial_persona', JSON.stringify(personalBackground));
+      localStorage.setItem('financial_persona', JSON.stringify(processedBackground));
       
       setIsInitialized(true);
       return true;

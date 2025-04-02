@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { format, parse } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
@@ -118,7 +117,22 @@ export function BackgroundFormDialog({
     } else {
       const month = digitsOnly.slice(0, 2);
       const day = digitsOnly.slice(2, 4);
-      const year = digitsOnly.slice(4, 8).padEnd(4, '0'); // Pad year to ensure 4 digits
+      
+      // Make sure we always get 4-digit years
+      let year = digitsOnly.slice(4);
+      if (year.length <= 2) {
+        // If user entered a 1 or 2-digit year, assume it's 2000+
+        year = year.padStart(2, '0');
+        if (Number(year) < 50) {
+          year = `20${year}`;
+        } else {
+          year = `19${year}`;
+        }
+      } else {
+        // If more than 2 digits, ensure it's padded to a full 4 digits
+        year = year.padEnd(4, '0');
+      }
+      
       return `${month}/${day}/${year}`;
     }
   };
@@ -274,6 +288,28 @@ export function BackgroundFormDialog({
           ...formData.education,
           graduationDate: parsedDate,
         },
+      });
+    }
+  };
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    
+    if (name.startsWith("education.")) {
+      const field = name.split(".")[1];
+      setFormData({
+        ...formData,
+        education: {
+          ...formData.education,
+          [field]: value,
+        },
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
       });
     }
   };

@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from "react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -20,9 +19,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { BackgroundFormDialog, BackgroundFormData } from "@/components/BackgroundFormDialog";
 import { toast } from "sonner";
+import { PersonalBackground } from "@/lib/types";
 
 const FileUploader = () => {
-  const { uploadQBOFile, isLoading } = useFinance();
+  const { uploadQBOFile, isLoading, updatePersonalBackground } = useFinance();
   const [file, setFile] = useState<File | null>(null);
   const [open, setOpen] = React.useState(false);
   const [backgroundFormOpen, setBackgroundFormOpen] = useState(false);
@@ -67,6 +67,26 @@ const FileUploader = () => {
 
   const handleBackgroundFormSubmit = (data: BackgroundFormData) => {
     setBackgroundData(data);
+    
+    // Convert BackgroundFormData to PersonalBackground format
+    const personalBackground: PersonalBackground = {
+      name: data.name,
+      birthDate: data.birthDate || new Date(),
+      education: {
+        level: data.education.level,
+        school: data.education.school,
+        major: data.education.major
+      },
+      locations: data.locations.map(loc => ({
+        id: loc.id,
+        location: loc.place,
+        startDate: loc.startDate || new Date(),
+        endDate: loc.endDate
+      }))
+    };
+    
+    // Update the personal background in the finance context
+    updatePersonalBackground(personalBackground);
     
     // Store in localStorage for persistence
     localStorage.setItem('financial_persona', JSON.stringify(data));
