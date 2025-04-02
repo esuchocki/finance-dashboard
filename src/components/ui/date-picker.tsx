@@ -12,6 +12,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
+import { formatDateInputString, parseDateInput } from "@/lib/formatters"
 
 interface DatePickerProps {
   dateRange: DateRange | null
@@ -34,49 +35,19 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
     setEndDateInput(dateRange?.end ? format(dateRange.end, "MM/dd/yyyy") : "");
   }, [dateRange]);
 
-  // Format function to add slashes automatically as user types
-  const formatDateInput = (input: string): string => {
-    // Remove any non-digit characters
-    const digitsOnly = input.replace(/\D/g, "");
-    
-    // Add slashes as the user types
-    if (digitsOnly.length <= 2) {
-      return digitsOnly;
-    } else if (digitsOnly.length <= 4) {
-      return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`;
-    } else {
-      return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
-    }
-  };
-
   // Handle manual date input
   const handleDateInputSubmit = () => {
     try {
-      // Parse dates from MM/DD/YYYY format
-      const startParts = startDateInput.split("/");
-      const endParts = endDateInput.split("/");
+      const startDate = parseDateInput(startDateInput);
+      const endDate = parseDateInput(endDateInput);
       
-      if (startParts.length === 3 && endParts.length === 3) {
-        const startDate = new Date(
-          parseInt(startParts[2]), 
-          parseInt(startParts[0]) - 1, 
-          parseInt(startParts[1])
-        );
-        
-        const endDate = new Date(
-          parseInt(endParts[2]), 
-          parseInt(endParts[0]) - 1, 
-          parseInt(endParts[1])
-        );
-        
-        // Validate dates
-        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-          onChange({
-            start: startDate,
-            end: endDate
-          });
-          setIsOpen(false);
-        }
+      // Validate dates
+      if (startDate && endDate) {
+        onChange({
+          start: startDate,
+          end: endDate
+        });
+        setIsOpen(false);
       }
     } catch (error) {
       console.error("Error parsing date input:", error);
@@ -118,7 +89,7 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
                 <Input
                   placeholder="MM/DD/YYYY"
                   value={startDateInput}
-                  onChange={(e) => setStartDateInput(formatDateInput(e.target.value))}
+                  onChange={(e) => setStartDateInput(formatDateInputString(e.target.value))}
                   className="h-8"
                 />
               </div>
@@ -127,7 +98,7 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
                 <Input
                   placeholder="MM/DD/YYYY"
                   value={endDateInput}
-                  onChange={(e) => setEndDateInput(formatDateInput(e.target.value))}
+                  onChange={(e) => setEndDateInput(formatDateInputString(e.target.value))}
                   className="h-8"
                 />
               </div>

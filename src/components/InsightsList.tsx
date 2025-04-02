@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFinance } from "@/context/FinanceContext";
 import { AlertCircle, Info, Lightbulb, ChevronRight } from "lucide-react";
@@ -7,9 +7,18 @@ import InsightDetails from "./InsightDetails";
 import { FinancialInsight } from "@/lib/types";
 
 const InsightsList = () => {
-  const { insights, summary } = useFinance();
+  const { insights, summary, generateInsights, isGeneratingInsights } = useFinance();
   const [selectedInsight, setSelectedInsight] = useState<FinancialInsight | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Effect to automatically generate insights if needed
+  useEffect(() => {
+    // Check if we have a summary but no insights
+    if (summary && (!insights || insights.length === 0)) {
+      console.log("No insights available, generating insights automatically");
+      generateInsights();
+    }
+  }, [summary, insights, generateInsights]);
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -85,6 +94,11 @@ const InsightsList = () => {
     setDialogOpen(false);
   };
 
+  // Debug insights state
+  console.log("Current insights:", insightsArray);
+  console.log("Summary insights:", summaryInsights);
+  console.log("All insights after combining:", allInsights);
+
   return (
     <>
       <Card>
@@ -92,9 +106,23 @@ const InsightsList = () => {
           <CardTitle>Financial Insights</CardTitle>
         </CardHeader>
         <CardContent>
-          {allInsights.length === 0 ? (
+          {isGeneratingInsights ? (
+            <div className="text-center py-6 text-muted-foreground">
+              Generating insights...
+            </div>
+          ) : allInsights.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground">
               No insights available yet
+              {summary && (
+                <Button 
+                  onClick={() => generateInsights()}
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2 mx-auto block"
+                >
+                  Generate Insights
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -135,5 +163,8 @@ const InsightsList = () => {
     </>
   );
 };
+
+// Import button component
+import { Button } from "@/components/ui/button";
 
 export default InsightsList;

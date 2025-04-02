@@ -1,9 +1,10 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Transaction, FinancialSummary, FinancialInsight } from "@/lib/types";
 
 // Generate financial insights based on transaction data and summary
 export const generateInsights = (txns: Transaction[], summary: FinancialSummary): FinancialInsight[] => {
+  console.log("Generating insights from", txns.length, "transactions");
   const insights: FinancialInsight[] = [];
   
   // Basic cash flow insights
@@ -12,7 +13,8 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
       id: "negative-cashflow",
       title: "Negative Cash Flow",
       description: "Your expenses exceed your income for this period.",
-      type: "warning"
+      type: "warning",
+      category: "cashflow"
     });
   } else {
     const savingsRate = (summary.netCashflow / summary.totalIncome) * 100;
@@ -21,7 +23,8 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
         id: "high-savings",
         title: "Great Savings Rate",
         description: `You're saving ${savingsRate.toFixed(1)}% of your income, which is excellent!`,
-        type: "info"
+        type: "info",
+        category: "savings"
       });
     }
   }
@@ -35,6 +38,7 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
       title: "Potential Duplicate Transactions",
       description: `Found ${potentialDuplicateIds.length} potential duplicate transactions that may need review.`,
       type: "warning",
+      category: "data-quality",
       relatedTransactions: duplicateTransactions
     });
   }
@@ -46,7 +50,8 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
       id: "high-category-spending",
       title: "High Category Spending",
       description: `${topCategory.category} represents over 40% of your total expenses.`,
-      type: "info"
+      type: "info",
+      category: "spending"
     });
   }
   
@@ -57,7 +62,8 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
       id: "subscription-spending",
       title: "Subscription Spending",
       description: `You're spending approximately $${summary.recurringExpensesTotal.toFixed(2)} (${recurringPercentage.toFixed(1)}% of expenses) on recurring items.`,
-      type: "info"
+      type: "info",
+      category: "subscriptions"
     });
   }
   
@@ -74,10 +80,12 @@ export const generateInsights = (txns: Transaction[], summary: FinancialSummary)
       title: "Large Transactions Detected",
       description: `Found ${largeTransactionIds.length} unusually large transactions that represent significant portions of your spending.`,
       type: "warning",
+      category: "spending",
       relatedTransactions: largeTransactions
     });
   }
   
+  console.log("Generated", insights.length, "insights:", insights);
   return insights;
 };
 
@@ -106,7 +114,8 @@ export const analyzeMonthlyTrends = (monthlyData: { month: string; income: numbe
       id: "increasing-expenses",
       title: "Increasing Expenses Trend",
       description: `Your monthly expenses have increased by ${percentIncrease.toFixed(1)}% over the last ${recentMonths.length} months.`,
-      type: "warning" as const
+      type: "warning" as const,
+      category: "trends"
     };
   }
   
@@ -145,22 +154,33 @@ export const findPotentialDuplicates = (txns: Transaction[]): string[] => {
   return [...new Set(duplicateIds)];
 };
 
-// This is the hook that was missing
+// This is the hook that will be used by components
 export const useFinanceInsights = (financialSummary: FinancialSummary | null) => {
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [hasGeneratedInsights, setHasGeneratedInsights] = useState(false);
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
 
+  // Check if we should automatically generate insights when summary changes
+  useEffect(() => {
+    if (financialSummary && !hasGeneratedInsights && !isGeneratingInsights && insights.length === 0) {
+      console.log("Financial summary available but no insights - triggering automatic generation");
+      generateFinanceInsights();
+    }
+  }, [financialSummary, hasGeneratedInsights, isGeneratingInsights, insights]);
+
   const generateFinanceInsights = async () => {
     if (!financialSummary) {
+      console.log("Cannot generate insights: no financial summary available");
       return;
     }
 
+    console.log("Starting insight generation process");
     setIsGeneratingInsights(true);
     
     try {
       // Get transactions from the financial summary or use an empty array
       const txns = (financialSummary as any).transactions || [];
+      console.log(`Generating insights from ${txns.length} transactions`);
       
       // Generate basic insights based on transaction data
       const basicInsights = generateInsights(
@@ -171,6 +191,7 @@ export const useFinanceInsights = (financialSummary: FinancialSummary | null) =>
       // Set the insights
       setInsights(basicInsights);
       setHasGeneratedInsights(true);
+      console.log(`Generated ${basicInsights.length} insights successfully`);
     } catch (error) {
       console.error("Error generating insights:", error);
     } finally {
