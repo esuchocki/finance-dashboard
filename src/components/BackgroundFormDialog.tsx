@@ -1,5 +1,6 @@
+
 import React, { useState } from "react";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { CalendarIcon, MapPin, School, User, X, Plus, Calendar as CalendarLucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,13 +110,16 @@ export function BackgroundFormDialog({
     // Remove any non-digit characters
     const digitsOnly = input.replace(/\D/g, "");
     
-    // Add slashes as the user types, always allowing for FULL 4-digit years
+    // Add slashes as the user types, always ensuring FULL 4-digit years
     if (digitsOnly.length <= 2) {
       return digitsOnly;
     } else if (digitsOnly.length <= 4) {
       return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`;
     } else {
-      return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2, 4)}/${digitsOnly.slice(4, 8)}`;
+      const month = digitsOnly.slice(0, 2);
+      const day = digitsOnly.slice(2, 4);
+      const year = digitsOnly.slice(4, 8).padEnd(4, '0'); // Pad year to ensure 4 digits
+      return `${month}/${day}/${year}`;
     }
   };
 
@@ -124,19 +128,29 @@ export function BackgroundFormDialog({
     try {
       const parts = dateString.split("/");
       if (parts.length === 3) {
-        const month = parseInt(parts[0]) - 1; // 0-based month
-        const day = parseInt(parts[1]);
+        const month = parseInt(parts[0], 10);
+        const day = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
         
-        // Only accept 4-digit years
-        if (parts[2].length !== 4) return null;
+        // Validate parts
+        if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+        if (month < 1 || month > 12) return null;
+        if (day < 1 || day > 31) return null;
+        if (year < 1000 || year > 9999) return null; // Ensure 4-digit year
         
-        const year = parseInt(parts[2]);
-        const date = new Date(year, month, day);
+        // Create date with careful validation (month-1 because JS months are 0-based)
+        const date = new Date(year, month - 1, day);
         
-        // Validate date is valid
-        if (!isNaN(date.getTime()) && date.getFullYear() === year) {
-          return date;
+        // Verify the date is valid by checking if components match what we set
+        if (
+          date.getFullYear() !== year ||
+          date.getMonth() !== month - 1 ||
+          date.getDate() !== day
+        ) {
+          return null; // Invalid date (like Feb 31)
         }
+        
+        return date;
       }
       return null;
     } catch (error) {
@@ -190,7 +204,7 @@ export function BackgroundFormDialog({
     }
   };
 
-  // Location date handling - UPDATED to match birth date & graduation date pattern
+  // Location date handling
   const handleLocationDateChange = (id: string, field: "startDate" | "endDate", date: Date | undefined) => {
     setFormData({
       ...formData,
@@ -355,7 +369,23 @@ export function BackgroundFormDialog({
       return;
     }
     
-    onSubmit(formData);
+    // Ensure all dates are properly formatted with 4-digit years
+    const processedFormData = {
+      ...formData,
+      locations: formData.locations.map(loc => ({
+        ...loc,
+        // Ensure we have proper Date objects, not just strings
+        startDate: loc.startDate instanceof Date ? loc.startDate : 
+                  (loc.startDate ? new Date(loc.startDate) : null),
+        endDate: loc.endDate instanceof Date ? loc.endDate : 
+                (loc.endDate ? new Date(loc.endDate) : null)
+      }))
+    };
+    
+    // Log the data being submitted
+    console.log("Submitting background data:", processedFormData);
+    
+    onSubmit(processedFormData);
     toast.success("Background information saved");
     onOpenChange(false);
   };

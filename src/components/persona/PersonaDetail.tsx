@@ -26,12 +26,12 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
     
     return {
       name: personalBackground.name || "",
-      birthDate: personalBackground.birthDate || null,
+      birthDate: personalBackground.birthDate ? new Date(personalBackground.birthDate) : null,
       locations: personalBackground.locations.map(loc => ({
-        id: loc.id,
-        place: loc.location,
-        startDate: loc.startDate,
-        endDate: loc.endDate
+        id: loc.id || `loc-${Math.random().toString(36).substring(2, 9)}`,
+        place: loc.location || "",
+        startDate: loc.startDate ? new Date(loc.startDate) : null,
+        endDate: loc.endDate ? new Date(loc.endDate) : null
       })) || [],
       education: {
         level: personalBackground.education?.level || "",
@@ -60,6 +60,8 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
       }))
     };
     
+    console.log("Saving personal background:", personalBackground);
+    
     // Update the personal background
     const success = updatePersonalBackground(personalBackground);
     
@@ -67,6 +69,31 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
       toast.success("Personal background updated successfully");
     } else {
       toast.error("Failed to update personal background");
+    }
+  };
+  
+  // Helper function to safely format dates
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return "Not provided";
+    try {
+      const dateObj = date instanceof Date ? date : new Date(date);
+      if (isNaN(dateObj.getTime())) return "Invalid date";
+      return format(dateObj, "MMMM d, yyyy");
+    } catch (error) {
+      console.error("Error formatting date:", error, date);
+      return "Date error";
+    }
+  };
+
+  const formatLocationDate = (date: Date | string | null | undefined) => {
+    if (!date) return "Present";
+    try {
+      const dateObj = date instanceof Date ? date : new Date(date);
+      if (isNaN(dateObj.getTime())) return "Invalid date";
+      return format(dateObj, "MMM yyyy");
+    } catch (error) {
+      console.error("Error formatting location date:", error, date);
+      return "Date error";
     }
   };
   
@@ -101,9 +128,7 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
               <div>
                 <h3 className="font-medium text-sm text-muted-foreground">Birth Date</h3>
                 <p className="text-lg">
-                  {persona.personalBackground.birthDate 
-                    ? format(new Date(persona.personalBackground.birthDate), "MMMM d, yyyy")
-                    : "Not provided"}
+                  {formatDate(persona.personalBackground.birthDate)}
                 </p>
               </div>
               
@@ -150,9 +175,9 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
                 <div key={location.id} className="border-l-2 border-primary pl-4 py-1">
                   <p className="font-medium">{location.location}</p>
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(location.startDate), "MMM yyyy")} - {
+                    {formatLocationDate(location.startDate)} - {
                       location.endDate 
-                        ? format(new Date(location.endDate), "MMM yyyy")
+                        ? formatLocationDate(location.endDate)
                         : "Present"
                     }
                   </p>
@@ -173,7 +198,7 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
             Financial Profile Summary
           </CardTitle>
           <CardDescription>
-            Last updated: {lastUpdated ? format(new Date(lastUpdated), "MMMM d, yyyy 'at' h:mm a") : "Never"}
+            Last updated: {lastUpdated ? formatDate(lastUpdated) : "Never"}
           </CardDescription>
         </CardHeader>
         <CardContent>
