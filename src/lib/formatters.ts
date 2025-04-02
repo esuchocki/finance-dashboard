@@ -47,32 +47,29 @@ export function formatDateInputString(input: string): string {
   // Remove any non-digit characters
   const digitsOnly = input.replace(/\D/g, "");
   
-  // Add slashes as the user types, always ensuring FULL 4-digit years
+  // Don't try to format if we have fewer than 2 digits
   if (digitsOnly.length <= 2) {
     return digitsOnly;
-  } else if (digitsOnly.length <= 4) {
+  } 
+  
+  // Add slash after month if we have at least 2 digits
+  if (digitsOnly.length <= 4) {
     return `${digitsOnly.slice(0, 2)}/${digitsOnly.slice(2)}`;
-  } else {
-    const month = digitsOnly.slice(0, 2);
-    const day = digitsOnly.slice(2, 4);
-    
-    // Make sure we always get 4-digit years
-    let year = digitsOnly.slice(4);
-    if (year.length <= 2) {
-      // If user entered a 1 or 2-digit year, assume it's 2000+
-      year = year.padStart(2, '0');
-      if (Number(year) < 50) {
-        year = `20${year}`;
-      } else {
-        year = `19${year}`;
-      }
-    } else {
-      // If more than 2 digits, ensure it's padded to a full 4 digits
-      year = year.padEnd(4, '0');
-    }
-    
-    return `${month}/${day}/${year}`;
+  } 
+  
+  // Format as MM/DD/YYYY
+  const month = digitsOnly.slice(0, 2);
+  const day = digitsOnly.slice(2, 4);
+  const yearDigits = digitsOnly.slice(4);
+  
+  // If user has typed a complete 4-digit year, use it as is
+  if (yearDigits.length >= 4) {
+    // Just take the first 4 digits of the year
+    return `${month}/${day}/${yearDigits.slice(0, 4)}`;
   }
+  
+  // For incomplete years, just show what they've typed without auto-completing
+  return `${month}/${day}/${yearDigits}`;
 }
 
 // Parse dates from MM/DD/YYYY format - only accept 4-digit years

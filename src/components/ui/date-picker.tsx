@@ -54,6 +54,12 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
     }
   };
 
+  // Handle direct input changes without automatic formatting
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>) => 
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setter(formatDateInputString(e.target.value));
+    };
+
   return (
     <div className={cn("grid gap-2", className)}>
       <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -89,7 +95,7 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
                 <Input
                   placeholder="MM/DD/YYYY"
                   value={startDateInput}
-                  onChange={(e) => setStartDateInput(formatDateInputString(e.target.value))}
+                  onChange={handleInputChange(setStartDateInput)}
                   className="h-8"
                 />
               </div>
@@ -98,7 +104,7 @@ export function DatePicker({ dateRange, onChange, className }: DatePickerProps) 
                 <Input
                   placeholder="MM/DD/YYYY"
                   value={endDateInput}
-                  onChange={(e) => setEndDateInput(formatDateInputString(e.target.value))}
+                  onChange={handleInputChange(setEndDateInput)}
                   className="h-8"
                 />
               </div>
