@@ -232,3 +232,190 @@ export interface FinancialPersona {
   factoids: Factoid[]; // All factoids about the user
   lastUpdated: Date;
 }
+
+// ======== BUSINESS MODE TYPES ========
+
+// Application mode - Personal or Business
+export type AppMode = 'personal' | 'business';
+
+// Entity type classification for business accounts
+export type EntityType = 'operating' | 'capital' | 'restricted' | 'vendor' | 'other';
+
+// Fund type for nonprofit accounting (FASB ASC 958)
+export type FundType = 'unrestricted' | 'temporarily_restricted' | 'permanently_restricted';
+
+// FASB functional expense categories
+export type FunctionalExpenseCategory = 'program' | 'management' | 'fundraising';
+
+// Business entity representing a QBO file/account
+export interface BusinessEntity {
+  id: string;
+  name: string; // e.g., "Operating Account 2024", "Capital Reserve"
+  type: EntityType;
+  fileSource: string; // Original filename
+  dateUploaded: Date;
+  transactionCount: number;
+  dateRange: DateRange;
+  accountType?: string; // From QBO: checking, savings, etc.
+  description?: string; // Optional description
+}
+
+// Extended transaction with business context
+export interface BusinessTransaction extends Transaction {
+  entityId: string;
+  entityName: string;
+  fundType: FundType;
+  programAllocation?: string; // For FASB functional expense reporting
+  functionalCategory?: FunctionalExpenseCategory; // Program/Admin/Fundraising
+  isIntercompany?: boolean; // For elimination in consolidation
+  vendorId?: string; // For vendor analysis
+  grantId?: string; // For grant tracking
+}
+
+// Per-entity summary for consolidated view
+export interface EntitySummary {
+  entityId: string;
+  entityName: string;
+  entityType: EntityType;
+  totalIncome: number;
+  totalExpenses: number;
+  netCashflow: number;
+  balance: number;
+  transactionCount: number;
+  dateRange: DateRange;
+}
+
+// Functional expenses breakdown (FASB requirement)
+export interface FunctionalExpenses {
+  programServices: number;
+  managementGeneral: number;
+  fundraising: number;
+  total: number;
+}
+
+// Vendor spending analysis
+export interface VendorSpending {
+  vendor: string;
+  vendorId?: string;
+  totalSpent: number;
+  transactionCount: number;
+  percentOfTotal: number;
+  firstTransaction: Date;
+  lastTransaction: Date;
+  averageTransaction: number;
+  categories: string[]; // Categories this vendor appears in
+}
+
+// Donor metrics for fundraising analysis
+export interface DonorMetrics {
+  totalDonors: number;
+  newDonors: number;
+  repeatDonors: number;
+  retentionRate: number; // Percentage of donors who gave again
+  averageGift: number;
+  totalGifts: number;
+  largestGift: number;
+  medianGift: number;
+}
+
+// Revenue source breakdown
+export interface RevenueBySource {
+  programFees: number;
+  donations: number;
+  grants: number;
+  investment: number;
+  other: number;
+}
+
+// Budget variance for a category
+export interface BudgetVariance {
+  category: string;
+  budget: number;
+  actual: number;
+  variance: number;
+  variancePercent: number;
+  isFavorable: boolean; // For expenses: under budget is favorable
+}
+
+// Nonprofit-specific financial summary
+export interface BusinessFinancialSummary extends FinancialSummary {
+  // FASB functional expense breakdown
+  functionalExpenses: FunctionalExpenses;
+
+  // Nonprofit key metrics
+  programExpenseRatio: number; // Program / Total Expenses (target: 70%+)
+  operatingReserveMonths: number; // Cash reserves / (Monthly expenses)
+
+  // Revenue composition
+  revenueBySource: RevenueBySource;
+
+  // Multi-entity tracking
+  entitiesSummary: EntitySummary[];
+  consolidationAdjustments: number; // Intercompany eliminations
+
+  // Budget comparison (optional - requires budget data)
+  budgetVariance?: {
+    totalRevenueVariance: number;
+    totalExpenseVariance: number;
+    byCategory: BudgetVariance[];
+  };
+
+  // Vendor analysis
+  topVendors: VendorSpending[];
+  vendorConcentration: number; // Percentage of spend with top 5 vendors
+
+  // Donor metrics (optional - requires donation tracking)
+  donorMetrics?: DonorMetrics;
+
+  // Cash flow metrics
+  burnRate?: number; // Average monthly cash outflow
+  monthsOfRunway?: number; // Current cash / burn rate
+}
+
+// Consolidated financial data across multiple entities
+export interface ConsolidatedFinancialData {
+  entities: BusinessEntity[];
+  selectedEntityIds: string[];
+  consolidatedTransactions: BusinessTransaction[];
+  consolidatedSummary: BusinessFinancialSummary;
+  intercompanyTransactions: BusinessTransaction[]; // Detected intercompany transfers
+  periodComparison?: PeriodComparison;
+  lastConsolidated: Date;
+}
+
+// Multi-year/period comparison metrics
+export interface PeriodComparison {
+  currentPeriod: DateRange;
+  comparisonPeriod: DateRange;
+  metrics: {
+    revenue: {
+      current: number;
+      comparison: number;
+      change: number;
+      changePercent: number;
+    };
+    expenses: {
+      current: number;
+      comparison: number;
+      change: number;
+      changePercent: number;
+    };
+    netCashflow: {
+      current: number;
+      comparison: number;
+      change: number;
+      changePercent: number;
+    };
+    programRatio: {
+      current: number;
+      comparison: number;
+      change: number;
+    };
+    transactionCount: {
+      current: number;
+      comparison: number;
+      change: number;
+      changePercent: number;
+    };
+  };
+}

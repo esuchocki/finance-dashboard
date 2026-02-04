@@ -1,21 +1,29 @@
 
 import React, { createContext, useContext, useState } from 'react';
-import { 
-  Transaction, 
+import {
+  Transaction,
   TransactionFilterOptions,
   FinancialSummary,
   FinancialPersona,
   PersonalBackground,
-  FinancialInsight
+  FinancialInsight,
+  AppMode,
+  BusinessEntity,
+  BusinessTransaction,
+  EntityType
 } from '@/lib/types';
 import { useFinanceUpload } from '@/context/hooks/useFinanceUpload';
 import { useTransactionFilters } from '@/context/hooks/useTransactionFilters';
 import { useFinanceSummary } from '@/context/hooks/useFinanceSummary';
 import { useFinanceInsights } from '@/context/hooks/useFinanceInsights';
 import { useFinancialPersona } from '@/context/hooks/useFinancialPersona';
+import { useBusinessEntities } from '@/context/hooks/useBusinessEntities';
 
 // Define the shape of our finance context
 interface FinanceContextType {
+  // App mode
+  appMode: AppMode;
+
   // File uploads and transactions
   uploadedFiles: string[];
   transactions: Transaction[];
@@ -26,37 +34,47 @@ interface FinanceContextType {
   clearTransactions: () => void;
   error: string | null;
   isUsingCache: boolean;
-  
+
   // Transaction filtering
   filteredTransactions: Transaction[];
   filterOptions: TransactionFilterOptions;
   updateFilterOptions: (updates: Partial<TransactionFilterOptions>) => void;
   clearFilters: () => void;
-  
+
   // Financial summary
   financialSummary: FinancialSummary | null;
   updateDateRange: (startDate: Date, endDate: Date) => void;
-  
+
   // Financial insights
   generateInsights: () => Promise<void>;
   isGeneratingInsights: boolean;
   hasGeneratedInsights: boolean;
   insights: FinancialInsight[];
-  
+
   // Claude API
   claudeApiKey: string | null;
   setClaudeApiKey: (key: string | null) => void;
   isApiKeyValid: boolean;
   isValidatingApiKey: boolean;
-  
+
   // Financial persona
   financialPersona: FinancialPersona | null;
   updatePersonalBackground: (personalBackground: PersonalBackground) => boolean;
-  
+
+  // Business entities (for business mode)
+  businessEntities: BusinessEntity[];
+  addBusinessEntity: (file: File, entityName: string, entityType: EntityType) => Promise<void>;
+  removeBusinessEntity: (entityId: string) => void;
+  getEntityTransactions: (entityId: string) => BusinessTransaction[];
+  updateBusinessEntity: (entityId: string, updates: Partial<BusinessEntity>) => void;
+  clearAllBusinessEntities: () => void;
+  selectedEntityIds: string[];
+  setSelectedEntityIds: (entityIds: string[]) => void;
+
   // Additional properties used by components
   summary: FinancialSummary | null; // Alias for financialSummary
   clearData: () => void; // Alias for clearTransactions
-  
+
   // These properties are used in components but missing from context definition
   uploadQBOFile: (file: File) => Promise<void>;
   isDevelopmentMode: boolean;
@@ -72,10 +90,21 @@ interface FinanceContextType {
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
 // Provider component
-export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface FinanceProviderProps {
+  children: React.ReactNode;
+  mode?: AppMode;
+}
+
+export const FinanceProvider: React.FC<FinanceProviderProps> = ({
+  children,
+  mode = 'personal'
+}) => {
   // State for development mode toggle
   const [developmentMode, setDevelopmentMode] = useState<boolean>(false);
-  
+
+  // State for selected business entities
+  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
+
   // Use our custom hooks to manage different aspects of the finance data
   const {
     uploadedFiles,
@@ -93,6 +122,18 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     error,
     isUsingCache
   } = useFinanceUpload(developmentMode);
+
+  // Business entities hook (only used in business mode)
+  const {
+    entities: businessEntities,
+    isLoading: isLoadingEntities,
+    error: entitiesError,
+    addEntity,
+    removeEntity,
+    getEntityTransactions,
+    updateEntity,
+    clearAllEntities
+  } = useBusinessEntities(claudeApiKey);
   
   const {
     filteredTransactions,
@@ -167,41 +208,53 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   
   // Combine all values into the context
   const contextValue: FinanceContextType = {
+    appMode: mode,
+
     uploadedFiles,
     transactions,
-    isLoading,
+    isLoading: isLoading || isLoadingEntities,
     isProcessingQbo,
     uploadProgress,
     handleFileUpload,
     clearTransactions,
-    error,
+    error: error || entitiesError,
     isUsingCache,
-    
+
     filteredTransactions,
     filterOptions,
     updateFilterOptions,
     clearFilters,
-    
+
     financialSummary,
     updateDateRange,
-    
+
     generateInsights,
     isGeneratingInsights,
     hasGeneratedInsights,
     insights,
-    
+
     claudeApiKey,
     setClaudeApiKey,
     isApiKeyValid,
     isValidatingApiKey,
-    
+
     financialPersona,
     updatePersonalBackground,
+
+    // Business entities
+    businessEntities,
+    addBusinessEntity: addEntity,
+    removeBusinessEntity: removeEntity,
+    getEntityTransactions,
+    updateBusinessEntity: updateEntity,
+    clearAllBusinessEntities: clearAllEntities,
+    selectedEntityIds,
+    setSelectedEntityIds,
 
     // Aliases for backward compatibility with existing components
     summary: financialSummary,
     clearData: clearTransactions,
-    
+
     // Additional properties needed by components
     uploadQBOFile,
     isDevelopmentMode: developmentMode,

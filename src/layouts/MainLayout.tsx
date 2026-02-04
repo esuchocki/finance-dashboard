@@ -6,8 +6,13 @@ import { FinanceProvider } from "@/context/FinanceContext";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { UserCircle2, BookOpen } from "lucide-react";
+import { AppMode } from "@/lib/types";
 
-const MainLayout = () => {
+interface MainLayoutProps {
+  mode?: AppMode;
+}
+
+const MainLayout: React.FC<MainLayoutProps> = ({ mode = 'personal' }) => {
   const [hasPersonaData, setHasPersonaData] = React.useState(false);
   const [hasNarrativeData, setHasNarrativeData] = React.useState(false);
   
@@ -40,9 +45,9 @@ const MainLayout = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <TooltipProvider>
-        <FinanceProvider>
+        <FinanceProvider mode={mode}>
           <Toaster position="top-right" />
-          <AppNavbar />
+          <AppNavbar mode={mode} />
           <main className="flex-1 container py-6 px-4">
             {/* Show banner with appropriate information based on available data */}
             {(hasPersonaData || hasNarrativeData) && (
@@ -74,7 +79,9 @@ const MainLayout = () => {
           </main>
           <footer className="py-4 border-t">
             <div className="container text-center text-sm text-muted-foreground">
-              <p>Sailing Funds</p>
+              <p>
+                {mode === 'business' ? 'Transaction Tapestry - Business Edition' : 'Sailing Funds'}
+              </p>
               <p className="text-xs mt-1">Data is processed locally and never leaves your device</p>
             </div>
           </footer>
