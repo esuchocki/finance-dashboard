@@ -1,9 +1,9 @@
 import React from "react";
-import { Transaction } from "@/lib/types";
+import { Transaction, BusinessTransaction } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/formatters";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowLeftRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Pagination,
@@ -73,6 +73,12 @@ const TransactionList: React.FC<TransactionListProps> = ({
     return transaction.name;
   };
 
+  // Check if transaction is an inter-account transfer
+  const isInterAccountTransfer = (transaction: Transaction): boolean => {
+    const businessTx = transaction as BusinessTransaction;
+    return businessTx.isIntercompany === true;
+  };
+
   // Get appropriate badge variant based on category type
   const getCategoryBadgeVariant = (transaction: Transaction) => {
     if (!transaction.categoryType) {
@@ -82,7 +88,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
         ? "destructive"
         : "outline";
     }
-    
+
     switch (transaction.categoryType) {
       case "income":
         return "default";
@@ -191,11 +197,20 @@ const TransactionList: React.FC<TransactionListProps> = ({
                 </span>
                 <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2">
                   <span>{new Date(transaction.date).toLocaleDateString()}</span>
+                  {isInterAccountTransfer(transaction) && (
+                    <>
+                      <span>•</span>
+                      <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 border-blue-200">
+                        <ArrowLeftRight className="h-3 w-3 mr-1" />
+                        Transfer
+                      </Badge>
+                    </>
+                  )}
                   {transaction.category && transaction.category !== "Uncategorized" && (
                     <>
                       <span>•</span>
-                      <Badge 
-                        variant={getCategoryBadgeVariant(transaction)} 
+                      <Badge
+                        variant={getCategoryBadgeVariant(transaction)}
                         className="text-xs"
                       >
                         {transaction.category}

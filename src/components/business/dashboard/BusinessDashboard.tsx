@@ -1,63 +1,69 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { useConsolidation } from "@/context/hooks/useConsolidation";
-import EntitySelector from "@/components/business/entities/EntitySelector";
-import EntityBreakdownTable from "./EntityBreakdownTable";
-import FunctionalExpenseChart from "./FunctionalExpenseChart";
-import VendorParetoChart from "./VendorParetoChart";
+import AccountSelector from "@/components/business/accounts/AccountSelector";
+import AccountBreakdownTable from "./AccountBreakdownTable";
+import PatternsAndAlerts from "@/components/business/insights/PatternsAndAlerts";
+import TrendAnalysisCharts from "@/components/business/insights/TrendAnalysisCharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Info, Building2, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 
 const BusinessDashboard: React.FC = () => {
   const {
-    businessEntities,
-    selectedEntityIds,
-    setSelectedEntityIds,
-    getEntityTransactions
+    businessAccounts,
+    selectedAccountIds,
+    setSelectedAccountIds,
+    getAccountTransactions
   } = useFinance();
 
-  // Auto-select all entities when first loaded
+  // Track if we've done initial auto-select to prevent re-selecting after "None" is clicked
+  const hasAutoSelected = useRef(false);
+
+  // Auto-select all accounts only on first load
   useEffect(() => {
-    if (businessEntities.length > 0 && selectedEntityIds.length === 0) {
-      setSelectedEntityIds(businessEntities.map(e => e.id));
+    if (businessAccounts.length > 0 && selectedAccountIds.length === 0 && !hasAutoSelected.current) {
+      setSelectedAccountIds(businessAccounts.map(a => a.id));
+      hasAutoSelected.current = true;
     }
-  }, [businessEntities, selectedEntityIds, setSelectedEntityIds]);
+  }, [businessAccounts, selectedAccountIds, setSelectedAccountIds]);
 
   // Use consolidation hook
   const {
     consolidatedSummary,
+    consolidatedTransactions,
     intercompanyTransactions,
     isConsolidating
   } = useConsolidation({
-    entities: businessEntities,
-    selectedEntityIds,
-    getEntityTransactions
+    accounts: businessAccounts,
+    selectedAccountIds,
+    getAccountTransactions
   });
 
-  if (businessEntities.length === 0) {
+  if (businessAccounts.length === 0) {
     return (
       <div className="space-y-4">
         <Alert>
           <Building2 className="h-5 w-5" />
           <AlertDescription>
-            <span className="font-medium">No entities loaded.</span>
-            {' '}Visit the Entity Management page to upload QBO files and get started.
+            <span className="font-medium">No accounts loaded.</span>
+            {' '}Visit the Account Management page to upload QBO files and get started.
           </AlertDescription>
         </Alert>
       </div>
     );
   }
 
-  if (selectedEntityIds.length === 0) {
+  if (selectedAccountIds.length === 0) {
     return (
       <div className="space-y-4">
-        <EntitySelector />
+        <AccountSelector />
         <Alert>
           <Info className="h-5 w-5" />
           <AlertDescription>
-            Select one or more entities above to view consolidated financial data.
+            Select one or more accounts above to view consolidated financial data.
           </AlertDescription>
         </Alert>
       </div>
@@ -66,25 +72,34 @@ const BusinessDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Entity Selector */}
-      <EntitySelector />
+      {/* Account Selector */}
+      <AccountSelector />
 
-      {/* Intercompany Alert */}
+      {/* Inter-Account Transfer Alert */}
       {intercompanyTransactions.length > 0 && (
         <Alert className="bg-amber-50 border-amber-200">
           <AlertTriangle className="h-5 w-5 text-amber-600" />
           <AlertDescription className="text-amber-900">
             <span className="font-medium">
-              {intercompanyTransactions.length} potential intercompany {intercompanyTransactions.length === 1 ? 'transfer' : 'transfers'} detected
+              {intercompanyTransactions.length} potential inter-account {intercompanyTransactions.length === 1 ? 'transfer' : 'transfers'} detected
             </span>
             {' '}and automatically eliminated from consolidated totals.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Summary Cards */}
-      {consolidatedSummary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Tabbed Dashboard */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="patterns">Patterns & Alerts</TabsTrigger>
+          <TabsTrigger value="trends">Trends</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          {/* Summary Cards */}
+          {consolidatedSummary && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Total Income</CardDescription>
@@ -94,7 +109,7 @@ const BusinessDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">
-                Across {selectedEntityIds.length} {selectedEntityIds.length === 1 ? 'entity' : 'entities'}
+                Across {selectedAccountIds.length} {selectedAccountIds.length === 1 ? 'account' : 'accounts'}
               </p>
             </CardContent>
           </Card>
@@ -135,35 +150,40 @@ const BusinessDashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">
-                Target: 70%+ (Nonprofit standard)
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                (Program Services Expenses ÷ Total Expenses) × 100%.
               </p>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Entity Breakdown */}
+      {/* Account Breakdown */}
       {consolidatedSummary && (
-        <EntityBreakdownTable entitiesSummary={consolidatedSummary.entitiesSummary} />
+        <AccountBreakdownTable accountsSummary={consolidatedSummary.accountsSummary} />
       )}
 
-      {/* Nonprofit Metrics Charts */}
-      {consolidatedSummary && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <FunctionalExpenseChart functionalExpenses={consolidatedSummary.functionalExpenses} />
-          <VendorParetoChart vendors={consolidatedSummary.topVendors} />
-        </div>
-      )}
+          {isConsolidating && (
+            <Alert>
+              <Info className="h-5 w-5" />
+              <AlertDescription>
+                Consolidating accounts...
+              </AlertDescription>
+            </Alert>
+          )}
+        </TabsContent>
 
-      {isConsolidating && (
-        <Alert>
-          <Info className="h-5 w-5" />
-          <AlertDescription>
-            Consolidating entities...
-          </AlertDescription>
-        </Alert>
-      )}
+        <TabsContent value="patterns" className="space-y-6 mt-6">
+          <PatternsAndAlerts
+            transactions={consolidatedTransactions}
+            intercompanyTransactions={intercompanyTransactions}
+          />
+        </TabsContent>
+
+        <TabsContent value="trends" className="space-y-6 mt-6">
+          <TrendAnalysisCharts transactions={consolidatedTransactions} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

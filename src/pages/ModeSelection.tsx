@@ -42,7 +42,7 @@ const ModeSelection = () => {
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-4">
             <BarChart3 className="h-12 w-12 text-primary" />
-            <h1 className="text-4xl font-bold">Transaction Tapestry View</h1>
+            <h1 className="text-4xl font-bold">Finance</h1>
           </div>
           <p className="text-xl text-muted-foreground">
             Financial Analysis & Insights

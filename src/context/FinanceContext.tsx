@@ -8,16 +8,16 @@ import {
   PersonalBackground,
   FinancialInsight,
   AppMode,
-  BusinessEntity,
+  BankAccount,
   BusinessTransaction,
-  EntityType
+  AccountType
 } from '@/lib/types';
 import { useFinanceUpload } from '@/context/hooks/useFinanceUpload';
 import { useTransactionFilters } from '@/context/hooks/useTransactionFilters';
 import { useFinanceSummary } from '@/context/hooks/useFinanceSummary';
 import { useFinanceInsights } from '@/context/hooks/useFinanceInsights';
 import { useFinancialPersona } from '@/context/hooks/useFinancialPersona';
-import { useBusinessEntities } from '@/context/hooks/useBusinessEntities';
+import { useBusinessAccounts } from '@/context/hooks/useBusinessAccounts';
 
 // Define the shape of our finance context
 interface FinanceContextType {
@@ -61,15 +61,15 @@ interface FinanceContextType {
   financialPersona: FinancialPersona | null;
   updatePersonalBackground: (personalBackground: PersonalBackground) => boolean;
 
-  // Business entities (for business mode)
-  businessEntities: BusinessEntity[];
-  addBusinessEntity: (file: File, entityName: string, entityType: EntityType) => Promise<void>;
-  removeBusinessEntity: (entityId: string) => void;
-  getEntityTransactions: (entityId: string) => BusinessTransaction[];
-  updateBusinessEntity: (entityId: string, updates: Partial<BusinessEntity>) => void;
-  clearAllBusinessEntities: () => void;
-  selectedEntityIds: string[];
-  setSelectedEntityIds: (entityIds: string[]) => void;
+  // Business accounts (for business mode)
+  businessAccounts: BankAccount[];
+  addBusinessAccount: (file: File, accountName: string, accountType: AccountType, institutionName: string) => Promise<void>;
+  removeBusinessAccount: (accountId: string) => void;
+  getAccountTransactions: (accountId: string) => BusinessTransaction[];
+  updateBusinessAccount: (accountId: string, updates: Partial<BankAccount>) => void;
+  clearAllBusinessAccounts: () => void;
+  selectedAccountIds: string[];
+  setSelectedAccountIds: (accountIds: string[]) => void;
 
   // Additional properties used by components
   summary: FinancialSummary | null; // Alias for financialSummary
@@ -102,8 +102,8 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
   // State for development mode toggle
   const [developmentMode, setDevelopmentMode] = useState<boolean>(false);
 
-  // State for selected business entities
-  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
+  // State for selected business accounts
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
 
   // Use our custom hooks to manage different aspects of the finance data
   const {
@@ -123,17 +123,17 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     isUsingCache
   } = useFinanceUpload(developmentMode);
 
-  // Business entities hook (only used in business mode)
+  // Business accounts hook (only used in business mode)
   const {
-    entities: businessEntities,
-    isLoading: isLoadingEntities,
-    error: entitiesError,
-    addEntity,
-    removeEntity,
-    getEntityTransactions,
-    updateEntity,
-    clearAllEntities
-  } = useBusinessEntities(claudeApiKey);
+    accounts: businessAccounts,
+    isLoading: isLoadingAccounts,
+    error: accountsError,
+    addAccount,
+    removeAccount,
+    getAccountTransactions,
+    updateAccount,
+    clearAllAccounts
+  } = useBusinessAccounts(claudeApiKey);
   
   const {
     filteredTransactions,
@@ -212,12 +212,12 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
 
     uploadedFiles,
     transactions,
-    isLoading: isLoading || isLoadingEntities,
+    isLoading: isLoading || isLoadingAccounts,
     isProcessingQbo,
     uploadProgress,
     handleFileUpload,
     clearTransactions,
-    error: error || entitiesError,
+    error: error || accountsError,
     isUsingCache,
 
     filteredTransactions,
@@ -241,15 +241,15 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     financialPersona,
     updatePersonalBackground,
 
-    // Business entities
-    businessEntities,
-    addBusinessEntity: addEntity,
-    removeBusinessEntity: removeEntity,
-    getEntityTransactions,
-    updateBusinessEntity: updateEntity,
-    clearAllBusinessEntities: clearAllEntities,
-    selectedEntityIds,
-    setSelectedEntityIds,
+    // Business accounts
+    businessAccounts,
+    addBusinessAccount: addAccount,
+    removeBusinessAccount: removeAccount,
+    getAccountTransactions,
+    updateBusinessAccount: updateAccount,
+    clearAllBusinessAccounts: clearAllAccounts,
+    selectedAccountIds,
+    setSelectedAccountIds,
 
     // Aliases for backward compatibility with existing components
     summary: financialSummary,

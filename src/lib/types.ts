@@ -238,8 +238,8 @@ export interface FinancialPersona {
 // Application mode - Personal or Business
 export type AppMode = 'personal' | 'business';
 
-// Entity type classification for business accounts
-export type EntityType = 'operating' | 'capital' | 'restricted' | 'vendor' | 'other';
+// Account type classification (matching QBO standards)
+export type AccountType = 'checking' | 'savings' | 'mma' | 'credit' | 'paypal' | 'other';
 
 // Fund type for nonprofit accounting (FASB ASC 958)
 export type FundType = 'unrestricted' | 'temporarily_restricted' | 'permanently_restricted';
@@ -247,36 +247,41 @@ export type FundType = 'unrestricted' | 'temporarily_restricted' | 'permanently_
 // FASB functional expense categories
 export type FunctionalExpenseCategory = 'program' | 'management' | 'fundraising';
 
-// Business entity representing a QBO file/account
-export interface BusinessEntity {
+// Bank account representing a QBO file/financial account
+export interface BankAccount {
   id: string;
-  name: string; // e.g., "Operating Account 2024", "Capital Reserve"
-  type: EntityType;
-  fileSource: string; // Original filename
+  name: string; // User-defined nickname (e.g., "NP Stmt MMA", "Non-Profit Plus")
+  institutionName: string; // Bank name (e.g., "Passumpsic Bank", "First National Bank of Omaha")
+  institutionId?: string; // Routing number or FID from QBO
+  accountNumber?: string; // Last 4 digits only for display
+  accountType: AccountType; // checking, savings, mma, credit, paypal, other
+  fileSource: string; // Original filename (e.g., "NP Stmt MMA.qbo")
   dateUploaded: Date;
   transactionCount: number;
   dateRange: DateRange;
-  accountType?: string; // From QBO: checking, savings, etc.
-  description?: string; // Optional description
+  currency?: string; // ISO 4217, default 'USD'
+  description?: string; // Optional user description
 }
 
-// Extended transaction with business context
+// Extended transaction with account context
 export interface BusinessTransaction extends Transaction {
-  entityId: string;
-  entityName: string;
+  accountId: string;
+  accountName: string;
+  institutionName: string;
   fundType: FundType;
   programAllocation?: string; // For FASB functional expense reporting
   functionalCategory?: FunctionalExpenseCategory; // Program/Admin/Fundraising
-  isIntercompany?: boolean; // For elimination in consolidation
+  isIntercompany?: boolean; // For elimination in consolidation (transfers between accounts)
   vendorId?: string; // For vendor analysis
   grantId?: string; // For grant tracking
 }
 
-// Per-entity summary for consolidated view
-export interface EntitySummary {
-  entityId: string;
-  entityName: string;
-  entityType: EntityType;
+// Per-account summary for consolidated view
+export interface AccountSummary {
+  accountId: string;
+  accountName: string;
+  institutionName: string;
+  accountType: AccountType;
   totalIncome: number;
   totalExpenses: number;
   netCashflow: number;
@@ -349,9 +354,9 @@ export interface BusinessFinancialSummary extends FinancialSummary {
   // Revenue composition
   revenueBySource: RevenueBySource;
 
-  // Multi-entity tracking
-  entitiesSummary: EntitySummary[];
-  consolidationAdjustments: number; // Intercompany eliminations
+  // Multi-account tracking
+  accountsSummary: AccountSummary[];
+  consolidationAdjustments: number; // Intercompany eliminations (transfers between accounts)
 
   // Budget comparison (optional - requires budget data)
   budgetVariance?: {
@@ -372,13 +377,13 @@ export interface BusinessFinancialSummary extends FinancialSummary {
   monthsOfRunway?: number; // Current cash / burn rate
 }
 
-// Consolidated financial data across multiple entities
+// Consolidated financial data across multiple bank accounts
 export interface ConsolidatedFinancialData {
-  entities: BusinessEntity[];
-  selectedEntityIds: string[];
+  accounts: BankAccount[];
+  selectedAccountIds: string[];
   consolidatedTransactions: BusinessTransaction[];
   consolidatedSummary: BusinessFinancialSummary;
-  intercompanyTransactions: BusinessTransaction[]; // Detected intercompany transfers
+  intercompanyTransactions: BusinessTransaction[]; // Detected transfers between accounts
   periodComparison?: PeriodComparison;
   lastConsolidated: Date;
 }

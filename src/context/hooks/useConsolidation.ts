@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  BusinessEntity,
+  BankAccount,
   BusinessTransaction,
   BusinessFinancialSummary,
   ConsolidatedFinancialData
@@ -12,9 +12,9 @@ import {
 } from '@/lib/business/consolidation';
 
 interface UseConsolidationProps {
-  entities: BusinessEntity[];
-  selectedEntityIds: string[];
-  getEntityTransactions: (entityId: string) => BusinessTransaction[];
+  accounts: BankAccount[];
+  selectedAccountIds: string[];
+  getAccountTransactions: (accountId: string) => BusinessTransaction[];
 }
 
 interface UseConsolidationResult {
@@ -26,39 +26,75 @@ interface UseConsolidationResult {
 }
 
 export const useConsolidation = ({
-  entities,
-  selectedEntityIds,
-  getEntityTransactions
+  accounts,
+  selectedAccountIds,
+  getAccountTransactions
 }: UseConsolidationProps): UseConsolidationResult => {
   const [isConsolidating, setIsConsolidating] = useState(false);
 
-  // Gather all transactions from selected entities
+  // Log when selectedAccountIds changes
+  useEffect(() => {
+    console.log('useConsolidation: selectedAccountIds changed', selectedAccountIds);
+  }, [selectedAccountIds]);
+
+  // Gather all transactions from selected accounts
   const allTransactions = useMemo(() => {
+    if (selectedAccountIds.length === 0) return [];
+
     const txs: BusinessTransaction[] = [];
 
-    selectedEntityIds.forEach(entityId => {
-      const entityTxs = getEntityTransactions(entityId);
-      txs.push(...entityTxs);
+    selectedAccountIds.forEach(accountId => {
+      const accountTxs = getAccountTransactions(accountId);
+      if (accountTxs && accountTxs.length > 0) {
+        txs.push(...accountTxs);
+      }
+    });
+
+    console.log('useConsolidation: Gathered transactions', {
+      selectedAccountIds,
+      totalTransactions: txs.length
     });
 
     return txs;
-  }, [selectedEntityIds, getEntityTransactions]);
+  }, [selectedAccountIds, getAccountTransactions]);
 
-  // Consolidate transactions
+  // Consolidate transactions and mark inter-account transfers
   const consolidatedTransactions = useMemo(() => {
-    if (selectedEntityIds.length === 0) return [];
+    if (selectedAccountIds.length === 0 || allTransactions.length === 0) {
+      console.log('useConsolidation: No transactions to consolidate');
+      return [];
+    }
+
+    console.log('useConsolidation: Consolidating transactions', {
+      allTransactionsCount: allTransactions.length,
+      selectedAccountIds
+    });
 
     setIsConsolidating(true);
-    const result = consolidateTransactions(allTransactions, selectedEntityIds);
+    const result = consolidateTransactions(allTransactions, selectedAccountIds);
+
+    // Detect transfers and mark them
+    const intercompany = detectIntercompanyTransfers(result);
+    const intercompanyIds = new Set(intercompany.map(tx => tx.id));
+
+    // Mark transactions that are inter-account transfers
+    const markedResult = result.map(tx => ({
+      ...tx,
+      isIntercompany: intercompanyIds.has(tx.id)
+    }));
+
+    console.log('useConsolidation: Consolidation complete', {
+      consolidatedCount: markedResult.length,
+      intercompanyCount: intercompany.length
+    });
+
     setIsConsolidating(false);
+    return markedResult;
+  }, [allTransactions, selectedAccountIds]);
 
-    return result;
-  }, [allTransactions, selectedEntityIds]);
-
-  // Detect intercompany transfers
+  // Get list of inter-account transfers
   const intercompanyTransactions = useMemo(() => {
-    if (consolidatedTransactions.length === 0) return [];
-    return detectIntercompanyTransfers(consolidatedTransactions);
+    return consolidatedTransactions.filter(tx => tx.isIntercompany);
   }, [consolidatedTransactions]);
 
   // Calculate consolidated summary
@@ -67,27 +103,27 @@ export const useConsolidation = ({
 
     return calculateBusinessSummary(
       consolidatedTransactions,
-      entities,
-      selectedEntityIds,
-      true // Eliminate intercompany transactions
+      accounts,
+      selectedAccountIds,
+      true // Eliminate transfers between accounts
     );
-  }, [consolidatedTransactions, entities, selectedEntityIds]);
+  }, [consolidatedTransactions, accounts, selectedAccountIds]);
 
   // Create consolidated data object
   const consolidatedData = useMemo<ConsolidatedFinancialData | null>(() => {
     if (!consolidatedSummary) return null;
 
     return {
-      entities: entities.filter(e => selectedEntityIds.includes(e.id)),
-      selectedEntityIds,
+      accounts: accounts.filter(a => selectedAccountIds.includes(a.id)),
+      selectedAccountIds,
       consolidatedTransactions,
       consolidatedSummary,
       intercompanyTransactions,
       lastConsolidated: new Date()
     };
   }, [
-    entities,
-    selectedEntityIds,
+    accounts,
+    selectedAccountIds,
     consolidatedTransactions,
     consolidatedSummary,
     intercompanyTransactions

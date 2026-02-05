@@ -80,7 +80,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ mode = 'personal' }) => {
           <footer className="py-4 border-t">
             <div className="container text-center text-sm text-muted-foreground">
               <p>
-                {mode === 'business' ? 'Transaction Tapestry - Business Edition' : 'Sailing Funds'}
+                {mode === 'business' ? 'Finance - Business Edition' : 'Sailing Funds'}
               </p>
               <p className="text-xs mt-1">Data is processed locally and never leaves your device</p>
             </div>

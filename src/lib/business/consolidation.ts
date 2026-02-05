@@ -1,8 +1,8 @@
 import {
   BusinessTransaction,
-  BusinessEntity,
+  BankAccount,
   BusinessFinancialSummary,
-  EntitySummary,
+  AccountSummary,
   DateRange,
   FunctionalExpenses,
   RevenueBySource,
@@ -10,15 +10,15 @@ import {
 } from '@/lib/types';
 
 /**
- * Consolidate transactions from multiple entities
+ * Consolidate transactions from multiple accounts
  */
 export function consolidateTransactions(
   allTransactions: BusinessTransaction[],
-  selectedEntityIds: string[]
+  selectedAccountIds: string[]
 ): BusinessTransaction[] {
-  // Filter transactions to only include selected entities
+  // Filter transactions to only include selected accounts
   const consolidated = allTransactions.filter(tx =>
-    selectedEntityIds.includes(tx.entityId)
+    selectedAccountIds.includes(tx.accountId)
   );
 
   // Sort by date (newest first)
@@ -26,13 +26,13 @@ export function consolidateTransactions(
 }
 
 /**
- * Detect potential intercompany transfers
+ * Detect potential transfers between accounts
  * Looks for matching amounts on the same date with opposite signs
  */
 export function detectIntercompanyTransfers(
   transactions: BusinessTransaction[]
 ): BusinessTransaction[] {
-  const potentialIntercompany: BusinessTransaction[] = [];
+  const potentialTransfers: BusinessTransaction[] = [];
   const processed = new Set<string>();
 
   for (let i = 0; i < transactions.length; i++) {
@@ -43,8 +43,9 @@ export function detectIntercompanyTransfers(
       const tx2 = transactions[j];
       if (processed.has(tx2.id)) continue;
 
-      // Check if transactions are from different entities
-      if (tx1.entityId === tx2.entityId) continue;
+      // Check if transactions are from different accounts (by both ID and name)
+      if (tx1.accountId === tx2.accountId) continue;
+      if (tx1.accountName === tx2.accountName) continue; // Additional check by account name
 
       // Check if amounts match (within $0.01 tolerance)
       if (Math.abs(tx1.amount - tx2.amount) > 0.01) continue;
@@ -62,27 +63,56 @@ export function detectIntercompanyTransfers(
         (tx1.categoryType === 'income' && tx2.categoryType === 'expense') ||
         (tx1.categoryType === 'expense' && tx2.categoryType === 'income');
 
-      if (oppositeTypes) {
-        // Mark both as potential intercompany
-        potentialIntercompany.push({ ...tx1, isIntercompany: true });
-        potentialIntercompany.push({ ...tx2, isIntercompany: true });
-        processed.add(tx1.id);
-        processed.add(tx2.id);
-        break;
-      }
+      if (!oppositeTypes) continue;
+
+      // Exclude transactions that look like fees or internal account transactions
+      // (e.g., PayPal fees, refunds, chargebacks within the same account)
+      const isFeeRelated =
+        tx1.description?.toLowerCase().includes('fee') ||
+        tx2.description?.toLowerCase().includes('fee') ||
+        tx1.category?.toLowerCase().includes('fee') ||
+        tx2.category?.toLowerCase().includes('fee') ||
+        tx1.name?.toLowerCase().includes('fee') ||
+        tx2.name?.toLowerCase().includes('fee');
+
+      const isRefundRelated =
+        tx1.description?.toLowerCase().includes('refund') ||
+        tx2.description?.toLowerCase().includes('refund') ||
+        tx1.name?.toLowerCase().includes('refund') ||
+        tx2.name?.toLowerCase().includes('refund');
+
+      // Skip if likely a fee or refund within the same account
+      if (isFeeRelated || isRefundRelated) continue;
+
+      // Mark both as potential transfers between accounts
+      console.log('Inter-account transfer detected:', {
+        date: tx1.date.toLocaleDateString(),
+        amount: tx1.amount,
+        from: `${tx1.accountName} (${tx1.accountId})`,
+        to: `${tx2.accountName} (${tx2.accountId})`,
+        tx1Type: tx1.categoryType,
+        tx2Type: tx2.categoryType,
+        tx1Desc: tx1.description,
+        tx2Desc: tx2.description
+      });
+      potentialTransfers.push({ ...tx1, isIntercompany: true });
+      potentialTransfers.push({ ...tx2, isIntercompany: true });
+      processed.add(tx1.id);
+      processed.add(tx2.id);
+      break;
     }
   }
 
-  return potentialIntercompany;
+  return potentialTransfers;
 }
 
 /**
- * Calculate consolidated financial summary across entities
+ * Calculate consolidated financial summary across accounts
  */
 export function calculateBusinessSummary(
   transactions: BusinessTransaction[],
-  entities: BusinessEntity[],
-  selectedEntityIds: string[],
+  accounts: BankAccount[],
+  selectedAccountIds: string[],
   eliminateIntercompany: boolean = true
 ): BusinessFinancialSummary {
   let workingTransactions = [...transactions];
@@ -133,8 +163,8 @@ export function calculateBusinessSummary(
   // Monthly breakdown
   const monthlyBreakdown = calculateMonthlyBreakdown(workingTransactions);
 
-  // Per-entity summary
-  const entitiesSummary = calculateEntitySummaries(workingTransactions, entities, selectedEntityIds);
+  // Per-account summary
+  const accountsSummary = calculateAccountSummaries(workingTransactions, accounts, selectedAccountIds);
 
   // Vendor analysis
   const topVendors = analyzeVendors(expenseTransactions);
@@ -169,7 +199,7 @@ export function calculateBusinessSummary(
     programExpenseRatio,
     operatingReserveMonths,
     revenueBySource,
-    entitiesSummary,
+    accountsSummary,
     consolidationAdjustments: intercompanyAdjustment,
     topVendors,
     vendorConcentration
@@ -303,20 +333,21 @@ function calculateMonthlyBreakdown(
 }
 
 /**
- * Calculate per-entity summaries
+ * Calculate per-account summaries
  */
-function calculateEntitySummaries(
+function calculateAccountSummaries(
   transactions: BusinessTransaction[],
-  entities: BusinessEntity[],
-  selectedEntityIds: string[]
-): EntitySummary[] {
-  return selectedEntityIds.map(entityId => {
-    const entity = entities.find(e => e.id === entityId);
-    if (!entity) {
+  accounts: BankAccount[],
+  selectedAccountIds: string[]
+): AccountSummary[] {
+  return selectedAccountIds.map(accountId => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) {
       return {
-        entityId,
-        entityName: 'Unknown',
-        entityType: 'other',
+        accountId,
+        accountName: 'Unknown',
+        institutionName: 'Unknown',
+        accountType: 'other',
         totalIncome: 0,
         totalExpenses: 0,
         netCashflow: 0,
@@ -326,24 +357,25 @@ function calculateEntitySummaries(
       };
     }
 
-    const entityTransactions = transactions.filter(tx => tx.entityId === entityId);
-    const income = entityTransactions
+    const accountTransactions = transactions.filter(tx => tx.accountId === accountId);
+    const income = accountTransactions
       .filter(tx => tx.categoryType === 'income')
       .reduce((sum, tx) => sum + tx.amount, 0);
-    const expenses = entityTransactions
+    const expenses = accountTransactions
       .filter(tx => tx.categoryType === 'expense')
       .reduce((sum, tx) => sum + tx.amount, 0);
 
     return {
-      entityId: entity.id,
-      entityName: entity.name,
-      entityType: entity.type,
+      accountId: account.id,
+      accountName: account.name,
+      institutionName: account.institutionName,
+      accountType: account.accountType,
       totalIncome: income,
       totalExpenses: expenses,
       netCashflow: income - expenses,
       balance: income - expenses,
-      transactionCount: entityTransactions.length,
-      dateRange: entity.dateRange
+      transactionCount: accountTransactions.length,
+      dateRange: account.dateRange
     };
   });
 }

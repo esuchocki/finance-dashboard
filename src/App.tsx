@@ -9,7 +9,7 @@ import ModeSelection from "./pages/ModeSelection";
 import NotFound from "./pages/NotFound";
 import MainLayout from "./layouts/MainLayout";
 import BusinessLayout from "./layouts/BusinessLayout";
-import BusinessEntities from "./pages/business/BusinessEntities";
+import BusinessAccounts from "./pages/business/BusinessAccounts";
 import BusinessDashboardPage from "./pages/business/BusinessDashboard";
 import BusinessTransactions from "./pages/business/BusinessTransactions";
 
@@ -29,11 +29,11 @@ const App = () => (
           <Route path="persona" element={<Persona />} />
         </Route>
 
-        {/* Business Mode Routes - To be implemented */}
+        {/* Business Mode Routes */}
         <Route path="/business" element={<BusinessLayout />}>
           <Route index element={<Navigate to="/business/dashboard" replace />} />
           <Route path="dashboard" element={<BusinessDashboardPage />} />
-          <Route path="entities" element={<BusinessEntities />} />
+          <Route path="accounts" element={<BusinessAccounts />} />
           <Route path="transactions" element={<BusinessTransactions />} />
         </Route>
 
