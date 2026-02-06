@@ -16,12 +16,24 @@ export function formatPercentage(value: number): string {
   }).format(value / 100);
 }
 
-export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  }).format(date);
+export function formatDate(date: Date | string): string {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    // Validate date
+    if (isNaN(dateObj.getTime())) {
+      return 'Invalid Date';
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Invalid Date';
+  }
 }
 
 export function formatNumber(value: number): string {

@@ -298,6 +298,27 @@ export interface FunctionalExpenses {
   total: number;
 }
 
+// Vendor granularity levels
+export type VendorGranularity = 'detailed' | 'standard' | 'consolidated';
+
+// Normalized vendor name with hierarchy
+export interface NormalizedVendor {
+  baseVendor: string;        // Consolidated: core vendor name (e.g., "KARME CHOLING")
+  subVendor: string;         // Standard: vendor with details, IDs removed (e.g., "KARME CHOLING IMPOUND")
+  detailedVendor: string;    // Detailed: original full name (e.g., "KARME CHOLING IMPOUND PD4305")
+}
+
+// Vendor hierarchy node for multi-level grouping
+export interface VendorHierarchyNode {
+  name: string;
+  level: 'base' | 'sub' | 'detailed';
+  totalAmount: number;
+  transactionCount: number;
+  percentOfTotal: number;
+  children?: VendorHierarchyNode[];
+  transactions: BusinessTransaction[];
+}
+
 // Vendor spending analysis
 export interface VendorSpending {
   vendor: string;
@@ -309,6 +330,23 @@ export interface VendorSpending {
   lastTransaction: Date;
   averageTransaction: number;
   categories: string[]; // Categories this vendor appears in
+}
+
+// Vendor group (flat structure - one canonical name per group)
+export interface VendorGroup {
+  vendor: string;                      // Canonical name from grouping strategy
+  amount: number;                       // Total amount across all transactions
+  count: number;                        // Number of transactions
+  percentage: number;                   // Percentage of total (income or expense)
+  transactions: BusinessTransaction[];  // All transactions in this group
+}
+
+// Vendor analytics data
+export interface VendorAnalytics {
+  topExpensesByVendor: VendorHierarchyNode[];
+  topIncomeByVendor: VendorHierarchyNode[];
+  topExpenseTransactions: VendorGroup[];  // Individual transactions (no hierarchy)
+  topIncomeTransactions: VendorGroup[];
 }
 
 // Donor metrics for fundraising analysis
@@ -368,6 +406,9 @@ export interface BusinessFinancialSummary extends FinancialSummary {
   // Vendor analysis
   topVendors: VendorSpending[];
   vendorConcentration: number; // Percentage of spend with top 5 vendors
+
+  // Enhanced vendor analytics with hierarchy
+  vendorAnalytics?: VendorAnalytics;
 
   // Donor metrics (optional - requires donation tracking)
   donorMetrics?: DonorMetrics;

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef } from "react";
 import { useFinance } from "@/context/FinanceContext";
 import { useConsolidation } from "@/context/hooks/useConsolidation";
+import { useVendorAnalytics } from "@/context/hooks/useVendorAnalytics";
 import AccountSelector from "@/components/business/accounts/AccountSelector";
 import AccountBreakdownTable from "./AccountBreakdownTable";
+import VendorAnalyticsSection from "./VendorAnalyticsSection";
 import PatternsAndAlerts from "@/components/business/insights/PatternsAndAlerts";
 import TrendAnalysisCharts from "@/components/business/insights/TrendAnalysisCharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +18,8 @@ const BusinessDashboard: React.FC = () => {
     businessAccounts,
     selectedAccountIds,
     setSelectedAccountIds,
-    getAccountTransactions
+    getAccountTransactions,
+    vendorGroupingStrategy
   } = useFinance();
 
   // Track if we've done initial auto-select to prevent re-selecting after "None" is clicked
@@ -30,7 +33,7 @@ const BusinessDashboard: React.FC = () => {
     }
   }, [businessAccounts, selectedAccountIds, setSelectedAccountIds]);
 
-  // Use consolidation hook
+  // Use consolidation hook (fast - no vendor analytics)
   const {
     consolidatedSummary,
     consolidatedTransactions,
@@ -40,6 +43,16 @@ const BusinessDashboard: React.FC = () => {
     accounts: businessAccounts,
     selectedAccountIds,
     getAccountTransactions
+  });
+
+  // Use vendor analytics hook (cached per strategy)
+  const {
+    vendorAnalytics,
+    isCalculating: isCalculatingVendorAnalytics,
+    cacheHit
+  } = useVendorAnalytics({
+    transactions: consolidatedTransactions,
+    strategy: vendorGroupingStrategy
   });
 
   if (businessAccounts.length === 0) {
@@ -162,6 +175,13 @@ const BusinessDashboard: React.FC = () => {
       {consolidatedSummary && (
         <AccountBreakdownTable accountsSummary={consolidatedSummary.accountsSummary} />
       )}
+
+      {/* Vendor Analytics */}
+      <VendorAnalyticsSection
+        vendorAnalytics={vendorAnalytics}
+        isCalculating={isCalculatingVendorAnalytics}
+        cacheHit={cacheHit}
+      />
 
           {isConsolidating && (
             <Alert>

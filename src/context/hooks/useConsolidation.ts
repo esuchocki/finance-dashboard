@@ -97,10 +97,11 @@ export const useConsolidation = ({
     return consolidatedTransactions.filter(tx => tx.isIntercompany);
   }, [consolidatedTransactions]);
 
-  // Calculate consolidated summary
+  // Calculate consolidated summary (fast - no vendor analytics)
   const consolidatedSummary = useMemo(() => {
     if (consolidatedTransactions.length === 0) return null;
 
+    console.log('useConsolidation: Calculating summary (no vendor analytics)');
     return calculateBusinessSummary(
       consolidatedTransactions,
       accounts,

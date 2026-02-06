@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   Transaction,
   TransactionFilterOptions,
@@ -12,6 +12,7 @@ import {
   BusinessTransaction,
   AccountType
 } from '@/lib/types';
+import type { VendorGranularity } from '@/lib/types';
 import { useFinanceUpload } from '@/context/hooks/useFinanceUpload';
 import { useTransactionFilters } from '@/context/hooks/useTransactionFilters';
 import { useFinanceSummary } from '@/context/hooks/useFinanceSummary';
@@ -71,6 +72,10 @@ interface FinanceContextType {
   selectedAccountIds: string[];
   setSelectedAccountIds: (accountIds: string[]) => void;
 
+  // Vendor analytics preferences
+  vendorGranularity: VendorGranularity;
+  setVendorGranularity: (granularity: VendorGranularity) => void;
+
   // Additional properties used by components
   summary: FinancialSummary | null; // Alias for financialSummary
   clearData: () => void; // Alias for clearTransactions
@@ -104,6 +109,22 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
 
   // State for selected business accounts
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+
+  // State for vendor granularity
+  const [vendorGranularity, setVendorGranularity] = useState<VendorGranularity>('standard');
+
+  // Persist vendor granularity to localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('vendorGranularity');
+    const validGranularities: VendorGranularity[] = ['detailed', 'standard', 'consolidated'];
+    if (saved && validGranularities.includes(saved as VendorGranularity)) {
+      setVendorGranularity(saved as VendorGranularity);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('vendorGranularity', vendorGranularity);
+  }, [vendorGranularity]);
 
   // Use our custom hooks to manage different aspects of the finance data
   const {
@@ -250,6 +271,10 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     clearAllBusinessAccounts: clearAllAccounts,
     selectedAccountIds,
     setSelectedAccountIds,
+
+    // Vendor analytics preferences
+    vendorGranularity,
+    setVendorGranularity,
 
     // Aliases for backward compatibility with existing components
     summary: financialSummary,

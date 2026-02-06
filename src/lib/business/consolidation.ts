@@ -8,6 +8,8 @@ import {
   RevenueBySource,
   VendorSpending
 } from '@/lib/types';
+import { analyzeVendorsByType, analyzeTopTransactions } from './vendorAnalysis';
+import type { GroupingStrategy } from './vendorNormalization';
 
 /**
  * Consolidate transactions from multiple accounts
@@ -166,9 +168,12 @@ export function calculateBusinessSummary(
   // Per-account summary
   const accountsSummary = calculateAccountSummaries(workingTransactions, accounts, selectedAccountIds);
 
-  // Vendor analysis
+  // Vendor analysis (simple, for backward compatibility)
   const topVendors = analyzeVendors(expenseTransactions);
   const vendorConcentration = calculateVendorConcentration(topVendors);
+
+  // NOTE: Enhanced vendor analytics with hierarchy is now calculated separately
+  // using useVendorAnalytics hook for better performance and caching
 
   // Recurring expenses
   const recurringExpenses = expenseTransactions.filter(tx => tx.isRecurring);
@@ -202,7 +207,8 @@ export function calculateBusinessSummary(
     accountsSummary,
     consolidationAdjustments: intercompanyAdjustment,
     topVendors,
-    vendorConcentration
+    vendorConcentration,
+    vendorAnalytics: undefined // Calculated separately via useVendorAnalytics hook
   };
 }
 
