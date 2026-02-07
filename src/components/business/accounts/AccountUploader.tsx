@@ -262,26 +262,6 @@ const AccountUploader: React.FC = () => {
                     </Select>
                   </div>
                 </div>
-
-                <Button
-                  onClick={() => handleUpload(index)}
-                  disabled={
-                    uploadingIndex !== null ||
-                    !pending.accountName.trim() ||
-                    !pending.institutionName.trim()
-                  }
-                  className="w-full"
-                  size="sm"
-                >
-                  {uploadingIndex === index ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    'Upload This Account'
-                  )}
-                </Button>
               </div>
             ))}
           </CardContent>

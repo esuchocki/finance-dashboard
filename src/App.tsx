@@ -5,12 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
-import Index from "./pages/Index";
-import Transactions from "./pages/Transactions";
-import Persona from "./pages/Persona";
-import ModeSelection from "./pages/ModeSelection";
 import NotFound from "./pages/NotFound";
-import MainLayout from "./layouts/MainLayout";
 import BusinessLayout from "./layouts/BusinessLayout";
 import BusinessAccounts from "./pages/business/BusinessAccounts";
 import BusinessDashboardPage from "./pages/business/BusinessDashboard";
@@ -28,30 +23,6 @@ const App = () => (
 
           {/* Redirect root to login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* Mode Selection - Protected */}
-          <Route
-            path="/mode-selection"
-            element={
-              <ProtectedRoute>
-                <ModeSelection />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Personal Mode Routes - Protected */}
-          <Route
-            path="/personal"
-            element={
-              <ProtectedRoute>
-                <MainLayout mode="personal" />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Index />} />
-            <Route path="transactions" element={<Transactions />} />
-            <Route path="persona" element={<Persona />} />
-          </Route>
 
           {/* Business Mode Routes - Protected */}
           <Route

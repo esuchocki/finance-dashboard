@@ -16,23 +16,10 @@ const BusinessLayoutContent = () => {
       <AppNavbar mode="business" />
       <main className="flex-1 container py-6 px-4">
 
-          {/* Empty State for Business Mode */}
-          {businessAccounts.length === 0 && (
-            <Alert className="mb-4 bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800">
-              <Info className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              <AlertDescription className="text-amber-900 dark:text-amber-100">
-                <span className="font-medium">Get started:</span> Upload QBO files from the Account Management page to begin analyzing your organization's finances across multiple bank accounts.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <Outlet />
         </main>
         <footer className="py-4 border-t bg-white dark:bg-slate-950">
           <div className="container text-center text-sm text-muted-foreground">
-            <p className="text-xs mt-1">
-              Data processed locally and never leaves your device
-            </p>
           </div>
         </footer>
     </div>

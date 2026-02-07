@@ -13,7 +13,7 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/mode-selection');
+      navigate('/business/dashboard');
     }
   }, [isAuthenticated, navigate]);
 
@@ -31,7 +31,7 @@ const Login: React.FC = () => {
     const success = login(key);
 
     if (success) {
-      navigate('/mode-selection');
+      navigate('/business/dashboard');
     } else {
       setError('Invalid key');
       setKey('');

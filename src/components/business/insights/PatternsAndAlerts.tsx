@@ -359,9 +359,9 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                 <h4 className="text-sm font-medium">Anomalies Detected</h4>
                 <div className="space-y-2">
                   {selectedSubscription.anomalies.map((anomaly, idx) => (
-                    <Alert key={idx} className="bg-yellow-50 border-yellow-200">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      <AlertDescription className="text-yellow-900 text-sm">
+                    <Alert key={idx} className="bg-gray-50 border-gray-200">
+                      <AlertTriangle className="h-4 w-4 text-gray-600" />
+                      <AlertDescription className="text-gray-900 text-sm">
                         <strong>{formatDate(anomaly.transaction.date)}</strong>: {anomaly.reason}
                         <br />
                         Expected: {formatCurrency(anomaly.expectedAmount)}, Actual: {formatCurrency(anomaly.actualAmount)}
@@ -554,9 +554,9 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                 <h4 className="text-sm font-medium">Anomalies Detected</h4>
                 <div className="space-y-2">
                   {selectedRecurring.anomalies.map((anomaly, idx) => (
-                    <Alert key={idx} className="bg-yellow-50 border-yellow-200">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      <AlertDescription className="text-yellow-900 text-sm">
+                    <Alert key={idx} className="bg-gray-50 border-gray-200">
+                      <AlertTriangle className="h-4 w-4 text-gray-600" />
+                      <AlertDescription className="text-gray-900 text-sm">
                         <strong>{formatDate(anomaly.transaction.date)}</strong>: {anomaly.reason}
                         <br />
                         Expected: {formatCurrency(anomaly.expectedAmount)}, Actual: {formatCurrency(anomaly.actualAmount)}
@@ -888,7 +888,7 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                           <Badge variant="outline" className="text-xs">{sub.accountName || 'Unknown Account'}</Badge>
                           {sub.trend && <TrendIndicator trend={sub.trend} />}
                           {sub.anomalies.length > 0 && (
-                            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">
+                            <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
                               {sub.anomalies.length} anomal{sub.anomalies.length === 1 ? 'y' : 'ies'}
                             </Badge>
                           )}
@@ -973,7 +973,7 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                 <div className="mb-4 space-y-2">
                   {insights.balanceDropWarnings.map((warning, idx) => (
                     <Alert key={idx} variant={warning.type === 'error' ? 'destructive' : 'default'} className={
-                      warning.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+                      warning.type === 'warning' ? 'bg-gray-50 border-gray-200' :
                       warning.type === 'info' ? 'bg-blue-50 border-blue-200' : ''
                     }>
                       <AlertCircle className="h-4 w-4" />
@@ -1051,7 +1051,7 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Copy className="h-5 w-5 text-yellow-600" />
+                  <Copy className="h-5 w-5 text-gray-600" />
                   <CardTitle>Potential Duplicates</CardTitle>
                   <Badge variant="secondary" className="ml-2">
                     {insights.duplicates.length}
@@ -1077,8 +1077,8 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
             <CardContent>
               <div className="max-h-[500px] overflow-y-auto space-y-3 pr-2">
                 {insights.duplicates.map((group, idx) => (
-                  <Alert key={idx} className="bg-yellow-50 border-yellow-200">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <Alert key={idx} className="bg-gray-50 border-gray-200">
+                    <AlertTriangle className="h-4 w-4 text-gray-600" />
                     <AlertTitle>
                       {group.transactions.length} transactions
                     </AlertTitle>
@@ -1162,7 +1162,7 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                               <Badge variant="outline" className="text-xs">{firstTx.accountName}</Badge>
                               {pattern.trend && <TrendIndicator trend={pattern.trend} />}
                               {pattern.anomalies.length > 0 && (
-                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700">
+                                <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
                                   {pattern.anomalies.length} anomal{pattern.anomalies.length === 1 ? 'y' : 'ies'}
                                 </Badge>
                               )}
