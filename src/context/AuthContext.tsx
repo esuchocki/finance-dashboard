@@ -41,8 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     secureSessionStorage.lock();
     setIsAuthenticated(false);
-    // Clear any remaining data
     sessionStorage.clear();
+    localStorage.clear();
   };
 
   return (

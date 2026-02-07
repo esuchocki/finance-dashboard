@@ -1,8 +1,7 @@
-
-import { useState, useEffect } from 'react';
-import { 
-  FinancialPersona, 
-  PersonalBackground, 
+import { useState } from 'react';
+import {
+  FinancialPersona,
+  PersonalBackground,
   Transaction,
   NarrativeTransaction,
   LifeChapter,
@@ -14,7 +13,6 @@ import { toast } from "sonner";
 import { differenceInYears, isBefore, isAfter } from 'date-fns';
 import { determineTimeOfDay } from '@/lib/qbo/transactionUtils';
 
-// Initialize an empty financial persona
 const createEmptyFinancialPersona = (): FinancialPersona => ({
   personalBackground: {
     name: '',
@@ -34,298 +32,102 @@ const createEmptyFinancialPersona = (): FinancialPersona => ({
   lastUpdated: new Date()
 });
 
-// Helper function to ensure dates are properly converted to Date objects
-const ensureDate = (value: any): Date | null => {
-  if (!value) return null;
-  
-  if (value instanceof Date) {
-    return new Date(value); // Create a new instance to avoid reference issues
-  }
-  
-  try {
-    const date = new Date(value);
-    // Check if it's a valid date
-    if (isNaN(date.getTime())) return null;
-    return date;
-  } catch (error) {
-    console.error("Failed to convert to date:", value, error);
-    return null;
-  }
-};
-
 export const useFinancialPersona = () => {
   const [financialPersona, setFinancialPersona] = useState<FinancialPersona>(createEmptyFinancialPersona());
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  
-  // Load the financial persona from local storage on initialization
-  useEffect(() => {
-    loadFinancialPersona();
-  }, []);
-  
-  // Load the financial persona from localStorage
-  const loadFinancialPersona = (): boolean => {
-    try {
-      setIsLoading(true);
-      
-      // First, check for the existing background information
-      const backgroundData = localStorage.getItem('financial_persona');
-      if (!backgroundData) {
-        console.log("No financial persona data found in localStorage");
-        setIsInitialized(false);
-        return false;
-      }
-      
-      // Try parsing the stored data
-      const parsedBackground = JSON.parse(backgroundData) as PersonalBackground;
-      
-      // Convert date strings to Date objects
-      if (parsedBackground.birthDate) {
-        parsedBackground.birthDate = ensureDate(parsedBackground.birthDate) || new Date();
-      }
-      
-      if (parsedBackground.locations) {
-        parsedBackground.locations = parsedBackground.locations.map(loc => ({
-          ...loc,
-          startDate: ensureDate(loc.startDate) || new Date(),
-          endDate: loc.endDate ? ensureDate(loc.endDate) : null
-        }));
-      }
-      
-      // Check for full financial persona data
-      const fullPersonaData = localStorage.getItem('full_financial_persona');
-      let persona: FinancialPersona;
-      
-      if (fullPersonaData) {
-        // Parse the full persona data
-        persona = JSON.parse(fullPersonaData) as FinancialPersona;
-        
-        // Convert date strings to Date objects
-        persona.lastUpdated = new Date(persona.lastUpdated);
-        persona.personalBackground = parsedBackground;
-        
-        // Convert dates in narrative transactions
-        if (persona.narrativeTransactions) {
-          persona.narrativeTransactions = persona.narrativeTransactions.map(t => ({
-            ...t,
-            date: ensureDate(t.date) || new Date()
-          }));
-        }
-        
-        // Convert dates in life chapters
-        if (persona.lifeChapters) {
-          persona.lifeChapters = persona.lifeChapters.map(ch => ({
-            ...ch,
-            startDate: ensureDate(ch.startDate) || new Date(),
-            endDate: ch.endDate ? ensureDate(ch.endDate) : null,
-            majorLifeEvents: ch.majorLifeEvents.map(e => ({
-              ...e,
-              date: ensureDate(e.date) || new Date()
-            }))
-          }));
-        }
-        
-        // Convert dates in factoids
-        if (persona.factoids) {
-          persona.factoids = persona.factoids.map(f => ({
-            ...f,
-            date: ensureDate(f.date) || new Date()
-          }));
-        }
-        
-        console.log("Loaded full financial persona", persona);
-      } else {
-        // Create a new financial persona with just the background data
-        persona = {
-          ...createEmptyFinancialPersona(),
-          personalBackground: parsedBackground,
-          lastUpdated: new Date()
-        };
-        console.log("Created new financial persona with existing background data", persona);
-      }
-      
-      setFinancialPersona(persona);
-      setIsInitialized(true);
-      return true;
-    } catch (error) {
-      console.error("Error loading financial persona:", error);
-      toast.error("Error loading personal data", {
-        description: "There was a problem loading your financial persona"
-      });
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Save the current financial persona to localStorage
-  const saveFinancialPersona = () => {
-    try {
-      const updatedPersona = {
-        ...financialPersona,
-        lastUpdated: new Date()
-      };
-      
-      // Save the full financial persona
-      localStorage.setItem('full_financial_persona', JSON.stringify(updatedPersona));
-      
-      // Also update the background-only data for compatibility
-      localStorage.setItem('financial_persona', JSON.stringify(updatedPersona.personalBackground));
-      
-      setFinancialPersona(updatedPersona);
-      return true;
-    } catch (error) {
-      console.error("Error saving financial persona:", error);
-      toast.error("Error saving personal data", {
-        description: "There was a problem saving your financial persona"
-      });
-      return false;
-    }
-  };
-  
-  // Update the personal background data
+
   const updatePersonalBackground = (personalBackground: PersonalBackground): boolean => {
     try {
-      // Ensure dates are proper Date objects
-      const processedBackground: PersonalBackground = {
-        ...personalBackground,
-        birthDate: ensureDate(personalBackground.birthDate) || new Date(),
-        locations: personalBackground.locations.map(loc => ({
-          ...loc,
-          startDate: ensureDate(loc.startDate) || new Date(),
-          endDate: loc.endDate ? ensureDate(loc.endDate) : null
-        }))
-      };
-      
-      const updatedPersona = {
+      const updatedPersona: FinancialPersona = {
         ...financialPersona,
-        personalBackground: processedBackground,
+        personalBackground,
         lastUpdated: new Date()
       };
-      
-      console.log("Updating financial persona with background:", processedBackground);
-      
+
       setFinancialPersona(updatedPersona);
-      
-      // Save to localStorage
-      localStorage.setItem('full_financial_persona', JSON.stringify(updatedPersona));
-      localStorage.setItem('financial_persona', JSON.stringify(processedBackground));
-      
-      setIsInitialized(true);
+      toast.success("Personal background updated");
       return true;
     } catch (error) {
       console.error("Error updating personal background:", error);
-      toast.error("Error saving personal data", {
-        description: "There was a problem updating your personal background"
-      });
+      toast.error("Failed to update personal background");
       return false;
     }
   };
-  
-  // Determine the user's age at a specific date
-  const calculateAgeAtDate = (date: Date): number => {
-    return differenceInYears(date, financialPersona.personalBackground.birthDate);
-  };
-  
-  // Determine the user's location at a specific date
-  const determineLocationAtDate = (date: Date): string => {
-    const { locations } = financialPersona.personalBackground;
-    
-    if (!locations || locations.length === 0) return "Unknown";
-    
-    // Find the location where the date falls between startDate and endDate (or current)
-    const matchedLocation = locations.find(loc => 
-      isBefore(loc.startDate, date) && 
-      (!loc.endDate || isAfter(loc.endDate, date))
-    );
-    
-    return matchedLocation ? matchedLocation.location : "Unknown";
-  };
-  
-  // Process raw transactions into narrative transactions
-  const processTransactionsToNarrative = (transactions: Transaction[]): NarrativeTransaction[] => {
-    // This would be expanded with Claude's processing in the future
-    const narratives = transactions.map(transaction => {
-      const userAge = calculateAgeAtDate(transaction.date);
-      const userLocation = determineLocationAtDate(transaction.date);
-      
-      // Create a basic narrative
-      const narrative = `${financialPersona.personalBackground.name} ${
-        transaction.amount > 0 ? "received" : "spent"
-      } $${Math.abs(transaction.amount).toFixed(2)} ${
-        transaction.payee ? `at ${transaction.payee}` : ""
-      }`;
-      
-      // Determine time of day
-      const timeOfDay = determineTimeOfDay(transaction.date.toString());
-      
-      // Return a complete NarrativeTransaction object
-      return {
-        ...transaction,
-        narrative,
-        timeOfDay,
-        userAge,
-        userLocation,
-        lifestyleTags: [] as LifestyleTag[],
-        transactionTags: transaction.tags || [],
-        lifeContext: "",
-        isNotable: false,
-        relatedFactoids: [],
-        majorCategory: transaction.category || "Uncategorized",
-        minorCategory: transaction.subCategory || "",
-        vendor: transaction.name || transaction.payee || ""
-      };
-    });
-    
-    return narratives;
-  };
-  
-  // Update the financial persona with new transactions
-  const updateWithTransactions = (transactions: Transaction[]) => {
-    setIsLoading(true);
-    
+
+  const updateRawTransactions = (transactions: Transaction[]): boolean => {
     try {
-      const narrativeTransactions = processTransactionsToNarrative(transactions);
-      
-      // For now, we're just updating the raw and narrative transactions
-      // Life chapters and factoids would be generated with Claude in later steps
-      const updatedPersona = {
+      const updatedPersona: FinancialPersona = {
         ...financialPersona,
         rawTransactions: transactions,
+        lastUpdated: new Date()
+      };
+
+      setFinancialPersona(updatedPersona);
+      return true;
+    } catch (error) {
+      console.error("Error updating transactions:", error);
+      return false;
+    }
+  };
+
+  const updateNarrativeTransactions = (narrativeTransactions: NarrativeTransaction[]): boolean => {
+    try {
+      const updatedPersona: FinancialPersona = {
+        ...financialPersona,
         narrativeTransactions,
         lastUpdated: new Date()
       };
-      
+
       setFinancialPersona(updatedPersona);
-      saveFinancialPersona();
-      
       return true;
     } catch (error) {
-      console.error("Error updating financial persona with transactions:", error);
+      console.error("Error updating narrative transactions:", error);
       return false;
-    } finally {
-      setIsLoading(false);
     }
   };
-  
-  // Reset the financial persona
-  const resetFinancialPersona = () => {
-    localStorage.removeItem('full_financial_persona');
-    localStorage.removeItem('financial_persona');
-    setFinancialPersona(createEmptyFinancialPersona());
-    setIsInitialized(false);
+
+  const updateLifeChapters = (lifeChapters: LifeChapter[]): boolean => {
+    try {
+      const updatedPersona: FinancialPersona = {
+        ...financialPersona,
+        lifeChapters,
+        lastUpdated: new Date()
+      };
+
+      setFinancialPersona(updatedPersona);
+      return true;
+    } catch (error) {
+      console.error("Error updating life chapters:", error);
+      return false;
+    }
   };
-  
+
+  const updateFactoids = (factoids: Factoid[]): boolean => {
+    try {
+      const updatedPersona: FinancialPersona = {
+        ...financialPersona,
+        factoids,
+        lastUpdated: new Date()
+      };
+
+      setFinancialPersona(updatedPersona);
+      return true;
+    } catch (error) {
+      console.error("Error updating factoids:", error);
+      return false;
+    }
+  };
+
+  const clearPersona = (): void => {
+    setFinancialPersona(createEmptyFinancialPersona());
+  };
+
   return {
     financialPersona,
-    isInitialized,
-    isLoading,
-    loadFinancialPersona,
-    saveFinancialPersona,
-    updateWithTransactions,
-    resetFinancialPersona,
-    calculateAgeAtDate,
-    determineLocationAtDate,
-    updatePersonalBackground
+    updatePersonalBackground,
+    updateRawTransactions,
+    updateNarrativeTransactions,
+    updateLifeChapters,
+    updateFactoids,
+    clearPersona
   };
 };

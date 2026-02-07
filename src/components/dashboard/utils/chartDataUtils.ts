@@ -23,21 +23,7 @@ export const prepareChartData = (transactions: Transaction[]) => {
     t => !t.category || t.category === "Uncategorized"
   ).length;
   
-  console.log(`Initial uncategorized expense transactions: ${initialUncategorized} of ${expenseTransactions.length}`);
-  
-  // Log sample transactions to debug categorization
-  if (expenseTransactions.length > 0) {
-    console.log("Sample expense transactions:", 
-      expenseTransactions.slice(0, 5).map(t => ({
-        description: t.description,
-        verboseDescription: t.verboseDescription,
-        category: t.category,
-        subCategory: t.subCategory,
-        amount: t.amount,
-        confidence: t.confidence
-      }))
-    );
-  }
+  console.log(`Processing ${expenseTransactions.length} expense transactions`);
   
   expenseTransactions.forEach(t => {
     // IMPORTANT: Always use Claude's assigned category if available, with fallback to original

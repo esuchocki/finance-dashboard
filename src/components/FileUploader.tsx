@@ -87,10 +87,7 @@ const FileUploader = () => {
     
     // Update the personal background in the finance context
     updatePersonalBackground(personalBackground);
-    
-    // Store in localStorage for persistence
-    localStorage.setItem('financial_persona', JSON.stringify(data));
-    
+
     toast({
       title: "Background Information Saved",
       description: `Your personal information has been saved locally. This will help personalize your financial insights.`,
@@ -98,32 +95,6 @@ const FileUploader = () => {
     });
   };
 
-  // Load background data from localStorage on component mount
-  React.useEffect(() => {
-    const savedData = localStorage.getItem('financial_persona');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        
-        // Convert date strings back to Date objects
-        if (parsedData.birthDate) {
-          parsedData.birthDate = new Date(parsedData.birthDate);
-        }
-        
-        if (parsedData.locations) {
-          parsedData.locations = parsedData.locations.map((loc: any) => ({
-            ...loc,
-            startDate: loc.startDate ? new Date(loc.startDate) : null,
-            endDate: loc.endDate ? new Date(loc.endDate) : null,
-          }));
-        }
-        
-        setBackgroundData(parsedData);
-      } catch (error) {
-        console.error("Error loading background data:", error);
-      }
-    }
-  }, []);
 
   return (
     <Card className="w-full max-w-3xl mx-auto border border-border bg-card">

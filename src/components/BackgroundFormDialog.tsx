@@ -328,10 +328,7 @@ export function BackgroundFormDialog({
                 (loc.endDate ? new Date(loc.endDate) : null)
       }))
     };
-    
-    // Log the data being submitted
-    console.log("Submitting background data:", processedFormData);
-    
+
     onSubmit(processedFormData);
     toast.success("Background information saved");
     onOpenChange(false);

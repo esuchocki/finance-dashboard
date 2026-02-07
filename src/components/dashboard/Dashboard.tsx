@@ -40,9 +40,8 @@ const Dashboard = () => {
             
             setCategoryData(expenseData);
             setIncomeData(incomeChartData);
-            
+
             console.log("Chart data prepared successfully");
-            console.log("Sample category data:", expenseData.slice(0, 2));
           } catch (err) {
             console.error("Error preparing chart data:", err);
             setError("Failed to process transaction data for visualization");

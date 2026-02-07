@@ -10,24 +10,7 @@ const ModeSelection = () => {
   const navigate = useNavigate();
   const [selectedMode, setSelectedMode] = useState<AppMode | null>(null);
 
-  // Check if user has already selected a mode
-  useEffect(() => {
-    const savedMode = localStorage.getItem('app_mode') as AppMode | null;
-    if (savedMode) {
-      // If mode was previously selected, redirect directly
-      if (savedMode === 'personal') {
-        navigate('/personal');
-      } else {
-        navigate('/business/dashboard');
-      }
-    }
-  }, [navigate]);
-
   const handleModeSelect = (mode: AppMode) => {
-    // Save mode preference to localStorage
-    localStorage.setItem('app_mode', mode);
-
-    // Navigate to the appropriate dashboard
     if (mode === 'personal') {
       navigate('/personal');
     } else {

@@ -168,11 +168,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
       }
 
       if (parsedTransactions.length > 0) {
-        console.log("Sample transaction:", JSON.stringify(parsedTransactions[0], null, 2));
-
-        if (narrativeTransactions.length > 0) {
-          console.log("Sample narrative transaction:", JSON.stringify(narrativeTransactions[0], null, 2));
-        }
+        console.log(`Loaded ${parsedTransactions.length} transactions`);
       }
 
       console.log(`Setting ${parsedTransactions.length} transactions (stored in memory only)`);

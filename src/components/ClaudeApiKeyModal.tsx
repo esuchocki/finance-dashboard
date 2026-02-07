@@ -30,9 +30,6 @@ const ClaudeApiKeyModal: React.FC<ClaudeApiKeyModalProps> = ({
       // Store the API key in localStorage
       saveClaudeApiKey(apiKey);
       toast.success("Claude API key has been saved");
-      
-      // Log that the key was saved (without showing the key)
-      console.log("Claude API key saved. Length:", apiKey.length);
     }
     onOpenChange(false);
   };

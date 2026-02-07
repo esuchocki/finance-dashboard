@@ -59,9 +59,7 @@ export const PersonaDetail: React.FC<PersonaDetailProps> = ({ persona }) => {
         endDate: loc.endDate
       }))
     };
-    
-    console.log("Saving personal background:", personalBackground);
-    
+
     // Update the personal background
     const success = updatePersonalBackground(personalBackground);
     
