@@ -13,6 +13,12 @@ interface RecurringTotalsCardProps {
   recurringTransactions: RecurringPattern[];
 }
 
+interface UpcomingTransaction {
+  name: string;
+  amount: number;
+  date: Date;
+}
+
 interface AccountTotal {
   accountName: string;
   subscriptionTotal: number;
@@ -20,6 +26,8 @@ interface AccountTotal {
   recurringTotal: number;
   recurringCount: number;
   netMonthly: number;
+  upcomingSubscriptions: UpcomingTransaction[];
+  upcomingRecurring: UpcomingTransaction[];
 }
 
 const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
@@ -42,11 +50,21 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
         subscriptionCount: 0,
         recurringTotal: 0,
         recurringCount: 0,
-        netMonthly: 0
+        netMonthly: 0,
+        upcomingSubscriptions: [],
+        upcomingRecurring: []
       };
 
       existing.subscriptionTotal += sub.monthlyAmount;
       existing.subscriptionCount += 1;
+
+      // Add upcoming subscription charge
+      existing.upcomingSubscriptions.push({
+        name: sub.merchantName,
+        amount: sub.monthlyAmount,
+        date: sub.nextExpectedDate
+      });
+
       totalsMap.set(accountName, existing);
     });
 
@@ -61,7 +79,9 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
         subscriptionCount: 0,
         recurringTotal: 0,
         recurringCount: 0,
-        netMonthly: 0
+        netMonthly: 0,
+        upcomingSubscriptions: [],
+        upcomingRecurring: []
       };
 
       // Convert to monthly equivalent using enhanced system
@@ -69,12 +89,24 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
 
       existing.recurringTotal += monthlyAmount;
       existing.recurringCount += 1;
+
+      // Add upcoming recurring income
+      existing.upcomingRecurring.push({
+        name: pattern.merchantName,
+        amount: pattern.currentAmount,
+        date: pattern.nextExpectedDate
+      });
+
       totalsMap.set(accountName, existing);
     });
 
-    // Calculate net monthly for each account
+    // Calculate net monthly for each account and sort upcoming transactions by date
     totalsMap.forEach(total => {
       total.netMonthly = total.recurringTotal - total.subscriptionTotal;
+
+      // Sort upcoming transactions by date (earliest first)
+      total.upcomingSubscriptions.sort((a, b) => a.date.getTime() - b.date.getTime());
+      total.upcomingRecurring.sort((a, b) => a.date.getTime() - b.date.getTime());
     });
 
     // Convert to array and sort by account name
@@ -250,6 +282,132 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
                   </TableRow>
                 </TableBody>
               </Table>
+            </div>
+          </div>
+
+          {/* Upcoming Transactions Timeline */}
+          <div className="mt-6">
+            <h4 className="text-sm font-semibold mb-3">Upcoming Transactions (Next 30 Days)</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Upcoming Subscriptions */}
+              <div className="border rounded-md p-4 bg-orange-50/30">
+                <h5 className="text-sm font-semibold text-orange-700 mb-3 flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4" />
+                  Next Subscription Charges
+                </h5>
+                <div className="space-y-2">
+                  {(() => {
+                    // Collect all upcoming subscriptions from all accounts
+                    const allUpcoming = accountTotals.flatMap(account =>
+                      account.upcomingSubscriptions.map(sub => ({
+                        ...sub,
+                        accountName: account.accountName
+                      }))
+                    );
+
+                    // Filter to next 30 days and sort by date
+                    const thirtyDaysFromNow = new Date();
+                    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+                    const upcoming = allUpcoming
+                      .filter(sub => new Date(sub.date) <= thirtyDaysFromNow)
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .slice(0, 8); // Show max 8
+
+                    if (upcoming.length === 0) {
+                      return (
+                        <div className="text-sm text-muted-foreground italic">
+                          No subscriptions due in the next 30 days
+                        </div>
+                      );
+                    }
+
+                    return upcoming.map((sub, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-white rounded border border-orange-100">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate" title={sub.name}>
+                            {sub.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {sub.accountName}
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <div className="font-semibold text-orange-600">
+                            {formatCurrency(sub.amount)}
+                          </div>
+                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(sub.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+
+              {/* Upcoming Recurring Income */}
+              <div className="border rounded-md p-4 bg-green-50/30">
+                <h5 className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Next Recurring Income
+                </h5>
+                <div className="space-y-2">
+                  {(() => {
+                    // Collect all upcoming recurring income from all accounts
+                    const allUpcoming = accountTotals.flatMap(account =>
+                      account.upcomingRecurring.map(rec => ({
+                        ...rec,
+                        accountName: account.accountName
+                      }))
+                    );
+
+                    // Filter to next 30 days and sort by date
+                    const thirtyDaysFromNow = new Date();
+                    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+                    const upcoming = allUpcoming
+                      .filter(rec => new Date(rec.date) <= thirtyDaysFromNow)
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .slice(0, 8); // Show max 8
+
+                    if (upcoming.length === 0) {
+                      return (
+                        <div className="text-sm text-muted-foreground italic">
+                          No recurring income expected in the next 30 days
+                        </div>
+                      );
+                    }
+
+                    return upcoming.map((rec, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 bg-white rounded border border-green-100">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate" title={rec.name}>
+                            {rec.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {rec.accountName}
+                          </div>
+                        </div>
+                        <div className="text-right ml-3">
+                          <div className="font-semibold text-green-600">
+                            {formatCurrency(rec.amount)}
+                          </div>
+                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(rec.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         </div>

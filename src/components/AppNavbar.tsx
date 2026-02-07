@@ -14,14 +14,14 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
   const { transactions } = useFinance();
 
   const navIcon = mode === 'business' ? null : <CircleDollarSign className="h-6 w-6" />;
-  const navTitle = mode === 'business' ? 'Home' : 'Sailing Funds';
+  const navTitle = mode === 'business' ? '' : 'Sailing Funds';
 
   return (
     <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center px-4">
         <Link to={mode === 'business' ? '/business/dashboard' : '/personal'} className="flex items-center gap-2 font-bold text-xl text-primary">
           {navIcon}
-          <span>{navTitle}</span>
+          {navTitle && <span>{navTitle}</span>}
         </Link>
 
         <div className="ml-auto flex items-center gap-4">
