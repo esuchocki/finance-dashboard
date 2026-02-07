@@ -26,7 +26,7 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
   subscriptions,
   recurringTransactions
 }) => {
-  const [showSummary, setShowSummary] = useState(true);
+  const [showSummary, setShowSummary] = useState(false);
 
   const accountTotals = useMemo(() => {
     const totalsMap = new Map<string, AccountTotal>();
@@ -110,19 +110,27 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5" />
               <CardTitle>Monthly Recurring Summary</CardTitle>
+              <Badge variant="secondary" className="ml-2">
+                {grandTotals.subscriptionCount + grandTotals.recurringCount} items
+              </Badge>
             </div>
             <CardDescription className="mt-2">
-              Active subscriptions and recurring income by account
+              Net monthly impact: <span className={`font-semibold ${grandTotals.netMonthly >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {formatCurrency(grandTotals.netMonthly)}
+              </span> ({grandTotals.subscriptionCount} subscriptions, {grandTotals.recurringCount} recurring income)
             </CardDescription>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowSummary(!showSummary)}
+            aria-label={showSummary ? "Collapse monthly recurring summary" : "Expand monthly recurring summary"}
+            aria-expanded={showSummary}
+            title={showSummary ? "Collapse section" : "Expand section"}
           >
             {showSummary ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>

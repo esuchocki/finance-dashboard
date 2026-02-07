@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercentage, formatDate } from "@/lib/formatters";
-import { TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ArrowLeft, ArrowUpDown } from "lucide-react";
+import { TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ArrowLeft, ArrowUpDown, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface VendorTableProps {
@@ -136,8 +136,8 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="flex flex-col h-[700px]">
+      <CardHeader className="flex-shrink-0">
         <div className="flex items-center gap-2">
           <CardTitle>{title}</CardTitle>
           {icon}
@@ -146,75 +146,78 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
           {viewMode === 'table' ? getGranularityDescription() : `Transactions for ${selectedVendor}`}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col min-h-0">
         {viewMode === 'table' ? (
-          <div className="space-y-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Group</TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort('amount')}
-                    >
-                      Amount
-                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'amount' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort('count')}
-                    >
-                      Count
-                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'count' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    </Button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 font-semibold hover:bg-transparent"
-                      onClick={() => handleSort('percentage')}
-                    >
-                      % of Total
-                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'percentage' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    </Button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tableData.map((row, idx) => (
-                  <TableRow key={`${row.vendor}-${idx}`}>
-                    <TableCell className="font-medium">{row.vendor}</TableCell>
-                    <TableCell className={`text-right font-medium ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formatCurrency(row.amount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <button
-                        onClick={() => handleCountClick(row.vendor, row.transactions)}
-                        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+          <div className="flex flex-col h-full">
+            {/* Scrollable table area */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableRow>
+                    <TableHead>Group</TableHead>
+                    <TableHead className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('amount')}
                       >
-                        {row.count}
-                      </button>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge variant="outline">
-                        {formatPercentage(row.percentage)}
-                      </Badge>
-                    </TableCell>
+                        Amount
+                        <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'amount' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('count')}
+                      >
+                        Count
+                        <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'count' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('percentage')}
+                      >
+                        % of Total
+                        <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'percentage' ? 'text-primary' : 'text-muted-foreground'}`} />
+                      </Button>
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {tableData.map((row, idx) => (
+                    <TableRow key={`${row.vendor}-${idx}`}>
+                      <TableCell className="font-medium">{row.vendor}</TableCell>
+                      <TableCell className={`text-right font-medium ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
+                        {formatCurrency(row.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <button
+                          onClick={() => handleCountClick(row.vendor, row.transactions)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                        >
+                          {row.count}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge variant="outline">
+                          {formatPercentage(row.percentage)}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-            {/* Pagination Controls - Always show count, only show pagination if needed */}
-            <div className="flex items-center justify-between">
+            {/* Pagination Controls - Fixed at bottom */}
+            <div className="flex-shrink-0 pt-4 mt-4 border-t flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
                 {totalPages > 1 ? (
                   <>Page {currentPage} of {totalPages} ({allTableData.length} total groups)</>
@@ -223,15 +226,32 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                 )}
               </div>
               {totalPages > 1 && (
-                <div className="flex items-center gap-2">
+                <nav className="flex items-center gap-1" role="navigation" aria-label="Pagination">
+                  {/* First Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    aria-label="Go to first page"
+                    title="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+
+                  {/* Previous Page Button */}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
+                    aria-label="Go to previous page"
+                    title="Previous page"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
+
+                  {/* Page Number Buttons */}
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {
@@ -249,44 +269,66 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                         variant={currentPage === pageNum ? "default" : "outline"}
                         size="sm"
                         onClick={() => handlePageChange(pageNum)}
+                        aria-label={`Go to page ${pageNum}`}
+                        aria-current={currentPage === pageNum ? "page" : undefined}
+                        title={`Page ${pageNum}`}
                       >
                         {pageNum}
                       </Button>
                     );
                   })}
+
+                  {/* Next Page Button */}
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
+                    aria-label="Go to next page"
+                    title="Next page"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
-                </div>
+
+                  {/* Last Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(totalPages)}
+                    disabled={currentPage === totalPages}
+                    aria-label="Go to last page"
+                    title="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
+                </nav>
               )}
             </div>
           </div>
         ) : (
-          <>
-            {/* Back Button - Outside scroll area */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBackToTable}
-              className="mb-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Groups
-            </Button>
+          <div className="flex flex-col h-full">
+            {/* Back Button - Fixed at top */}
+            <div className="flex-shrink-0 mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBackToTable}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Groups
+              </Button>
+            </div>
 
             {selectedTransactions.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No valid transactions to display
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-muted-foreground">
+                  No valid transactions to display
+                </div>
               </div>
             ) : (
               <>
-                {/* Scrollable content area with fixed max height */}
-                <div className="max-h-[700px] overflow-y-auto space-y-6 pr-2">
+                {/* Scrollable content area */}
+                <div className="flex-1 overflow-y-auto space-y-6 pr-2 min-h-0">
                   {/* Timeline Chart */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Transaction Timeline</h4>
@@ -414,8 +456,8 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                   </div>
                 </div>
 
-                {/* Total Summary - Outside scroll area, always visible at bottom */}
-                <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                {/* Total Summary - Fixed at bottom */}
+                <div className="flex-shrink-0 mt-4 pt-4 border-t flex justify-between items-center">
                   <span className="font-medium">Total ({selectedTransactions.length} {selectedTransactions.length === 1 ? 'transaction' : 'transactions'})</span>
                   <span className={`font-bold text-lg ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
                     {formatCurrency(selectedTransactions.reduce((sum, tx) => sum + tx.amount, 0))}
@@ -423,7 +465,7 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                 </div>
               </>
             )}
-          </>
+          </div>
         )}
       </CardContent>
     </Card>

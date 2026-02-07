@@ -73,9 +73,9 @@ const TrendIndicator: React.FC<{ trend: any }> = ({ trend }) => {
 const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, intercompanyTransactions = [] }) => {
   const [showDuplicates, setShowDuplicates] = React.useState(false);
   const [showRecurring, setShowRecurring] = React.useState(false);
-  const [showSubscriptions, setShowSubscriptions] = React.useState(true);
-  const [showBalanceDrops, setShowBalanceDrops] = React.useState(true);
-  const [showIntercompany, setShowIntercompany] = React.useState(true);
+  const [showSubscriptions, setShowSubscriptions] = React.useState(false);
+  const [showBalanceDrops, setShowBalanceDrops] = React.useState(false);
+  const [showIntercompany, setShowIntercompany] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<ViewMode>('list');
   const [selectedSubscription, setSelectedSubscription] = React.useState<Subscription | null>(null);
   const [selectedRecurring, setSelectedRecurring] = React.useState<RecurringPattern | null>(null);
@@ -728,21 +728,29 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ArrowRightLeft className="h-5 w-5 text-blue-600" />
-                <CardTitle>Inter-Account Transfers</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+                  <CardTitle>Inter-Account Transfers</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    {transferPairs.length}
+                  </Badge>
+                </div>
+                <CardDescription className="mt-2">
+                  {transferPairs.length} transfer{transferPairs.length === 1 ? '' : 's'} between your accounts detected and eliminated from consolidated totals to avoid double-counting
+                </CardDescription>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowIntercompany(!showIntercompany)}
+                aria-label={showIntercompany ? "Collapse inter-account transfers" : "Expand inter-account transfers"}
+                aria-expanded={showIntercompany}
+                title={showIntercompany ? "Collapse section" : "Expand section"}
               >
                 {showIntercompany ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
-            <CardDescription>
-              {transferPairs.length} transfer{transferPairs.length === 1 ? '' : 's'} between your accounts detected and eliminated from consolidated totals to avoid double-counting
-            </CardDescription>
           </CardHeader>
           {showIntercompany && (
             <CardContent>
@@ -827,15 +835,26 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
               <div className="flex items-center gap-2">
                 <CreditCard className="h-5 w-5" />
                 <CardTitle>Subscriptions</CardTitle>
+                <Badge variant="secondary" className="ml-2">
+                  {activeSubs.length}
+                </Badge>
+                {cancelledSubs.length > 0 && (
+                  <Badge variant="outline" className="ml-1">
+                    {cancelledSubs.length} cancelled
+                  </Badge>
+                )}
               </div>
               <CardDescription className="mt-2">
-                {activeSubs.length} active, {cancelledSubs.length} cancelled
+                {activeSubs.length} active subscription{activeSubs.length === 1 ? '' : 's'} • Total: {formatCurrency(activeSubs.reduce((sum, s) => sum + s.monthlyAmount, 0))}/month
               </CardDescription>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShowSubscriptions(!showSubscriptions)}
+              aria-label={showSubscriptions ? "Collapse subscriptions" : "Expand subscriptions"}
+              aria-expanded={showSubscriptions}
+              title={showSubscriptions ? "Collapse section" : "Expand section"}
             >
               {showSubscriptions ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
@@ -923,21 +942,29 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-orange-600" />
-                <CardTitle>Balance Drops</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5 text-orange-600" />
+                  <CardTitle>Balance Drops</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    {insights.balanceDrops.length}
+                  </Badge>
+                </div>
+                <CardDescription className="mt-2">
+                  {insights.balanceDrops.length} significant drop{insights.balanceDrops.length === 1 ? '' : 's'} detected (15%+ threshold)
+                </CardDescription>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowBalanceDrops(!showBalanceDrops)}
+                aria-label={showBalanceDrops ? "Collapse balance drops" : "Expand balance drops"}
+                aria-expanded={showBalanceDrops}
+                title={showBalanceDrops ? "Collapse section" : "Expand section"}
               >
                 {showBalanceDrops ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
-            <CardDescription>
-              {insights.balanceDrops.length} significant drops detected (15%+)
-            </CardDescription>
           </CardHeader>
           {showBalanceDrops && (
             <CardContent>
@@ -1022,21 +1049,29 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Copy className="h-5 w-5 text-yellow-600" />
-                <CardTitle>Potential Duplicates</CardTitle>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Copy className="h-5 w-5 text-yellow-600" />
+                  <CardTitle>Potential Duplicates</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    {insights.duplicates.length}
+                  </Badge>
+                </div>
+                <CardDescription className="mt-2">
+                  {insights.duplicates.length} group{insights.duplicates.length === 1 ? '' : 's'} of potential duplicate transactions found
+                </CardDescription>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowDuplicates(!showDuplicates)}
+                aria-label={showDuplicates ? "Collapse potential duplicates" : "Expand potential duplicates"}
+                aria-expanded={showDuplicates}
+                title={showDuplicates ? "Collapse section" : "Expand section"}
               >
                 {showDuplicates ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>
             </div>
-            <CardDescription>
-              {insights.duplicates.length} groups found (showing {Math.min(5, insights.duplicates.length)} of {insights.duplicates.length})
-            </CardDescription>
           </CardHeader>
           {showDuplicates && (
             <CardContent>
@@ -1074,15 +1109,26 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                 <div className="flex items-center gap-2">
                   <Repeat className="h-5 w-5" />
                   <CardTitle>Recurring Transactions</CardTitle>
+                  <Badge variant="secondary" className="ml-2">
+                    {activeRecurring.length}
+                  </Badge>
+                  {cancelledRecurring.length > 0 && (
+                    <Badge variant="outline" className="ml-1">
+                      {cancelledRecurring.length} cancelled
+                    </Badge>
+                  )}
                 </div>
                 <CardDescription className="mt-2">
-                  {activeRecurring.length} active, {cancelledRecurring.length} cancelled
+                  {activeRecurring.length} active recurring income pattern{activeRecurring.length === 1 ? '' : 's'}
                 </CardDescription>
               </div>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowRecurring(!showRecurring)}
+                aria-label={showRecurring ? "Collapse recurring transactions" : "Expand recurring transactions"}
+                aria-expanded={showRecurring}
+                title={showRecurring ? "Collapse section" : "Expand section"}
               >
                 {showRecurring ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </Button>

@@ -3,7 +3,7 @@ import { Transaction, BusinessTransaction } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/formatters";
 import { Badge } from "@/components/ui/badge";
-import { ChevronRight, ArrowLeftRight } from "lucide-react";
+import { ChevronRight, ArrowLeftRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   Pagination,
@@ -14,12 +14,6 @@ import {
   PaginationPrevious,
   PaginationEllipsis
 } from "@/components/ui/pagination";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  InfoTooltipTrigger
-} from "@/components/ui/tooltip";
 
 interface PaginationProps {
   currentPage: number;
@@ -120,12 +114,17 @@ const TransactionList: React.FC<TransactionListProps> = ({
     if (startPage > 1) {
       items.push(
         <PaginationItem key="page-1">
-          <PaginationLink isActive={currentPage === 1} onClick={() => onPageChange(1)}>
+          <PaginationLink
+            isActive={currentPage === 1}
+            onClick={() => onPageChange(1)}
+            aria-label="Go to page 1"
+            aria-current={currentPage === 1 ? "page" : undefined}
+          >
             1
           </PaginationLink>
         </PaginationItem>
       );
-      
+
       // Add ellipsis if there's a gap
       if (startPage > 2) {
         items.push(
@@ -135,18 +134,23 @@ const TransactionList: React.FC<TransactionListProps> = ({
         );
       }
     }
-    
+
     // Add page numbers
     for (let i = startPage; i <= endPage; i++) {
       items.push(
         <PaginationItem key={`page-${i}`}>
-          <PaginationLink isActive={currentPage === i} onClick={() => onPageChange(i)}>
+          <PaginationLink
+            isActive={currentPage === i}
+            onClick={() => onPageChange(i)}
+            aria-label={`Go to page ${i}`}
+            aria-current={currentPage === i ? "page" : undefined}
+          >
             {i}
           </PaginationLink>
         </PaginationItem>
       );
     }
-    
+
     // Add last page if not included in range
     if (endPage < totalPages) {
       // Add ellipsis if there's a gap
@@ -157,10 +161,15 @@ const TransactionList: React.FC<TransactionListProps> = ({
           </PaginationItem>
         );
       }
-      
+
       items.push(
         <PaginationItem key={`page-${totalPages}`}>
-          <PaginationLink isActive={currentPage === totalPages} onClick={() => onPageChange(totalPages)}>
+          <PaginationLink
+            isActive={currentPage === totalPages}
+            onClick={() => onPageChange(totalPages)}
+            aria-label={`Go to page ${totalPages}`}
+            aria-current={currentPage === totalPages ? "page" : undefined}
+          >
             {totalPages}
           </PaginationLink>
         </PaginationItem>
@@ -197,6 +206,12 @@ const TransactionList: React.FC<TransactionListProps> = ({
                 </span>
                 <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2">
                   <span>{new Date(transaction.date).toLocaleDateString()}</span>
+                  {(transaction as BusinessTransaction).accountName && (
+                    <>
+                      <span>•</span>
+                      <span className="font-medium">{(transaction as BusinessTransaction).accountName}</span>
+                    </>
+                  )}
                   {isInterAccountTransfer(transaction) && (
                     <>
                       <span>•</span>
@@ -239,33 +254,16 @@ const TransactionList: React.FC<TransactionListProps> = ({
               </div>
               <div className="flex items-center space-x-2">
                 <span className={`font-mono font-medium tabular-nums ${
-                  transaction.categoryType === "income" || 
+                  transaction.categoryType === "income" ||
                   (!transaction.categoryType && (transaction.type === "CREDIT" || transaction.type === "DEPOSIT" || transaction.type === "INTEREST"))
                     ? "text-finance-positive"
-                    : transaction.categoryType === "expense" || 
+                    : transaction.categoryType === "expense" ||
                       (!transaction.categoryType && (transaction.type === "DEBIT" || transaction.type === "CHECK" || transaction.type === "WITHDRAWAL" || transaction.type === "FEE"))
                     ? "text-finance-negative"
                     : ""
                 }`}>
                   {formatCurrency(transaction.amount)}
                 </span>
-                {transaction.confidence && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <InfoTooltipTrigger asChild>
-                        <Badge variant={
-                          transaction.confidence === "high" ? "default" : 
-                          transaction.confidence === "medium" ? "secondary" : "outline"
-                        } className="text-xs hidden sm:inline-flex">
-                          {transaction.confidence}
-                        </Badge>
-                      </InfoTooltipTrigger>
-                      <TooltipContent side="left">
-                        <p>AI confidence level in this categorization</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
               </div>
             </div>
           ))}
@@ -276,22 +274,54 @@ const TransactionList: React.FC<TransactionListProps> = ({
           <div className="mt-4">
             <Pagination>
               <PaginationContent>
+                {/* First page button */}
                 <PaginationItem>
-                  <PaginationPrevious 
+                  <PaginationLink
+                    onClick={() => pagination.onPageChange(1)}
+                    className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={pagination.currentPage === 1}
+                    aria-label="Go to first page"
+                    title="First page"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </PaginationLink>
+                </PaginationItem>
+
+                {/* Previous page button */}
+                <PaginationItem>
+                  <PaginationPrevious
                     onClick={() => pagination.onPageChange(pagination.currentPage - 1)}
                     className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={pagination.currentPage === 1}
+                    aria-label="Go to previous page"
+                    title="Previous page"
                   />
                 </PaginationItem>
-                
+
                 {renderPaginationItems()}
-                
+
+                {/* Next page button */}
                 <PaginationItem>
-                  <PaginationNext 
+                  <PaginationNext
                     onClick={() => pagination.onPageChange(pagination.currentPage + 1)}
                     className={pagination.currentPage === pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
                     aria-disabled={pagination.currentPage === pagination.totalPages}
+                    aria-label="Go to next page"
+                    title="Next page"
                   />
+                </PaginationItem>
+
+                {/* Last page button */}
+                <PaginationItem>
+                  <PaginationLink
+                    onClick={() => pagination.onPageChange(pagination.totalPages)}
+                    className={pagination.currentPage === pagination.totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    aria-disabled={pagination.currentPage === pagination.totalPages}
+                    aria-label="Go to last page"
+                    title="Last page"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </PaginationLink>
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
