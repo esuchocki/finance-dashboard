@@ -1,4 +1,5 @@
 import { BusinessTransaction, FunctionalExpenses, VendorSpending } from '@/lib/types';
+import { safeDivide, safePercentage } from '@/lib/safeMath';
 
 /**
  * Classify transactions into FASB functional expense categories
@@ -44,8 +45,11 @@ export function classifyFunctionalExpenses(
 export function calculateProgramExpenseRatio(
   functionalExpenses: FunctionalExpenses
 ): number {
-  if (functionalExpenses.total === 0) return 0;
-  return functionalExpenses.programServices / functionalExpenses.total;
+  return safeDivide(
+    functionalExpenses.programServices,
+    functionalExpenses.total,
+    0
+  );
 }
 
 /**
@@ -55,8 +59,7 @@ export function calculateOperatingReserveMonths(
   currentCash: number,
   monthlyExpenses: number
 ): number {
-  if (monthlyExpenses === 0) return 0;
-  return currentCash / monthlyExpenses;
+  return safeDivide(currentCash, monthlyExpenses, 0);
 }
 
 /**
@@ -95,8 +98,8 @@ export function analyzeVendorSpending(
 
   const vendors = Array.from(vendorMap.values()).map(v => ({
     ...v,
-    percentOfTotal: total > 0 ? (v.totalSpent / total) * 100 : 0,
-    averageTransaction: v.totalSpent / v.transactionCount
+    percentOfTotal: safePercentage(v.totalSpent, total, 0),
+    averageTransaction: safeDivide(v.totalSpent, v.transactionCount, 0)
   }));
 
   return vendors.sort((a, b) => b.totalSpent - a.totalSpent);

@@ -1,4 +1,5 @@
 import { NormalizedVendor, VendorGranularity } from '@/lib/types';
+import { safeDivide } from '@/lib/safeMath';
 
 /**
  * Token types for vendor name classification
@@ -145,7 +146,11 @@ function calculateDescriptorScore(
 
   // Signal 3: How often token appears as first token (0-20 points)
   // Vendor names appear first; descriptors don't
-  const firstTokenRatio = cooccurrence.firstTokenCount / cooccurrence.frequency;
+  const firstTokenRatio = safeDivide(
+    cooccurrence.firstTokenCount,
+    cooccurrence.frequency,
+    0.5
+  );
   if (firstTokenRatio < 0.1) {
     score += 20; // Rarely first = likely descriptor
   } else if (firstTokenRatio < 0.3) {
@@ -157,7 +162,12 @@ function calculateDescriptorScore(
 
   // Signal 4: Average position (0-15 points)
   // Descriptors appear later in vendor names
-  const avgPosition = cooccurrence.positions.reduce((a, b) => a + b, 0) / cooccurrence.positions.length;
+  const positionsCount = cooccurrence.positions.length;
+  if (positionsCount === 0) {
+    // No position data, skip this signal
+    return Math.min(score, 100);
+  }
+  const avgPosition = cooccurrence.positions.reduce((a, b) => a + b, 0) / positionsCount;
   if (avgPosition >= 2.5) {
     score += 15;
   } else if (avgPosition >= 2.0) {
@@ -218,7 +228,14 @@ function classifyToken(
   if (token.length >= 10 && /[A-Z]/.test(token) && /\d/.test(token)) {
     const alphaCount = (token.match(/[A-Z]/g) || []).length;
     const digitCount = (token.match(/\d/g) || []).length;
-    const ratio = Math.min(alphaCount, digitCount) / Math.max(alphaCount, digitCount);
+
+    // Guard against both being zero (shouldn't happen but be safe)
+    const maxCount = Math.max(alphaCount, digitCount);
+    if (maxCount === 0) {
+      return { text: token, type: 'unknown', confidence: 0.3 };
+    }
+
+    const ratio = Math.min(alphaCount, digitCount) / maxCount;
 
     // If well-mixed alpha and numeric, likely a code
     if (ratio > 0.3) {
@@ -295,6 +312,12 @@ function classifyToken(
   // Token composition analysis
   const hasDigits = /\d/.test(token);
   const hasLetters = /[A-Z]/.test(token);
+
+  // Guard against empty token (shouldn't happen but be safe)
+  if (token.length === 0) {
+    return { text: token, type: 'unknown', confidence: 0.1 };
+  }
+
   const digitRatio = (token.match(/\d/g) || []).length / token.length;
 
   if (hasDigits && hasLetters) {

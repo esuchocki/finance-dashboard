@@ -10,6 +10,7 @@ import {
   buildTokenAnalysis,
   getVendorNameByGranularity
 } from './vendorNormalization';
+import { safePercentage } from '@/lib/safeMath';
 
 /**
  * Build hierarchical vendor structure with base -> sub -> detailed levels
@@ -102,7 +103,7 @@ export function analyzeVendorsByType(
           level: 'detailed',
           totalAmount: detailedAmount,
           transactionCount: transactions.length,
-          percentOfTotal: totalAmount > 0 ? (detailedAmount / totalAmount) * 100 : 0,
+          percentOfTotal: safePercentage(detailedAmount, totalAmount, 0),
           transactions
         });
       });
@@ -115,7 +116,7 @@ export function analyzeVendorsByType(
         level: 'sub',
         totalAmount: subAmount,
         transactionCount: subGroup.transactions.length,
-        percentOfTotal: totalAmount > 0 ? (subAmount / totalAmount) * 100 : 0,
+        percentOfTotal: safePercentage(subAmount, totalAmount, 0),
         children: detailedChildren,
         transactions: subGroup.transactions
       });
@@ -129,7 +130,7 @@ export function analyzeVendorsByType(
       level: 'base',
       totalAmount: baseAmount,
       transactionCount: baseGroup.transactions.length,
-      percentOfTotal: totalAmount > 0 ? (baseAmount / totalAmount) * 100 : 0,
+      percentOfTotal: safePercentage(baseAmount, totalAmount, 0),
       children: subChildren,
       transactions: baseGroup.transactions
     });
@@ -161,7 +162,7 @@ export function analyzeTopTransactions(
     vendor: tx.name || tx.payee || 'Unknown',
     amount: tx.amount,
     count: 1,
-    percentage: totalAmount > 0 ? (tx.amount / totalAmount) * 100 : 0,
+    percentage: safePercentage(tx.amount, totalAmount, 0),
     transactions: [tx]
   }));
 }

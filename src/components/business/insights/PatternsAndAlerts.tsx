@@ -82,8 +82,13 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
   const [selectedBalanceDrop, setSelectedBalanceDrop] = React.useState<BalanceDrop | null>(null);
 
   // Group inter-account transfers into pairs
+  // Updated to handle multi-day transfers (up to 5 days apart)
   const transferPairs = React.useMemo(() => {
-    const pairs: Array<{ debit: BusinessTransaction; credit: BusinessTransaction }> = [];
+    const pairs: Array<{
+      debit: BusinessTransaction;
+      credit: BusinessTransaction;
+      daysDiff: number;
+    }> = [];
     const processed = new Set<string>();
 
     for (let i = 0; i < intercompanyTransactions.length; i++) {
@@ -94,19 +99,27 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
         const tx2 = intercompanyTransactions[j];
         if (processed.has(tx2.id)) continue;
 
-        // Check if they're a matching pair (same amount, same date, different accounts)
+        // Check if they're a matching pair (same amount, within 5 days, different accounts)
         const sameAmount = Math.abs(tx1.amount - tx2.amount) <= 0.01;
-        const sameDay =
-          tx1.date.getFullYear() === tx2.date.getFullYear() &&
-          tx1.date.getMonth() === tx2.date.getMonth() &&
-          tx1.date.getDate() === tx2.date.getDate();
+
+        // Calculate days difference (expanded from same-day to 5-day window)
+        const daysDiff = Math.abs(
+          (tx1.date.getTime() - tx2.date.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const withinTimeWindow = daysDiff <= 5;
+
         const differentAccounts = tx1.accountId !== tx2.accountId;
 
-        if (sameAmount && sameDay && differentAccounts) {
-          // Determine which is debit and which is credit
-          const debit = tx1.type === 'DEBIT' ? tx1 : tx2;
-          const credit = tx1.type === 'CREDIT' ? tx1 : tx2;
-          pairs.push({ debit, credit });
+        // Check opposite transaction types
+        const oppositeTypes =
+          (tx1.categoryType === 'expense' && tx2.categoryType === 'income') ||
+          (tx1.categoryType === 'income' && tx2.categoryType === 'expense');
+
+        if (sameAmount && withinTimeWindow && differentAccounts && oppositeTypes) {
+          // Determine which is debit (expense/withdrawal) and which is credit (income/deposit)
+          const debit = tx1.categoryType === 'expense' ? tx1 : tx2;
+          const credit = tx1.categoryType === 'income' ? tx1 : tx2;
+          pairs.push({ debit, credit, daysDiff });
           processed.add(tx1.id);
           processed.add(tx2.id);
           break;
@@ -751,6 +764,11 @@ const PatternsAndAlerts: React.FC<PatternsAndAlertsProps> = ({ transactions, int
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
                           {pair.debit.date.toLocaleDateString()}
+                          {pair.daysDiff > 0 && (
+                            <span className="ml-1 text-xs">
+                              → {pair.credit.date.toLocaleDateString()} ({Math.round(pair.daysDiff)}d)
+                            </span>
+                          )}
                         </Badge>
                         <span className="text-sm font-semibold">{formatCurrency(pair.debit.amount)}</span>
                       </div>

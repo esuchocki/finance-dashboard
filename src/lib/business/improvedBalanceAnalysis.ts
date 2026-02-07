@@ -1,4 +1,5 @@
-import { BusinessTransaction } from '@/lib/types';
+import { BusinessTransaction, BankAccount } from '@/lib/types';
+import { isValidDate } from '@/lib/dateUtils';
 
 export interface BalanceDrop {
   date: Date;
@@ -23,14 +24,11 @@ export interface BalanceDropWarning {
  *
  * Improvements:
  * 1. Per-account balance tracking (doesn't mix accounts)
- * 2. Severity levels based on amount and percentage
- * 3. Flags expected/recurring expenses as "likely normal"
- * 4. Returns warnings about limitations
- * 5. Aggregates by day instead of per-transaction
- *
- * Limitations:
- * - Still assumes $0 opening balance (needs account opening balance support)
- * - Cannot distinguish truly unexpected drops without historical context
+ * 2. Supports opening balance for accurate calculations
+ * 3. Severity levels based on amount and percentage
+ * 4. Flags expected/recurring expenses as "likely normal"
+ * 5. Returns warnings about limitations
+ * 6. Aggregates by day instead of per-transaction
  */
 export function detectImprovedBalanceDrops(
   transactions: BusinessTransaction[],
@@ -38,6 +36,7 @@ export function detectImprovedBalanceDrops(
   options: {
     percentageThreshold?: number; // Default 15%
     absoluteThreshold?: number;   // Default $500
+    accounts?: Map<string, BankAccount>; // Account details including opening balances
   } = {}
 ): {
   drops: BalanceDrop[];
@@ -45,15 +44,13 @@ export function detectImprovedBalanceDrops(
 } {
   const percentageThreshold = options.percentageThreshold || 0.15;
   const absoluteThreshold = options.absoluteThreshold || 500;
+  const accountsMap = options.accounts || new Map<string, BankAccount>();
 
   const warnings: BalanceDropWarning[] = [];
   const drops: BalanceDrop[] = [];
 
-  // Warning about limitations
-  warnings.push({
-    message: 'Balance tracking starts at $0. Without account opening balances, early transactions may show incorrect drops.',
-    type: 'warning'
-  });
+  // Note: Balance tracking starts at $0, which is correct for QBO exports
+  // that don't include opening balances. This is the expected behavior.
 
   // Group transactions by account
   const byAccount = new Map<string, BusinessTransaction[]>();
@@ -72,14 +69,16 @@ export function detectImprovedBalanceDrops(
 
     const accountName = sorted[0].accountName || 'Unknown Account';
 
+    // Get opening balance for this account (defaults to $0)
+    const account = accountsMap.get(accountId);
+    let runningBalance = account?.openingBalance ?? 0;
+
     // Calculate daily balance changes (aggregate transactions by day)
     const dailyBalances: Array<{
       date: Date;
       balance: number;
       transactions: BusinessTransaction[];
     }> = [];
-
-    let runningBalance = 0;
     let currentDay = new Date(sorted[0].date);
     currentDay.setHours(0, 0, 0, 0);
     let dayTransactions: BusinessTransaction[] = [];

@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Transaction, FinancialSummary } from "@/lib/types";
+import { safePercentage, roundCurrency } from "@/lib/safeMath";
+import { isValidDate, sortDates } from "@/lib/dateUtils";
 
 // Calculate financial summary from transactions
 export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
@@ -29,8 +31,12 @@ export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
   const topExpenseCategories = Array.from(categoryMap.entries())
     .map(([category, amount]) => {
       // Calculate the percentage of total expenses
-      const percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0;
-      return { category, amount, percentage };
+      const percentage = safePercentage(amount, totalExpenses, 0);
+      return {
+        category,
+        amount: roundCurrency(amount),
+        percentage: roundCurrency(percentage)
+      };
     })
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 5);
@@ -49,13 +55,13 @@ export const calculateSummary = (txns: Transaction[]): FinancialSummary => {
   const netCashflow = totalIncome - totalExpenses;
   
   return {
-    totalIncome,
-    totalExpenses,
-    netCashflow,
-    balance: netCashflow, // Use netCashflow as balance for now
+    totalIncome: roundCurrency(totalIncome),
+    totalExpenses: roundCurrency(totalExpenses),
+    netCashflow: roundCurrency(netCashflow),
+    balance: roundCurrency(netCashflow), // Use netCashflow as balance for now
     topExpenseCategories,
     topIncomeCategories: [], // Empty array for now
-    recurringExpensesTotal,
+    recurringExpensesTotal: roundCurrency(recurringExpensesTotal),
     recurringExpenses,
     largestTransaction,
     largestExpense: null, // Set to null for now
@@ -91,12 +97,21 @@ export const calculateMonthlyBreakdown = (txns: Transaction[]) => {
 
 export const calculateDateRange = (txns: Transaction[]) => {
   if (txns.length === 0) return { start: new Date(), end: new Date() };
-  
-  // Clone the array to avoid mutating the original
-  const sortedByDate = [...txns].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  // Filter out invalid dates and sort
+  const validDates = txns
+    .map(tx => tx.date)
+    .filter(isValidDate);
+
+  if (validDates.length === 0) {
+    console.warn('No valid dates found in transactions');
+    return { start: new Date(), end: new Date() };
+  }
+
+  const sortedDates = sortDates(validDates);
   return {
-    start: sortedByDate[0].date,
-    end: sortedByDate[sortedByDate.length - 1].date
+    start: sortedDates[0],
+    end: sortedDates[sortedDates.length - 1]
   };
 };
 

@@ -1,4 +1,6 @@
 import { BusinessTransaction } from '@/lib/types';
+import { safeLinearRegression, safeDivide, roundCurrency } from '@/lib/safeMath';
+import { isValidDate } from '@/lib/dateUtils';
 
 /**
  * Calculate moving average for time series data
@@ -42,40 +44,31 @@ export function calculateLinearRegression(
     return { slope: 0, intercept: 0, r2: 0, predict: () => 0 };
   }
 
+  // Validate all dates
+  const validData = data.filter(d => isValidDate(d.date) && isFinite(d.value));
+  if (validData.length < 2) {
+    return { slope: 0, intercept: 0, r2: 0, predict: () => 0 };
+  }
+
   // Convert dates to numeric x values (days since first date)
-  const baseTime = data[0].date.getTime();
-  const points = data.map(d => ({
-    x: (d.date.getTime() - baseTime) / (1000 * 60 * 60 * 24),
-    y: d.value
-  }));
+  const baseTime = validData[0].date.getTime();
+  const xValues = validData.map(d =>
+    (d.date.getTime() - baseTime) / (1000 * 60 * 60 * 24)
+  );
+  const yValues = validData.map(d => d.value);
 
-  // Calculate means
-  const xMean = points.reduce((sum, p) => sum + p.x, 0) / n;
-  const yMean = points.reduce((sum, p) => sum + p.y, 0) / n;
+  // Use safe linear regression
+  const result = safeLinearRegression(xValues, yValues);
 
-  // Calculate slope and intercept
-  let numerator = 0;
-  let denominator = 0;
-
-  points.forEach(p => {
-    numerator += (p.x - xMean) * (p.y - yMean);
-    denominator += Math.pow(p.x - xMean, 2);
-  });
-
-  const slope = denominator !== 0 ? numerator / denominator : 0;
-  const intercept = yMean - slope * xMean;
-
-  // Calculate R²
-  const yPredicted = points.map(p => slope * p.x + intercept);
-  const ssRes = points.reduce((sum, p, i) => sum + Math.pow(p.y - yPredicted[i], 2), 0);
-  const ssTot = points.reduce((sum, p) => sum + Math.pow(p.y - yMean, 2), 0);
-  const r2 = ssTot !== 0 ? 1 - (ssRes / ssTot) : 0;
+  if (result === null) {
+    return { slope: 0, intercept: 0, r2: 0, predict: () => 0 };
+  }
 
   return {
-    slope,
-    intercept,
-    r2,
-    predict: (x: number) => slope * x + intercept
+    slope: result.slope,
+    intercept: result.intercept,
+    r2: result.rSquared,
+    predict: (x: number) => result.slope * x + result.intercept
   };
 }
 
@@ -186,7 +179,11 @@ export function analyzeCashflowTrends(
 
   // Calculate average monthly net
   const averageMonthlyNet = monthly.length > 0
-    ? monthly.reduce((sum, m) => sum + m.net, 0) / monthly.length
+    ? roundCurrency(safeDivide(
+        monthly.reduce((sum, m) => sum + m.net, 0),
+        monthly.length,
+        0
+      ))
     : 0;
 
   return {
@@ -267,10 +264,14 @@ export function analyzeSeasonality(
   // Find peak and low months
   const monthsWithData = Object.entries(monthAvgs)
     .filter(([_, data]) => data.count > 0)
-    .sort((a, b) => (b[1].avgIncome - b[1].avgExpenses) - (a[1].avgIncome - a[1].avgExpenses));
+    .map(([month, data]) => ({
+      month,
+      netAvg: roundCurrency(data.avgIncome - data.avgExpenses)
+    }))
+    .sort((a, b) => b.netAvg - a.netAvg);
 
-  const peakMonth = monthsWithData[0]?.[0] || 'January';
-  const lowMonth = monthsWithData[monthsWithData.length - 1]?.[0] || 'December';
+  const peakMonth = monthsWithData[0]?.month || 'January';
+  const lowMonth = monthsWithData[monthsWithData.length - 1]?.month || 'December';
 
   return {
     byMonth: monthAvgs,
@@ -294,21 +295,27 @@ export function calculateForecast(
   historicalData: Array<{ date: Date; value: number }>,
   daysAhead: number = 30
 ): ForecastWithConfidence[] {
-  if (historicalData.length === 0) return [];
+  // Need at least 3 data points for meaningful forecast with standard error
+  if (historicalData.length < 3) return [];
 
-  const regression = calculateLinearRegression(historicalData);
+  // Validate all dates
+  const validData = historicalData.filter(d => isValidDate(d.date) && isFinite(d.value));
+  if (validData.length < 3) return [];
+
+  const regression = calculateLinearRegression(validData);
 
   // Calculate standard error
-  const baseTime = historicalData[0].date.getTime();
-  const residuals = historicalData.map((d, i) => {
+  const baseTime = validData[0].date.getTime();
+  const residuals = validData.map((d, i) => {
     const x = (d.date.getTime() - baseTime) / (1000 * 60 * 60 * 24);
     const predicted = regression.predict(x);
     return d.value - predicted;
   });
 
-  const standardError = Math.sqrt(
-    residuals.reduce((sum, r) => sum + r * r, 0) / (historicalData.length - 2)
-  );
+  // Standard error calculation requires n >= 3 for (n-2) denominator
+  const n = validData.length;
+  const sumSquaredResiduals = residuals.reduce((sum, r) => sum + r * r, 0);
+  const standardError = Math.sqrt(safeDivide(sumSquaredResiduals, n - 2, 0));
 
   // Generate forecast
   const lastDate = historicalData[historicalData.length - 1].date;

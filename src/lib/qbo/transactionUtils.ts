@@ -1,6 +1,7 @@
 
 import { Transaction, TransactionType, TimeOfDay, NarrativeTransaction, PersonalBackground } from '../types';
 import { categoryPatterns, locationPatterns, categoryHierarchy } from './categoryPatterns';
+import { isValidDate } from '@/lib/dateUtils';
 
 // Process transactions in batches for better performance
 export function processTransactionsInBatches(transactions: any[], batchSize: number = 50): Transaction[] {
@@ -163,9 +164,11 @@ export function processTransaction(trn: any): Transaction | null {
     
     // Parse the date
     const date = parseQBODate(datePosted);
-    
+
     // Generate a unique transaction ID
-    const id = trn.FITID || `${date.getTime()}-${amount}-${Math.random().toString(36).substring(2, 9)}`;
+    // Ensure we use a valid timestamp for the ID
+    const timestamp = date && !isNaN(date.getTime()) ? date.getTime() : Date.now();
+    const id = trn.FITID || `${timestamp}-${amount}-${Math.random().toString(36).substring(2, 9)}`;
     
     return {
       id,
@@ -304,9 +307,11 @@ export function createTransactionFromData(data: Record<string, string>): Transac
     
     // Parse the date
     const date = parseQBODate(data.DTPOSTED);
-    
+
     // Generate a unique transaction ID
-    const id = data.FITID || `${date.getTime()}-${amount}-${Math.random().toString(36).substring(2, 9)}`;
+    // Ensure we use a valid timestamp for the ID
+    const timestamp = date && !isNaN(date.getTime()) ? date.getTime() : Date.now();
+    const id = data.FITID || `${timestamp}-${amount}-${Math.random().toString(36).substring(2, 9)}`;
     
     return {
       id,
@@ -346,17 +351,20 @@ export function createNarrativeTransaction(
     // Calculate age
     const birthDate = new Date(personalBackground.birthDate);
     const transactionDate = new Date(transaction.date);
-    
-    userAge = transactionDate.getFullYear() - birthDate.getFullYear();
-    
-    // Adjust age if birthday hasn't occurred yet in the transaction year
-    const hasBirthdayOccurred = 
-      transactionDate.getMonth() > birthDate.getMonth() || 
-      (transactionDate.getMonth() === birthDate.getMonth() && 
-       transactionDate.getDate() >= birthDate.getDate());
-    
-    if (!hasBirthdayOccurred) {
-      userAge--;
+
+    // Validate dates before calculating age
+    if (isValidDate(birthDate) && isValidDate(transactionDate)) {
+      userAge = transactionDate.getFullYear() - birthDate.getFullYear();
+
+      // Adjust age if birthday hasn't occurred yet in the transaction year
+      const hasBirthdayOccurred =
+        transactionDate.getMonth() > birthDate.getMonth() ||
+        (transactionDate.getMonth() === birthDate.getMonth() &&
+         transactionDate.getDate() >= birthDate.getDate());
+
+      if (!hasBirthdayOccurred) {
+        userAge--;
+      }
     }
     
     // Find location at time of transaction

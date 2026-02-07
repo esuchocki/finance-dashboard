@@ -1,4 +1,5 @@
 import { BusinessTransaction } from '@/lib/types';
+import { safePercentageChange, roundCurrency } from '@/lib/safeMath';
 
 export interface DuplicateGroup {
   transactions: BusinessTransaction[];

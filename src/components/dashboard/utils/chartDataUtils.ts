@@ -1,5 +1,6 @@
 
 import { Transaction } from "@/lib/types";
+import { safePercentageChange, roundCurrency } from "@/lib/safeMath";
 
 // Prepare data for expense category charts
 export const prepareChartData = (transactions: Transaction[]) => {
@@ -207,21 +208,17 @@ export const prepareMonthlyTrendData = (monthlyBreakdown: { month: string; incom
     
     if (index > 0) {
       const prevMonth = array[index - 1];
-      incomeChange = prevMonth.income > 0 
-        ? ((item.income - prevMonth.income) / prevMonth.income) * 100 
-        : 0;
-      expensesChange = prevMonth.expenses > 0 
-        ? ((item.expenses - prevMonth.expenses) / prevMonth.expenses) * 100 
-        : 0;
+      incomeChange = safePercentageChange(item.income, prevMonth.income, 0);
+      expensesChange = safePercentageChange(item.expenses, prevMonth.expenses, 0);
     }
     
     return {
       name: formattedMonth,
-      income: item.income,
-      expenses: item.expenses,
-      balance: item.income - item.expenses,
-      incomeChange,
-      expensesChange
+      income: roundCurrency(item.income),
+      expenses: roundCurrency(item.expenses),
+      balance: roundCurrency(item.income - item.expenses),
+      incomeChange: roundCurrency(incomeChange),
+      expensesChange: roundCurrency(expensesChange)
     };
   });
 };
@@ -252,13 +249,13 @@ export const prepareBalanceData = (monthlyBreakdown: { month: string; income: nu
 // Calculate basic stats for the current period
 export const calculateCurrentTrends = (monthlyTrendData: any[]) => {
   if (!monthlyTrendData || monthlyTrendData.length < 2) return null;
-  
+
   const currentMonth = monthlyTrendData[monthlyTrendData.length - 1];
   const previousMonth = monthlyTrendData[monthlyTrendData.length - 2];
-  
+
   return {
-    incomeChange: ((currentMonth.income - previousMonth.income) / previousMonth.income) * 100,
-    expensesChange: ((currentMonth.expenses - previousMonth.expenses) / previousMonth.expenses) * 100,
-    balanceChange: currentMonth.balance - previousMonth.balance
+    incomeChange: safePercentageChange(currentMonth.income, previousMonth.income, 0),
+    expensesChange: safePercentageChange(currentMonth.expenses, previousMonth.expenses, 0),
+    balanceChange: roundCurrency(currentMonth.balance - previousMonth.balance)
   };
 };

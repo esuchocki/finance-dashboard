@@ -1,4 +1,14 @@
 import { BusinessTransaction } from '@/lib/types';
+import {
+  safeDivide,
+  safePercentageChange,
+  safeCoefficientOfVariation,
+  safeStandardDeviation,
+  safeAverage,
+  roundCurrency,
+  clamp,
+  safeLinearRegression
+} from '@/lib/safeMath';
 
 /**
  * Enhanced Pattern Recognition System
@@ -69,33 +79,18 @@ export interface EnhancedRecurringPattern {
 
 /**
  * Calculate linear regression for trend analysis
+ * Now uses safe implementation from safeMath.ts
  */
 function calculateLinearRegression(xValues: number[], yValues: number[]): {
   slope: number;
   intercept: number;
   rSquared: number;
 } {
-  const n = xValues.length;
-  if (n < 2) return { slope: 0, intercept: 0, rSquared: 0 };
-
-  const sumX = xValues.reduce((a, b) => a + b, 0);
-  const sumY = yValues.reduce((a, b) => a + b, 0);
-  const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
-  const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-  const intercept = (sumY - slope * sumX) / n;
-
-  // Calculate R-squared
-  const yMean = sumY / n;
-  const ssTotal = yValues.reduce((sum, y) => sum + Math.pow(y - yMean, 2), 0);
-  const ssResidual = yValues.reduce((sum, y, i) => {
-    const predicted = slope * xValues[i] + intercept;
-    return sum + Math.pow(y - predicted, 2);
-  }, 0);
-  const rSquared = ssTotal > 0 ? 1 - (ssResidual / ssTotal) : 0;
-
-  return { slope, intercept, rSquared };
+  const result = safeLinearRegression(xValues, yValues);
+  if (result === null) {
+    return { slope: 0, intercept: 0, rSquared: 0 };
+  }
+  return result;
 }
 
 /**
@@ -116,8 +111,8 @@ function analyzeTrend(transactions: BusinessTransaction[]): TrendAnalysis | null
   // Determine direction and strength
   const firstAmount = sorted[0].amount;
   const lastAmount = sorted[sorted.length - 1].amount;
-  const totalChange = lastAmount - firstAmount;
-  const changePercentage = (totalChange / firstAmount) * 100;
+  const totalChange = roundCurrency(lastAmount - firstAmount);
+  const changePercentage = safePercentageChange(lastAmount, firstAmount, 0);
 
   let direction: TrendAnalysis['direction'];
   if (Math.abs(changePercentage) < 3) {
@@ -161,16 +156,20 @@ function detectAmountChanges(
     const prev = sorted[i - 1];
     const curr = sorted[i];
 
-    const changePct = Math.abs((curr.amount - prev.amount) / prev.amount);
+    // Skip if previous amount is zero (can't calculate percentage change)
+    if (prev.amount === 0) continue;
+
+    const changePercentage = safePercentageChange(curr.amount, prev.amount, 0);
+    const changePct = Math.abs(changePercentage) / 100;
 
     // Detect if amount changed significantly
     if (changePct > tolerance) {
       changes.push({
         date: curr.date,
-        previousAmount: prev.amount,
-        newAmount: curr.amount,
-        changeAmount: curr.amount - prev.amount,
-        changePercentage: ((curr.amount - prev.amount) / prev.amount) * 100,
+        previousAmount: roundCurrency(prev.amount),
+        newAmount: roundCurrency(curr.amount),
+        changeAmount: roundCurrency(curr.amount - prev.amount),
+        changePercentage,
         transactionId: curr.id
       });
     }
@@ -187,20 +186,30 @@ function detectAnomalies(
   expectedAmount: number,
   tolerance: number = 0.15 // 15% deviation threshold
 ): Anomaly[] {
+  // Skip if expected amount is zero (can't calculate deviation)
+  if (expectedAmount === 0) {
+    return [];
+  }
+
   return transactions
     .filter(tx => {
-      const deviation = Math.abs((tx.amount - expectedAmount) / expectedAmount);
+      const deviationPct = safePercentageChange(tx.amount, expectedAmount, 0);
+      const deviation = Math.abs(deviationPct) / 100;
       return deviation > tolerance;
     })
-    .map(tx => ({
-      transaction: tx,
-      expectedAmount,
-      actualAmount: tx.amount,
-      deviationPercentage: ((tx.amount - expectedAmount) / expectedAmount) * 100,
-      reason: tx.amount > expectedAmount
-        ? `Amount ${Math.abs(((tx.amount - expectedAmount) / expectedAmount) * 100).toFixed(1)}% higher than expected`
-        : `Amount ${Math.abs(((tx.amount - expectedAmount) / expectedAmount) * 100).toFixed(1)}% lower than expected`
-    }));
+    .map(tx => {
+      const deviationPercentage = safePercentageChange(tx.amount, expectedAmount, 0);
+      const absDeviation = Math.abs(deviationPercentage);
+      return {
+        transaction: tx,
+        expectedAmount: roundCurrency(expectedAmount),
+        actualAmount: roundCurrency(tx.amount),
+        deviationPercentage,
+        reason: tx.amount > expectedAmount
+          ? `Amount ${absDeviation.toFixed(1)}% higher than expected`
+          : `Amount ${absDeviation.toFixed(1)}% lower than expected`
+      };
+    });
 }
 
 /**
@@ -215,11 +224,10 @@ function predictNextAmount(
   const sorted = [...transactions].sort((a, b) => a.date.getTime() - b.date.getTime());
   const recentTransactions = sorted.slice(-5); // Use last 5 for prediction
   const amounts = recentTransactions.map(tx => tx.amount);
-  const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
+  const avgAmount = safeAverage(amounts, 0);
 
   // Calculate standard deviation
-  const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avgAmount, 2), 0) / amounts.length;
-  const stdDev = Math.sqrt(variance);
+  const stdDev = safeStandardDeviation(amounts, 0);
 
   let nextExpectedAmount = avgAmount;
 
@@ -233,7 +241,7 @@ function predictNextAmount(
   }
 
   // Determine confidence based on variability
-  const coefficientOfVariation = (stdDev / avgAmount);
+  const coefficientOfVariation = safeCoefficientOfVariation(amounts, 1);
   let confidence: 'high' | 'medium' | 'low';
   let confidenceScore: number;
 
@@ -250,16 +258,16 @@ function predictNextAmount(
 
   // If trend is strong, increase confidence
   if (trend && trend.strength === 'strong') {
-    confidenceScore = Math.min(1, confidenceScore + 0.1);
+    confidenceScore = clamp(confidenceScore + 0.1, 0, 0.99);
   }
 
   return {
-    nextExpectedAmount,
+    nextExpectedAmount: roundCurrency(nextExpectedAmount),
     confidence,
     confidenceScore,
     predictionRange: {
-      min: nextExpectedAmount - stdDev * 1.5,
-      max: nextExpectedAmount + stdDev * 1.5
+      min: Math.max(0, roundCurrency(nextExpectedAmount - stdDev * 1.5)), // Clamp to 0 for monetary amounts
+      max: roundCurrency(nextExpectedAmount + stdDev * 1.5)
     }
   };
 }
@@ -323,13 +331,12 @@ export function detectEnhancedRecurringPatterns(
     }
 
     // Calculate statistics
-    const avgDays = daysBetween.reduce((a, b) => a + b, 0) / daysBetween.length;
-    const variance = daysBetween.reduce((sum, d) => sum + Math.pow(d - avgDays, 2), 0) / daysBetween.length;
-    const stdDev = Math.sqrt(variance);
+    const avgDays = safeAverage(daysBetween, 30);
+    const stdDev = safeStandardDeviation(daysBetween, 0);
 
     // Determine confidence based on consistency
     let confidence: 'high' | 'medium' | 'low';
-    const coefficientOfVariation = stdDev / avgDays;
+    const coefficientOfVariation = safeCoefficientOfVariation(daysBetween, 1);
 
     if (coefficientOfVariation < 0.2) {
       confidence = 'high';

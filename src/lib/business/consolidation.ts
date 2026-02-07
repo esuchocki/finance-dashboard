@@ -10,6 +10,8 @@ import {
 } from '@/lib/types';
 import { analyzeVendorsByType, analyzeTopTransactions } from './vendorAnalysis';
 import type { GroupingStrategy } from './vendorNormalization';
+import { safeDivide, safePercentage, roundCurrency, currencyEquals } from '@/lib/safeMath';
+import { monthsBetween, isValidDate, minDate, maxDate } from '@/lib/dateUtils';
 
 /**
  * Consolidate transactions from multiple accounts
@@ -29,7 +31,12 @@ export function consolidateTransactions(
 
 /**
  * Detect potential transfers between accounts
- * Looks for matching amounts on the same date with opposite signs
+ * Looks for matching amounts within a 5-day window with opposite signs
+ *
+ * Improved from original:
+ * - Supports multi-day transfers (up to 5 business days)
+ * - Better merchant name matching for transfer descriptions
+ * - Uses safe math utilities
  */
 export function detectIntercompanyTransfers(
   transactions: BusinessTransaction[]
@@ -41,24 +48,30 @@ export function detectIntercompanyTransfers(
     const tx1 = transactions[i];
     if (processed.has(tx1.id)) continue;
 
+    // Skip transactions with invalid dates
+    if (!isValidDate(tx1.date)) continue;
+
     for (let j = i + 1; j < transactions.length; j++) {
       const tx2 = transactions[j];
       if (processed.has(tx2.id)) continue;
 
+      // Skip transactions with invalid dates
+      if (!isValidDate(tx2.date)) continue;
+
       // Check if transactions are from different accounts (by both ID and name)
       if (tx1.accountId === tx2.accountId) continue;
-      if (tx1.accountName === tx2.accountName) continue; // Additional check by account name
+      if (tx1.accountName === tx2.accountName) continue;
 
       // Check if amounts match (within $0.01 tolerance)
-      if (Math.abs(tx1.amount - tx2.amount) > 0.01) continue;
+      if (!currencyEquals(tx1.amount, tx2.amount)) continue;
 
-      // Check if dates match (same day)
-      const sameDay =
-        tx1.date.getFullYear() === tx2.date.getFullYear() &&
-        tx1.date.getMonth() === tx2.date.getMonth() &&
-        tx1.date.getDate() === tx2.date.getDate();
+      // Check if dates are within 5 business days (expanded from same-day only)
+      const daysDiff = Math.abs(
+        (tx1.date.getTime() - tx2.date.getTime()) / (1000 * 60 * 60 * 24)
+      );
 
-      if (!sameDay) continue;
+      // Transfers typically clear within 5 business days
+      if (daysDiff > 5) continue;
 
       // Check if one is income and one is expense (opposite directions)
       const oppositeTypes =
@@ -67,36 +80,53 @@ export function detectIntercompanyTransfers(
 
       if (!oppositeTypes) continue;
 
-      // Exclude transactions that look like fees or internal account transactions
-      // (e.g., PayPal fees, refunds, chargebacks within the same account)
-      const isFeeRelated =
-        tx1.description?.toLowerCase().includes('fee') ||
-        tx2.description?.toLowerCase().includes('fee') ||
-        tx1.category?.toLowerCase().includes('fee') ||
-        tx2.category?.toLowerCase().includes('fee') ||
-        tx1.name?.toLowerCase().includes('fee') ||
-        tx2.name?.toLowerCase().includes('fee');
+      // Check if descriptions suggest transfer (more sophisticated matching)
+      const tx1Lower = (tx1.name || tx1.description || '').toLowerCase();
+      const tx2Lower = (tx2.name || tx2.description || '').toLowerCase();
 
-      const isRefundRelated =
-        tx1.description?.toLowerCase().includes('refund') ||
-        tx2.description?.toLowerCase().includes('refund') ||
-        tx1.name?.toLowerCase().includes('refund') ||
-        tx2.name?.toLowerCase().includes('refund');
+      const isTransferKeyword = (text: string) =>
+        text.includes('transfer') ||
+        text.includes('xfer') ||
+        text.includes('from account') ||
+        text.includes('to account');
 
-      // Skip if likely a fee or refund within the same account
-      if (isFeeRelated || isRefundRelated) continue;
+      // Exclude transactions that look like fees or refunds (not transfers)
+      const isFeeRelated = (text: string) =>
+        text.includes(' fee') || // Space before 'fee' to avoid matching 'coffee'
+        text.includes('charge') ||
+        text.includes('service fee');
+
+      const isRefundRelated = (text: string) =>
+        text.includes('refund') ||
+        text.includes('chargeback') ||
+        text.includes('reversal');
+
+      // Skip if definitely not a transfer
+      if (isFeeRelated(tx1Lower) || isFeeRelated(tx2Lower)) continue;
+      if (isRefundRelated(tx1Lower) || isRefundRelated(tx2Lower)) continue;
+
+      // Higher confidence if transfer keywords present
+      const hasTransferKeywords =
+        isTransferKeyword(tx1Lower) || isTransferKeyword(tx2Lower);
+
+      // For same-day transfers, accept without transfer keywords
+      // For multi-day transfers (1-5 days), require transfer keywords for confidence
+      if (daysDiff > 0 && !hasTransferKeywords) continue;
 
       // Mark both as potential transfers between accounts
       console.log('Inter-account transfer detected:', {
-        date: tx1.date.toLocaleDateString(),
+        dates: `${tx1.date.toLocaleDateString()} -> ${tx2.date.toLocaleDateString()}`,
+        daysDiff: daysDiff.toFixed(1),
         amount: tx1.amount,
         from: `${tx1.accountName} (${tx1.accountId})`,
         to: `${tx2.accountName} (${tx2.accountId})`,
         tx1Type: tx1.categoryType,
         tx2Type: tx2.categoryType,
         tx1Desc: tx1.description,
-        tx2Desc: tx2.description
+        tx2Desc: tx2.description,
+        confidence: daysDiff === 0 ? 'high' : hasTransferKeywords ? 'high' : 'medium'
       });
+
       potentialTransfers.push({ ...tx1, isIntercompany: true });
       potentialTransfers.push({ ...tx2, isIntercompany: true });
       processed.add(tx1.id);
@@ -146,14 +176,17 @@ export function calculateBusinessSummary(
 
   // Calculate functional expenses (FASB requirement)
   const functionalExpenses = calculateFunctionalExpenses(expenseTransactions);
-  const programExpenseRatio = functionalExpenses.total > 0
-    ? functionalExpenses.programServices / functionalExpenses.total
-    : 0;
+  const programExpenseRatio = safeDivide(
+    functionalExpenses.programServices,
+    functionalExpenses.total,
+    0
+  );
 
   // Calculate operating reserves
-  const monthlyExpenses = totalExpenses / (getMonthsDifference(dateRange.start, dateRange.end) || 1);
-  const currentCash = totalIncome - totalExpenses; // Simplified - ideally would track actual cash balance
-  const operatingReserveMonths = monthlyExpenses > 0 ? currentCash / monthlyExpenses : 0;
+  const months = getMonthsDifference(dateRange.start, dateRange.end);
+  const monthlyExpenses = safeDivide(totalExpenses, months, 0);
+  const currentCash = roundCurrency(totalIncome - totalExpenses);
+  const operatingReserveMonths = safeDivide(currentCash, monthlyExpenses, 0);
 
   // Revenue composition
   const revenueBySource = categorizeRevenue(incomeTransactions);
@@ -295,14 +328,14 @@ function calculateTopCategories(
 
   transactions.forEach(tx => {
     const current = categoryTotals.get(tx.category) || 0;
-    categoryTotals.set(tx.category, current + tx.amount);
+    categoryTotals.set(tx.category, roundCurrency(current + tx.amount));
   });
 
   return Array.from(categoryTotals.entries())
     .map(([category, amount]) => ({
       category,
-      amount,
-      percentage: total > 0 ? (amount / total) * 100 : 0
+      amount: roundCurrency(amount),
+      percentage: safePercentage(amount, total, 0)
     }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 10);
@@ -421,8 +454,8 @@ function analyzeVendors(expenseTransactions: BusinessTransaction[]): VendorSpend
   // Calculate percentages and averages
   const vendors = Array.from(vendorMap.values()).map(v => ({
     ...v,
-    percentOfTotal: total > 0 ? (v.totalSpent / total) * 100 : 0,
-    averageTransaction: v.totalSpent / v.transactionCount
+    percentOfTotal: safePercentage(v.totalSpent, total, 0),
+    averageTransaction: safeDivide(v.totalSpent, v.transactionCount, 0)
   }));
 
   // Sort by total spent and return top 20
@@ -463,9 +496,18 @@ function isManagementCategory(category: string): boolean {
 
 /**
  * Helper: Calculate months difference between dates
+ * Returns accurate partial month calculation based on actual days
  */
 function getMonthsDifference(start: Date, end: Date): number {
-  const months = (end.getFullYear() - start.getFullYear()) * 12 +
-                 (end.getMonth() - start.getMonth()) + 1;
-  return months > 0 ? months : 1;
+  // Validate dates
+  if (!isValidDate(start) || !isValidDate(end)) {
+    console.warn('Invalid dates provided to getMonthsDifference');
+    return 1; // Return minimum 1 month to avoid division by zero
+  }
+
+  // Use accurate calculation from dateUtils
+  const months = monthsBetween(start, end);
+
+  // Return at least 0.1 months (about 3 days) to avoid division by zero
+  return Math.max(months ?? 1, 0.1);
 }

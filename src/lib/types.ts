@@ -261,6 +261,10 @@ export interface BankAccount {
   dateRange: DateRange;
   currency?: string; // ISO 4217, default 'USD'
   description?: string; // Optional user description
+
+  // Opening balance support (critical for accurate balance calculations)
+  openingBalance?: number; // Balance at start of transaction history (before first transaction)
+  openingBalanceDate?: Date; // Date of the opening balance (typically dateRange.start)
 }
 
 // Extended transaction with account context
