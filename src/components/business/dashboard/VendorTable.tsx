@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercentage, formatDate } from "@/lib/formatters";
-import { TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ArrowLeft, ArrowUpDown } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface VendorTableProps {
@@ -17,18 +17,39 @@ interface VendorTableProps {
 }
 
 type ViewMode = 'table' | 'transactions';
+type SortColumn = 'amount' | 'count' | 'percentage';
 
 const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granularity, type }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedTransactions, setSelectedTransactions] = useState<BusinessTransaction[]>([]);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('amount');
 
   const itemsPerPage = 5;
 
   const allTableData = useMemo(() => {
-    return buildVendorTableData(hierarchyNodes, granularity);
-  }, [hierarchyNodes, granularity]);
+    const data = buildVendorTableData(hierarchyNodes, granularity);
+
+    console.log(`[VendorTable ${type}] Hierarchy nodes:`, hierarchyNodes.length);
+    console.log(`[VendorTable ${type}] Flattened data (${granularity}):`, data.length);
+
+    // Sort based on selected column
+    const sorted = [...data].sort((a, b) => {
+      switch (sortColumn) {
+        case 'amount':
+          return b.amount - a.amount;
+        case 'count':
+          return b.count - a.count;
+        case 'percentage':
+          return b.percentage - a.percentage;
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [hierarchyNodes, granularity, sortColumn, type]);
 
   const tableData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -47,7 +68,9 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
       date: new Date(tx.date).getTime(),
       amount: tx.amount,
       dateLabel: formatDate(tx.date),
-      name: tx.name || tx.payee || 'Unknown'
+      name: tx.name || tx.payee || 'Unknown',
+      accountName: tx.accountName,
+      institutionName: tx.institutionName
     }));
   }, [selectedTransactions, viewMode]);
 
@@ -77,6 +100,11 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
     setCurrentPage(newPage);
   };
 
+  const handleSort = (column: SortColumn) => {
+    setSortColumn(column);
+    setCurrentPage(1); // Reset to first page when sorting changes
+  };
+
   if (allTableData.length === 0) {
     return (
       <Card>
@@ -97,13 +125,13 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
   const getGranularityDescription = () => {
     switch (granularity) {
       case 'consolidated':
-        return 'Core vendor names only';
+        return 'Grouped by organization';
       case 'standard':
-        return 'Transaction IDs removed';
+        return 'Grouped by subdivision';
       case 'detailed':
-        return 'Original full names';
+        return 'Grouped by transaction';
       default:
-        return 'Vendor groups';
+        return 'Transaction groups';
     }
   };
 
@@ -111,8 +139,8 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          {icon}
           <CardTitle>{title}</CardTitle>
+          {icon}
         </div>
         <CardDescription>
           {viewMode === 'table' ? getGranularityDescription() : `Transactions for ${selectedVendor}`}
@@ -124,10 +152,40 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">Count</TableHead>
-                  <TableHead className="text-right">% of Total</TableHead>
+                  <TableHead>Group</TableHead>
+                  <TableHead className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 font-semibold hover:bg-transparent"
+                      onClick={() => handleSort('amount')}
+                    >
+                      Amount
+                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'amount' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 font-semibold hover:bg-transparent"
+                      onClick={() => handleSort('count')}
+                    >
+                      Count
+                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'count' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 font-semibold hover:bg-transparent"
+                      onClick={() => handleSort('percentage')}
+                    >
+                      % of Total
+                      <ArrowUpDown className={`ml-1 h-3 w-3 ${sortColumn === 'percentage' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    </Button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -155,12 +213,16 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
               </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages} ({allTableData.length} total vendors)
-                </div>
+            {/* Pagination Controls - Always show count, only show pagination if needed */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {totalPages > 1 ? (
+                  <>Page {currentPage} of {totalPages} ({allTableData.length} total groups)</>
+                ) : (
+                  <>{allTableData.length} {allTableData.length === 1 ? 'group' : 'groups'}</>
+                )}
+              </div>
+              {totalPages > 1 && (
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -201,12 +263,12 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* Back Button */}
+          <>
+            {/* Back Button - Outside scroll area */}
             <Button
               variant="outline"
               size="sm"
@@ -214,7 +276,7 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
               className="mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Vendors
+              Back to Groups
             </Button>
 
             {selectedTransactions.length === 0 ? (
@@ -223,131 +285,137 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
               </div>
             ) : (
               <>
-                {/* Timeline Chart */}
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium">Transaction Timeline</h4>
-                  <div className="h-[200px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="date"
-                          type="number"
-                          domain={['dataMin', 'dataMax']}
-                          tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          tick={{ fontSize: 11 }}
-                        />
-                        <YAxis
-                          dataKey="amount"
-                          tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
-                          tick={{ fontSize: 11 }}
-                        />
-                        <Tooltip
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length > 0) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
-                                  <div className="font-medium">{data.name}</div>
-                                  <div className="text-muted-foreground">{data.dateLabel}</div>
-                                  <div className={`font-bold ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
-                                    {formatCurrency(data.amount)}
+                {/* Scrollable content area with fixed max height */}
+                <div className="max-h-[700px] overflow-y-auto space-y-6 pr-2">
+                  {/* Timeline Chart */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Transaction Timeline</h4>
+                    <div className="h-[200px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="date"
+                            type="number"
+                            domain={['dataMin', 'dataMax']}
+                            tickFormatter={(timestamp) => new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            tick={{ fontSize: 11 }}
+                          />
+                          <YAxis
+                            dataKey="amount"
+                            tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                            tick={{ fontSize: 11 }}
+                          />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length > 0) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-sm">
+                                    <div className="font-medium">{data.name}</div>
+                                    <div className="text-xs text-muted-foreground">{data.accountName}</div>
+                                    <div className="text-muted-foreground mt-1">{data.dateLabel}</div>
+                                    <div className={`font-bold mt-1 ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
+                                      {formatCurrency(data.amount)}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        <Scatter
-                          data={timelineData}
-                          fill={type === 'expense' ? '#F59E0B' : '#10B981'}
-                        />
-                      </ScatterChart>
-                    </ResponsiveContainer>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Scatter
+                            data={timelineData}
+                            fill={type === 'expense' ? '#F59E0B' : '#10B981'}
+                          />
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Timeline Summary */}
+                  {(() => {
+                    const firstDate = new Date(selectedTransactions[0].date);
+                    const lastDate = new Date(selectedTransactions[selectedTransactions.length - 1].date);
+
+                    if (isNaN(firstDate.getTime()) || isNaN(lastDate.getTime())) {
+                      return null;
+                    }
+
+                    const daysDiff = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                    return (
+                      <div className="bg-muted/50 p-4 rounded-lg">
+                        <div className="flex items-center justify-between text-sm">
+                          <div>
+                            <span className="text-muted-foreground">First transaction: </span>
+                            <span className="font-medium">{formatDate(selectedTransactions[0].date)}</span>
+                          </div>
+                          <div className="text-muted-foreground">
+                            {daysDiff > 0 ? `${daysDiff} days span` : 'Same day'}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Last transaction: </span>
+                            <span className="font-medium">{formatDate(selectedTransactions[selectedTransactions.length - 1].date)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Transaction Table */}
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[100px]">Date</TableHead>
+                          <TableHead>Payee</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedTransactions.map((tx, index) => {
+                          const currentDate = new Date(tx.date);
+                          const prevDate = index > 0 ? new Date(selectedTransactions[index - 1].date) : null;
+                          const isNewMonth = !prevDate ||
+                            currentDate.getMonth() !== prevDate.getMonth() ||
+                            currentDate.getFullYear() !== prevDate.getFullYear();
+
+                          const monthLabel = currentDate.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long'
+                          });
+
+                          return (
+                            <React.Fragment key={tx.id}>
+                              {isNewMonth && (
+                                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                                  <TableCell colSpan={3} className="font-semibold text-xs uppercase tracking-wide text-muted-foreground py-2">
+                                    {monthLabel}
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                              <TableRow>
+                                <TableCell className="text-sm tabular-nums">
+                                  {formatDate(tx.date)}
+                                </TableCell>
+                                <TableCell className="font-medium text-sm">
+                                  {tx.name || tx.payee || 'Unknown'}
+                                </TableCell>
+                                <TableCell className={`text-right font-medium tabular-nums ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
+                                  {formatCurrency(tx.amount)}
+                                </TableCell>
+                              </TableRow>
+                            </React.Fragment>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
 
-                {/* Timeline Summary */}
-                {(() => {
-                  const firstDate = new Date(selectedTransactions[0].date);
-                  const lastDate = new Date(selectedTransactions[selectedTransactions.length - 1].date);
-
-                  if (isNaN(firstDate.getTime()) || isNaN(lastDate.getTime())) {
-                    return null;
-                  }
-
-                  const daysDiff = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24));
-
-                  return (
-                    <div className="bg-muted/50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-sm">
-                        <div>
-                          <span className="text-muted-foreground">First transaction: </span>
-                          <span className="font-medium">{formatDate(selectedTransactions[0].date)}</span>
-                        </div>
-                        <div className="text-muted-foreground">
-                          {daysDiff > 0 ? `${daysDiff} days span` : 'Same day'}
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Last transaction: </span>
-                          <span className="font-medium">{formatDate(selectedTransactions[selectedTransactions.length - 1].date)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Transaction Table */}
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Date</TableHead>
-                      <TableHead>Payee</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedTransactions.map((tx, index) => {
-                      const currentDate = new Date(tx.date);
-                      const prevDate = index > 0 ? new Date(selectedTransactions[index - 1].date) : null;
-                      const isNewMonth = !prevDate ||
-                        currentDate.getMonth() !== prevDate.getMonth() ||
-                        currentDate.getFullYear() !== prevDate.getFullYear();
-
-                      const monthLabel = currentDate.toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long'
-                      });
-
-                      return (
-                        <React.Fragment key={tx.id}>
-                          {isNewMonth && (
-                            <TableRow className="bg-muted/30 hover:bg-muted/30">
-                              <TableCell colSpan={3} className="font-semibold text-xs uppercase tracking-wide text-muted-foreground py-2">
-                                {monthLabel}
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          <TableRow>
-                            <TableCell className="text-sm tabular-nums">
-                              {formatDate(tx.date)}
-                            </TableCell>
-                            <TableCell className="font-medium text-sm">
-                              {tx.name || tx.payee || 'Unknown'}
-                            </TableCell>
-                            <TableCell className={`text-right font-medium tabular-nums ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
-                              {formatCurrency(tx.amount)}
-                            </TableCell>
-                          </TableRow>
-                        </React.Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-
-                {/* Total Summary */}
-                <div className="pt-4 border-t flex justify-between items-center">
+                {/* Total Summary - Outside scroll area, always visible at bottom */}
+                <div className="mt-4 pt-4 border-t flex justify-between items-center">
                   <span className="font-medium">Total ({selectedTransactions.length} {selectedTransactions.length === 1 ? 'transaction' : 'transactions'})</span>
                   <span className={`font-bold text-lg ${type === 'expense' ? 'text-orange-600' : 'text-green-600'}`}>
                     {formatCurrency(selectedTransactions.reduce((sum, tx) => sum + tx.amount, 0))}
@@ -355,7 +423,7 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                 </div>
               </>
             )}
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

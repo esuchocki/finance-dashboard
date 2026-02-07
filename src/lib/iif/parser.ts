@@ -98,14 +98,17 @@ export function parseIIFFile(fileContent: string): BusinessTransaction[] {
         }
       }
 
-      // If amount is in SPL, use it (it should match TRNS but might be opposite sign)
-      if (amountIdx >= 0 && parts[amountIdx]) {
+      // If amount is in SPL, use it to determine the gross amount (before fees)
+      // But preserve the sign from the TRNS line which indicates direction
+      if (amountIdx >= 0 && parts[amountIdx] && currentTransaction.amount !== undefined) {
         // Remove quotes and commas from amount before parsing
         const cleanAmount = parts[amountIdx].replace(/^"|"$/g, '').replace(/,/g, '');
         const splAmount = parseFloat(cleanAmount) || 0;
-        // Use absolute value of the larger amount
-        if (currentTransaction.amount === undefined || Math.abs(splAmount) > Math.abs(currentTransaction.amount)) {
-          currentTransaction.amount = Math.abs(splAmount);
+        const trnsSign = currentTransaction.amount >= 0 ? 1 : -1;
+
+        // Use the larger absolute value but keep the sign from TRNS
+        if (Math.abs(splAmount) > Math.abs(currentTransaction.amount)) {
+          currentTransaction.amount = Math.abs(splAmount) * trnsSign;
         }
       }
     }

@@ -75,10 +75,10 @@ export const useVendorAnalytics = ({
 
         // Calculate vendor analytics
         const result: VendorAnalytics = {
-          topExpensesByVendor: analyzeVendorsByType(expenseTransactions, 'expense', strategy, 5),
-          topIncomeByVendor: analyzeVendorsByType(incomeTransactions, 'income', strategy, 5),
-          topExpenseTransactions: analyzeTopTransactions(expenseTransactions, 'expense', 5),
-          topIncomeTransactions: analyzeTopTransactions(incomeTransactions, 'income', 5)
+          topExpensesByVendor: analyzeVendorsByType(expenseTransactions, 'expense', 999999),
+          topIncomeByVendor: analyzeVendorsByType(incomeTransactions, 'income', 999999),
+          topExpenseTransactions: analyzeTopTransactions(expenseTransactions, 'expense', 999999),
+          topIncomeTransactions: analyzeTopTransactions(incomeTransactions, 'income', 999999)
         };
 
         const endTime = performance.now();

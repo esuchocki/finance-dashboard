@@ -61,7 +61,7 @@ const VendorAnalyticsSection: React.FC<VendorAnalyticsSectionProps> = ({
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
-                <CardTitle>Vendor Grouping Detail Level</CardTitle>
+                <CardTitle>Transaction Grouping</CardTitle>
                 {isCalculating && !cacheHit && (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -75,20 +75,20 @@ const VendorAnalyticsSection: React.FC<VendorAnalyticsSectionProps> = ({
                 )}
               </div>
               <CardDescription className="text-sm">
-                {vendorGranularity === 'detailed' && 'Full detail - Shows original transaction names with all IDs and codes (e.g., "KARME CHOLING IMPOUND PD4305")'}
-                {vendorGranularity === 'standard' && 'Medium detail - Transaction IDs removed, vendor subdivisions kept (e.g., "KARME CHOLING IMPOUND")'}
-                {vendorGranularity === 'consolidated' && 'Core only - Shows root vendor name only (e.g., "KARME CHOLING")'}
+                {vendorGranularity === 'detailed' && 'Transaction Level - Each unique transaction description appears as a separate row. Shows all codes, IDs, and variations.'}
+                {vendorGranularity === 'standard' && 'Subdivision Level - Groups transactions by location or department. Removes transaction codes but keeps organizational subdivisions.'}
+                {vendorGranularity === 'consolidated' && 'Organization Level - Groups all transactions by main vendor or organization name. Combines all locations and subdivisions.'}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2 min-w-[200px]">
+            <div className="flex items-center gap-2 min-w-[220px]">
               <Select value={vendorGranularity} onValueChange={setVendorGranularity}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="consolidated">Consolidated (Root)</SelectItem>
-                  <SelectItem value="standard">Standard (Medium)</SelectItem>
-                  <SelectItem value="detailed">Detailed (Full)</SelectItem>
+                  <SelectItem value="consolidated">Organization Level</SelectItem>
+                  <SelectItem value="standard">Subdivision Level</SelectItem>
+                  <SelectItem value="detailed">Transaction Level</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -102,13 +102,13 @@ const VendorAnalyticsSection: React.FC<VendorAnalyticsSectionProps> = ({
         {/* Vendor Tables: Income and Expenses side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <VendorTable
-            title="Top 5 Income by Vendor"
+            title="Income by Group"
             hierarchyNodes={topIncomeByVendor}
             granularity={vendorGranularity}
             type="income"
           />
           <VendorTable
-            title="Top 5 Expenses by Vendor"
+            title="Expenses by Group"
             hierarchyNodes={topExpensesByVendor}
             granularity={vendorGranularity}
             type="expense"
@@ -118,13 +118,13 @@ const VendorAnalyticsSection: React.FC<VendorAnalyticsSectionProps> = ({
         {/* Vendor Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <VendorHierarchyChart
-            title="Income Vendor Breakdown"
+            title="Income Group Breakdown"
             hierarchyNodes={topIncomeByVendor}
             granularity={vendorGranularity}
             type="income"
           />
           <VendorHierarchyChart
-            title="Expense Vendor Breakdown"
+            title="Expense Group Breakdown"
             hierarchyNodes={topExpensesByVendor}
             granularity={vendorGranularity}
             type="expense"
@@ -138,12 +138,12 @@ const VendorAnalyticsSection: React.FC<VendorAnalyticsSectionProps> = ({
         {/* Transaction Tables: Income and Expenses side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TopTransactionsTable
-            title="Top 5 Income Transactions"
+            title="Large Income Transactions"
             topTransactions={topIncomeTransactions}
             type="income"
           />
           <TopTransactionsTable
-            title="Top 5 Expense Transactions"
+            title="Large Expense Transactions"
             topTransactions={topExpenseTransactions}
             type="expense"
           />

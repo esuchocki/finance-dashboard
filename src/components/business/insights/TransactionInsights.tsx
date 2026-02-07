@@ -6,7 +6,8 @@ import {
   detectSubscriptions,
   detectBalanceDrops,
   analyzeTransactionFrequency,
-  analyzeTransactionVolume
+  analyzeTransactionVolume,
+  BalanceDropWarning
 } from "@/lib/business/transactionAnalysis";
 import TrendAnalysisCharts from "./TrendAnalysisCharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,8 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
-  TrendingUp
+  TrendingUp,
+  AlertCircle
 } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -42,11 +44,15 @@ const TransactionInsights: React.FC<TransactionInsightsProps> = ({ transactions 
   const insights = useMemo(() => {
     if (transactions.length === 0) return null;
 
+    const subscriptions = detectSubscriptions(transactions);
+    const balanceDropResult = detectBalanceDrops(transactions, 0.15, subscriptions);
+
     return {
       duplicates: detectDuplicates(transactions),
       recurring: detectRecurringTransactions(transactions),
-      subscriptions: detectSubscriptions(transactions),
-      balanceDrops: detectBalanceDrops(transactions, 0.15),
+      subscriptions,
+      balanceDrops: balanceDropResult.drops,
+      balanceDropWarnings: balanceDropResult.warnings,
       frequency: analyzeTransactionFrequency(transactions),
       volume: analyzeTransactionVolume(transactions)
     };
@@ -168,29 +174,70 @@ const TransactionInsights: React.FC<TransactionInsightsProps> = ({ transactions 
           </CardHeader>
           {showBalanceDrops && (
             <CardContent>
+              {insights.balanceDropWarnings && insights.balanceDropWarnings.length > 0 && (
+                <div className="mb-4 space-y-2">
+                  {insights.balanceDropWarnings.map((warning, idx) => (
+                    <Alert key={idx} variant={warning.type === 'error' ? 'destructive' : 'default'} className={
+                      warning.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+                      warning.type === 'info' ? 'bg-blue-50 border-blue-200' : ''
+                    }>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-sm">
+                        {warning.message}
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-3">
-                {insights.balanceDrops.slice(0, 5).map((drop, idx) => (
-                  <Alert key={idx} className="bg-orange-50 border-orange-200">
-                    <TrendingDown className="h-4 w-4 text-orange-600" />
-                    <AlertTitle>{drop.date.toLocaleDateString()}</AlertTitle>
-                    <AlertDescription>
-                      <div className="space-y-1">
-                        <p>
-                          Balance dropped by {formatCurrency(drop.dropAmount)} (
-                          {(drop.dropPercentage * 100).toFixed(1)}%)
-                        </p>
-                        <p className="text-xs">
-                          {formatCurrency(drop.balanceBefore)} → {formatCurrency(drop.balanceAfter)}
-                        </p>
-                        {drop.causingTransactions.length > 0 && (
-                          <p className="text-xs mt-2">
-                            Caused by {drop.causingTransactions.length} transaction(s)
-                          </p>
+                {insights.balanceDrops.slice(0, 5).map((drop, idx) => {
+                  const severityColors = {
+                    critical: 'bg-red-50 border-red-300',
+                    warning: 'bg-orange-50 border-orange-200',
+                    info: 'bg-blue-50 border-blue-200'
+                  };
+
+                  const severityIconColors = {
+                    critical: 'text-red-600',
+                    warning: 'text-orange-600',
+                    info: 'text-blue-600'
+                  };
+
+                  return (
+                    <Alert key={idx} className={severityColors[drop.severity]}>
+                      <TrendingDown className={`h-4 w-4 ${severityIconColors[drop.severity]}`} />
+                      <AlertTitle className="flex items-center gap-2">
+                        <span>{drop.date.toLocaleDateString()}</span>
+                        <Badge variant={drop.severity === 'critical' ? 'destructive' : 'outline'} className="text-xs">
+                          {drop.severity}
+                        </Badge>
+                        {drop.isLikelyNormal && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                            Likely Normal
+                          </Badge>
                         )}
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                ))}
+                      </AlertTitle>
+                      <AlertDescription>
+                        <div className="space-y-1">
+                          <p className="font-medium">{drop.accountName}</p>
+                          <p>
+                            Balance dropped by {formatCurrency(drop.dropAmount)} (
+                            {(drop.dropPercentage * 100).toFixed(1)}%)
+                          </p>
+                          <p className="text-xs">
+                            {formatCurrency(drop.balanceBefore)} → {formatCurrency(drop.balanceAfter)}
+                          </p>
+                          {drop.causingTransactions.length > 0 && (
+                            <p className="text-xs mt-2">
+                              Caused by {drop.causingTransactions.length} transaction(s)
+                            </p>
+                          )}
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                })}
               </div>
             </CardContent>
           )}

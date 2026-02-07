@@ -103,7 +103,7 @@ const BusinessDashboard: React.FC = () => {
 
       {/* Tabbed Dashboard */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full max-w-2xl grid-cols-3">
+        <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="patterns">Patterns & Alerts</TabsTrigger>
           <TabsTrigger value="trends">Trends</TabsTrigger>
@@ -112,7 +112,7 @@ const BusinessDashboard: React.FC = () => {
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Summary Cards */}
           {consolidatedSummary && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Total Income</CardDescription>
@@ -151,20 +151,6 @@ const BusinessDashboard: React.FC = () => {
             <CardContent>
               <p className="text-xs text-muted-foreground">
                 Income - Expenses
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Program Expense Ratio</CardDescription>
-              <CardTitle className="text-2xl">
-                {(consolidatedSummary.programExpenseRatio * 100).toFixed(1)}%
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                (Program Services Expenses ÷ Total Expenses) × 100%.
               </p>
             </CardContent>
           </Card>

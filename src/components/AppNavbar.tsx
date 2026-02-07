@@ -13,7 +13,7 @@ interface AppNavbarProps {
 const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
   const { transactions } = useFinance();
 
-  const navIcon = mode === 'business' ? <Building2 className="h-6 w-6" /> : <CircleDollarSign className="h-6 w-6" />;
+  const navIcon = mode === 'business' ? null : <CircleDollarSign className="h-6 w-6" />;
   const navTitle = mode === 'business' ? 'Home' : 'Sailing Funds';
 
   return (

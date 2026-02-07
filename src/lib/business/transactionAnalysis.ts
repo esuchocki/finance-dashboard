@@ -3,189 +3,48 @@ import { BusinessTransaction } from '@/lib/types';
 /**
  * Duplicate Transaction Detection
  */
-export interface DuplicateGroup {
-  transactions: BusinessTransaction[];
-  reason: string;
-  confidence: 'high' | 'medium' | 'low';
-}
+import {
+  detectImprovedDuplicates,
+  type DuplicateGroup as ImprovedDuplicateGroup
+} from './improvedDuplicateDetection';
 
+// Re-export improved type for backward compatibility
+export type DuplicateGroup = ImprovedDuplicateGroup;
+
+/**
+ * Detect duplicate transactions with improved accuracy and performance
+ *
+ * Improvements over old version:
+ * - O(n) hash-based matching instead of O(n²) pairwise comparison
+ * - Account context validation (same account required)
+ * - Better name normalization (removes transaction IDs, dates, timestamps)
+ * - Handles pending→cleared duplicate pattern (up to 7 days)
+ */
 export function detectDuplicates(transactions: BusinessTransaction[]): DuplicateGroup[] {
-  const duplicateGroups: DuplicateGroup[] = [];
-  const processed = new Set<string>();
-
-  for (let i = 0; i < transactions.length; i++) {
-    const tx1 = transactions[i];
-    if (processed.has(tx1.id)) continue;
-
-    const duplicates: BusinessTransaction[] = [tx1];
-    let reason = '';
-    let confidence: 'high' | 'medium' | 'low' = 'low';
-
-    for (let j = i + 1; j < transactions.length; j++) {
-      const tx2 = transactions[j];
-      if (processed.has(tx2.id)) continue;
-
-      // Check if amounts match exactly
-      if (Math.abs(tx1.amount - tx2.amount) > 0.01) continue;
-
-      // Check if dates are close (within 3 days)
-      const daysDiff = Math.abs(tx1.date.getTime() - tx2.date.getTime()) / (1000 * 60 * 60 * 24);
-      if (daysDiff > 3) continue;
-
-      // Check if descriptions/names are similar
-      const name1 = (tx1.name || tx1.payee || '').toLowerCase();
-      const name2 = (tx2.name || tx2.payee || '').toLowerCase();
-      const namesSimilar = name1 === name2 ||
-                          name1.includes(name2) ||
-                          name2.includes(name1);
-
-      if (namesSimilar && daysDiff === 0) {
-        // Same day, same amount, same merchant - very likely duplicate
-        duplicates.push(tx2);
-        processed.add(tx2.id);
-        reason = 'Same day, same amount, same merchant';
-        confidence = 'high';
-      } else if (namesSimilar && daysDiff <= 1) {
-        // Within 1 day, same amount, same merchant - likely duplicate
-        duplicates.push(tx2);
-        processed.add(tx2.id);
-        reason = 'Within 1 day, same amount, same merchant';
-        confidence = 'medium';
-      } else if (daysDiff <= 3) {
-        // Within 3 days, same amount - possible duplicate
-        duplicates.push(tx2);
-        processed.add(tx2.id);
-        reason = 'Within 3 days, same amount';
-        confidence = 'low';
-      }
-    }
-
-    if (duplicates.length > 1) {
-      duplicateGroups.push({
-        transactions: duplicates,
-        reason,
-        confidence
-      });
-      processed.add(tx1.id);
-    }
-  }
-
-  return duplicateGroups;
+  return detectImprovedDuplicates(transactions);
 }
 
 /**
  * Recurring Transaction Detection
  */
-export interface RecurringPattern {
-  merchantName: string;
-  amount: number;
-  frequency: 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
-  transactions: BusinessTransaction[];
-  averageDaysBetween: number;
-  confidence: 'high' | 'medium' | 'low';
-  nextExpectedDate?: Date;
-}
+import {
+  detectEnhancedRecurringPatterns,
+  type EnhancedRecurringPattern,
+  type AmountChange,
+  type TrendAnalysis,
+  type Anomaly,
+  type PredictiveAnalysis
+} from './enhancedPatternAnalysis';
+
+// Re-export enhanced types for backward compatibility
+export type RecurringPattern = EnhancedRecurringPattern;
+export type { AmountChange, TrendAnalysis, Anomaly, PredictiveAnalysis };
 
 export function detectRecurringTransactions(
   transactions: BusinessTransaction[]
 ): RecurringPattern[] {
-  // Group transactions by merchant name and similar amounts
-  const merchantGroups = new Map<string, BusinessTransaction[]>();
-
-  transactions.forEach(tx => {
-    const key = (tx.name || tx.payee || 'Unknown').toLowerCase();
-    const group = merchantGroups.get(key) || [];
-    group.push(tx);
-    merchantGroups.set(key, group);
-  });
-
-  const recurringPatterns: RecurringPattern[] = [];
-
-  merchantGroups.forEach((txs, merchantName) => {
-    // Need at least 3 transactions to detect pattern
-    if (txs.length < 3) return;
-
-    // Sort by date
-    const sorted = [...txs].sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Group by similar amounts (within 5% tolerance)
-    const amountGroups = new Map<number, BusinessTransaction[]>();
-    sorted.forEach(tx => {
-      let foundGroup = false;
-      for (const [amount, group] of amountGroups.entries()) {
-        if (Math.abs(tx.amount - amount) / amount < 0.05) {
-          group.push(tx);
-          foundGroup = true;
-          break;
-        }
-      }
-      if (!foundGroup) {
-        amountGroups.set(tx.amount, [tx]);
-      }
-    });
-
-    // Analyze each amount group for recurring patterns
-    amountGroups.forEach((group, amount) => {
-      if (group.length < 3) return;
-
-      // Calculate days between consecutive transactions
-      const daysBetween: number[] = [];
-      for (let i = 1; i < group.length; i++) {
-        const days = (group[i].date.getTime() - group[i - 1].date.getTime()) / (1000 * 60 * 60 * 24);
-        daysBetween.push(days);
-      }
-
-      // Calculate average and standard deviation
-      const avg = daysBetween.reduce((sum, d) => sum + d, 0) / daysBetween.length;
-      const variance = daysBetween.reduce((sum, d) => sum + Math.pow(d - avg, 2), 0) / daysBetween.length;
-      const stdDev = Math.sqrt(variance);
-
-      // Determine frequency and confidence
-      let frequency: RecurringPattern['frequency'];
-      let confidence: 'high' | 'medium' | 'low';
-
-      // Low standard deviation means consistent pattern
-      if (stdDev / avg < 0.2) {
-        confidence = 'high';
-      } else if (stdDev / avg < 0.4) {
-        confidence = 'medium';
-      } else {
-        confidence = 'low';
-      }
-
-      // Classify frequency
-      if (avg >= 6 && avg <= 8) {
-        frequency = 'weekly';
-      } else if (avg >= 13 && avg <= 15) {
-        frequency = 'biweekly';
-      } else if (avg >= 28 && avg <= 32) {
-        frequency = 'monthly';
-      } else if (avg >= 88 && avg <= 95) {
-        frequency = 'quarterly';
-      } else if (avg >= 360 && avg <= 370) {
-        frequency = 'annual';
-      } else {
-        // Non-standard frequency
-        return;
-      }
-
-      // Calculate next expected date
-      const lastDate = group[group.length - 1].date;
-      const nextExpectedDate = new Date(lastDate.getTime() + avg * 24 * 60 * 60 * 1000);
-
-      recurringPatterns.push({
-        merchantName,
-        amount,
-        frequency,
-        transactions: group,
-        averageDaysBetween: avg,
-        confidence,
-        nextExpectedDate
-      });
-    });
-  });
-
-  return recurringPatterns.sort((a, b) => b.amount - a.amount);
+  // Use enhanced pattern detection
+  return detectEnhancedRecurringPatterns(transactions);
 }
 
 /**
@@ -194,7 +53,7 @@ export function detectRecurringTransactions(
 export interface Subscription {
   merchantName: string;
   monthlyAmount: number;
-  frequency: 'monthly' | 'annual';
+  frequency: 'monthly' | 'annual' | 'semi-monthly' | 'bi-monthly';
   startDate: Date;
   lastChargeDate: Date;
   nextExpectedDate: Date;
@@ -203,18 +62,29 @@ export interface Subscription {
   isActive: boolean;
   missedPayments: number;
   accountName?: string;
+  transactions: BusinessTransaction[];
+
+  // Enhanced features
+  amountHistory: AmountChange[];
+  trend: TrendAnalysis | null;
+  anomalies: Anomaly[];
+  prediction: PredictiveAnalysis | null;
+  hasAmountChanges: boolean;
 }
 
 export function detectSubscriptions(
   transactions: BusinessTransaction[],
   currentDate: Date = new Date()
 ): Subscription[] {
-  const recurringPatterns = detectRecurringTransactions(transactions);
+  // Subscriptions are recurring EXPENSES (money going out)
+  const expenseTransactions = transactions.filter(tx => tx.categoryType === 'expense');
+  const recurringPatterns = detectRecurringTransactions(expenseTransactions);
   const subscriptions: Subscription[] = [];
 
   recurringPatterns.forEach(pattern => {
-    // Only consider monthly or annual patterns as subscriptions
-    if (pattern.frequency !== 'monthly' && pattern.frequency !== 'annual') return;
+    // Include monthly, semi-monthly, bi-monthly, and annual patterns
+    const validFrequencies = ['monthly', 'annual', 'semi-monthly', 'bi-monthly'];
+    if (!validFrequencies.includes(pattern.frequency)) return;
 
     // Only consider if confidence is medium or high
     if (pattern.confidence === 'low') return;
@@ -234,20 +104,33 @@ export function detectSubscriptions(
     const missedPayments = Math.max(0, expectedPayments - sortedTxs.length);
 
     // Calculate monthly equivalent
-    const monthlyAmount = pattern.frequency === 'annual' ? pattern.amount / 12 : pattern.amount;
+    let monthlyAmount = pattern.currentAmount;
+    if (pattern.frequency === 'annual') {
+      monthlyAmount = pattern.currentAmount / 12;
+    } else if (pattern.frequency === 'semi-monthly') {
+      monthlyAmount = pattern.currentAmount * 2;
+    } else if (pattern.frequency === 'bi-monthly') {
+      monthlyAmount = pattern.currentAmount * 0.5;
+    }
 
     subscriptions.push({
       merchantName: pattern.merchantName,
       monthlyAmount,
-      frequency: pattern.frequency,
+      frequency: pattern.frequency as 'monthly' | 'annual' | 'semi-monthly' | 'bi-monthly',
       startDate,
       lastChargeDate,
-      nextExpectedDate: pattern.nextExpectedDate!,
+      nextExpectedDate: pattern.nextExpectedDate,
       totalPaid,
       transactionCount: sortedTxs.length,
       isActive,
       missedPayments,
-      accountName: sortedTxs[0].accountName
+      accountName: sortedTxs[0].accountName,
+      transactions: sortedTxs,
+      amountHistory: pattern.amountHistory,
+      trend: pattern.trend,
+      anomalies: pattern.anomalies,
+      prediction: pattern.prediction,
+      hasAmountChanges: pattern.hasAmountChanges
     });
   });
 
@@ -257,69 +140,50 @@ export function detectSubscriptions(
 /**
  * Balance Drop Detection
  */
-export interface BalanceDrop {
-  date: Date;
-  dropAmount: number;
-  dropPercentage: number;
-  balanceBefore: number;
-  balanceAfter: number;
-  causingTransactions: BusinessTransaction[];
-}
+import {
+  detectImprovedBalanceDrops,
+  extractRecurringExpenseMerchants,
+  type BalanceDrop as ImprovedBalanceDrop,
+  type BalanceDropWarning
+} from './improvedBalanceAnalysis';
 
+// Re-export improved type for backward compatibility
+export type BalanceDrop = ImprovedBalanceDrop;
+export type { BalanceDropWarning };
+
+/**
+ * Detect significant balance drops with improved accuracy
+ *
+ * Improvements over old version:
+ * - Per-account balance tracking (doesn't mix accounts)
+ * - Severity levels (critical/warning/info)
+ * - Flags expected/recurring expenses as "likely normal"
+ * - Returns warnings about limitations (e.g., assumes $0 opening balance)
+ * - Aggregates by day instead of per-transaction
+ *
+ * @param transactions - All transactions to analyze
+ * @param threshold - Percentage threshold (default 15%)
+ * @param subscriptions - Optional list of known recurring expenses to flag as normal
+ */
 export function detectBalanceDrops(
   transactions: BusinessTransaction[],
-  threshold: number = 0.15 // 15% drop
-): BalanceDrop[] {
-  // Sort by date
-  const sorted = [...transactions].sort((a, b) => a.date.getTime() - b.date.getTime());
+  threshold: number = 0.15, // 15% drop
+  subscriptions?: Subscription[]
+): { drops: BalanceDrop[]; warnings: BalanceDropWarning[] } {
+  // Extract recurring expense patterns from subscriptions
+  const recurringPatterns = subscriptions
+    ? extractRecurringExpenseMerchants(
+        subscriptions.map(s => ({
+          merchantName: s.merchantName,
+          frequency: s.frequency
+        }))
+      )
+    : new Set<string>();
 
-  // Calculate running balance
-  let runningBalance = 0;
-  const balanceHistory: Array<{ date: Date; balance: number; tx: BusinessTransaction }> = [];
-
-  sorted.forEach(tx => {
-    const amount = tx.categoryType === 'income' ? tx.amount : -tx.amount;
-    runningBalance += amount;
-    balanceHistory.push({ date: tx.date, balance: runningBalance, tx });
+  return detectImprovedBalanceDrops(transactions, recurringPatterns, {
+    percentageThreshold: threshold,
+    absoluteThreshold: 500 // $500 minimum
   });
-
-  // Detect significant drops
-  const drops: BalanceDrop[] = [];
-
-  for (let i = 1; i < balanceHistory.length; i++) {
-    const prev = balanceHistory[i - 1];
-    const curr = balanceHistory[i];
-
-    if (prev.balance === 0) continue;
-
-    const dropAmount = prev.balance - curr.balance;
-    const dropPercentage = dropAmount / Math.abs(prev.balance);
-
-    if (dropPercentage >= threshold) {
-      // Find all transactions on this day that contributed to the drop
-      const dayStart = new Date(curr.date);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(curr.date);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      const causingTransactions = sorted.filter(tx =>
-        tx.date >= dayStart &&
-        tx.date <= dayEnd &&
-        tx.categoryType === 'expense'
-      );
-
-      drops.push({
-        date: curr.date,
-        dropAmount,
-        dropPercentage,
-        balanceBefore: prev.balance,
-        balanceAfter: curr.balance,
-        causingTransactions
-      });
-    }
-  }
-
-  return drops;
 }
 
 /**
