@@ -1,10 +1,12 @@
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useFinance } from "@/context/FinanceContext";
-import { CircleDollarSign, UserCircle2, Building2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { CircleDollarSign, UserCircle2, Building2, LogOut } from "lucide-react";
 import { AppMode } from "@/lib/types";
+import { toast } from "sonner";
 
 interface AppNavbarProps {
   mode?: AppMode;
@@ -12,6 +14,14 @@ interface AppNavbarProps {
 
 const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
   const { transactions } = useFinance();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Session ended. All data cleared.");
+    navigate('/login');
+  };
 
   const navIcon = mode === 'business' ? null : <CircleDollarSign className="h-6 w-6" />;
   const navTitle = mode === 'business' ? '' : 'Sailing Funds';
@@ -53,6 +63,12 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
               </Button>
             </>
           )}
+
+          {/* Logout Button - Always visible */}
+          <Button variant="outline" size="sm" onClick={handleLogout} className="ml-2">
+            <LogOut className="h-4 w-4 mr-2" />
+            End Session
+          </Button>
         </div>
       </div>
     </div>

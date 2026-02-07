@@ -110,21 +110,8 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
   // State for selected business accounts
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
 
-  // State for vendor granularity
+  // State for vendor granularity (session-only, not persisted)
   const [vendorGranularity, setVendorGranularity] = useState<VendorGranularity>('standard');
-
-  // Persist vendor granularity to localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('vendorGranularity');
-    const validGranularities: VendorGranularity[] = ['detailed', 'standard', 'consolidated'];
-    if (saved && validGranularities.includes(saved as VendorGranularity)) {
-      setVendorGranularity(saved as VendorGranularity);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('vendorGranularity', vendorGranularity);
-  }, [vendorGranularity]);
 
   // Use our custom hooks to manage different aspects of the finance data
   const {

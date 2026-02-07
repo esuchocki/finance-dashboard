@@ -1,13 +1,16 @@
-import { useState, useCallback, useEffect } from 'react';
+/**
+ * Business Accounts Hook - Session Only
+ *
+ * All data stored in memory only (no persistence between sessions).
+ * Data cleared when browser closes.
+ */
+
+import { useState, useCallback } from 'react';
 import { BankAccount, BusinessTransaction, AccountType, Transaction } from '@/lib/types';
 import { parseQBOFile } from '@/lib/qboParser';
 import { parseIIFFile, isIIFFile } from '@/lib/iif/parser';
 import { enhanceTransactionsWithClaude } from '@/lib/claudeService';
 import { toast } from 'sonner';
-
-// localStorage keys for business accounts
-const ACCOUNTS_LIST_KEY = 'business_accounts_list';
-const ACCOUNT_DATA_PREFIX = 'business_account_';
 
 interface UseBusinessAccountsResult {
   accounts: BankAccount[];
@@ -22,80 +25,13 @@ interface UseBusinessAccountsResult {
 
 export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAccountsResult => {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [accountTransactions, setAccountTransactions] = useState<Map<string, BusinessTransaction[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load accounts from localStorage on mount
-  useEffect(() => {
-    loadAccountsFromStorage();
-  }, []);
-
-  // Save accounts to localStorage whenever they change
-  useEffect(() => {
-    if (accounts.length > 0) {
-      saveAccountsToStorage();
-    }
-  }, [accounts]);
-
-  const loadAccountsFromStorage = () => {
-    try {
-      const stored = localStorage.getItem(ACCOUNTS_LIST_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        const accountsWithDates = parsed.map((account: any) => ({
-          ...account,
-          dateUploaded: new Date(account.dateUploaded),
-          dateRange: {
-            start: new Date(account.dateRange.start),
-            end: new Date(account.dateRange.end)
-          }
-        }));
-        setAccounts(accountsWithDates);
-      }
-    } catch (err) {
-      console.error('Error loading accounts from storage:', err);
-      setError('Failed to load saved accounts');
-    }
-  };
-
-  const saveAccountsToStorage = () => {
-    try {
-      localStorage.setItem(ACCOUNTS_LIST_KEY, JSON.stringify(accounts));
-    } catch (err) {
-      console.error('Error saving accounts to storage:', err);
-      toast.error('Failed to save accounts');
-    }
-  };
-
-  const saveAccountTransactions = (accountId: string, transactions: BusinessTransaction[]) => {
-    try {
-      const key = `${ACCOUNT_DATA_PREFIX}${accountId}_transactions`;
-      localStorage.setItem(key, JSON.stringify(transactions));
-    } catch (err) {
-      console.error('Error saving account transactions:', err);
-      throw new Error('Failed to save transaction data. localStorage may be full.');
-    }
-  };
-
   const getAccountTransactions = useCallback((accountId: string): BusinessTransaction[] => {
-    try {
-      const key = `${ACCOUNT_DATA_PREFIX}${accountId}_transactions`;
-      const stored = localStorage.getItem(key);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        return parsed.map((tx: any) => ({
-          ...tx,
-          date: new Date(tx.date)
-        }));
-      }
-      return [];
-    } catch (err) {
-      console.error('Error loading account transactions:', err);
-      return [];
-    }
-  }, []);
+    return accountTransactions.get(accountId) || [];
+  }, [accountTransactions]);
 
   const addAccount = async (
     file: File,
@@ -124,7 +60,7 @@ export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAcc
         throw new Error('No transactions found in file');
       }
 
-      console.log(`Parsed ${transactions.length} transactions from ${file.name}`);
+      console.log(`Parsed ${transactions.length} transactions from ${file.name} (stored in memory only)`);
 
       // Enhance transactions with Claude if API key is available
       if (claudeApiKey) {
@@ -168,14 +104,18 @@ export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAcc
         currency: 'USD'
       };
 
-      // Save transactions to localStorage
-      saveAccountTransactions(accountId, businessTransactions);
+      // Store transactions in memory
+      setAccountTransactions(prev => {
+        const newMap = new Map(prev);
+        newMap.set(accountId, businessTransactions);
+        return newMap;
+      });
 
       // Add account to list
       setAccounts(prev => [...prev, newAccount]);
 
       toast.success(`Account "${accountName}" added successfully`, {
-        description: `${transactions.length} transactions loaded from ${institutionName}`
+        description: `${transactions.length} transactions loaded (session only)`
       });
 
     } catch (err) {
@@ -192,14 +132,17 @@ export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAcc
 
   const removeAccount = (accountId: string) => {
     try {
-      // Remove transactions from localStorage
-      const txKey = `${ACCOUNT_DATA_PREFIX}${accountId}_transactions`;
-      localStorage.removeItem(txKey);
+      // Remove transactions from memory
+      setAccountTransactions(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(accountId);
+        return newMap;
+      });
 
       // Remove account from list
       setAccounts(prev => prev.filter(a => a.id !== accountId));
 
-      toast.success('Account removed successfully');
+      toast.success('Account removed from session');
     } catch (err) {
       console.error('Error removing account:', err);
       toast.error('Failed to remove account');
@@ -218,17 +161,9 @@ export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAcc
 
   const clearAllAccounts = () => {
     try {
-      // Remove all account data from localStorage
-      accounts.forEach(account => {
-        const txKey = `${ACCOUNT_DATA_PREFIX}${account.id}_transactions`;
-        localStorage.removeItem(txKey);
-      });
-
-      // Clear accounts list
-      localStorage.removeItem(ACCOUNTS_LIST_KEY);
+      setAccountTransactions(new Map());
       setAccounts([]);
-
-      toast.success('All accounts cleared');
+      toast.success('All accounts cleared from session');
     } catch (err) {
       console.error('Error clearing accounts:', err);
       toast.error('Failed to clear accounts');

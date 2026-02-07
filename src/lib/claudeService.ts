@@ -2,30 +2,55 @@ import { categoryHierarchy } from './qbo/categoryPatterns';
 import { Transaction } from './types';
 import { ClaudeEnhancementResponse } from './qbo/types';
 import { toast } from "sonner";
+import { secureSessionStorage } from './secureSessionStorage';
 
-// API key storage in localStorage
+// API key storage in secure session storage
 const CLAUDE_API_KEY_STORAGE_KEY = 'claudeApiKey';
 
 // Check if a Claude API key is available
 export const hasClaudeApiKey = (): boolean => {
-  const hasKey = !!localStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY);
-  console.log("Claude API key available:", hasKey);
-  return hasKey;
+  try {
+    if (!secureSessionStorage.isUnlocked()) {
+      return false;
+    }
+    const hasKey = !!secureSessionStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY);
+    console.log("Claude API key available:", hasKey);
+    return hasKey;
+  } catch {
+    return false;
+  }
 };
 
 // Get the stored Claude API key
 export const getClaudeApiKey = (): string => {
-  return localStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY) || '';
+  try {
+    if (!secureSessionStorage.isUnlocked()) {
+      return '';
+    }
+    return secureSessionStorage.getItem(CLAUDE_API_KEY_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
 };
 
 // Save the Claude API key
 export const saveClaudeApiKey = (apiKey: string): void => {
-  localStorage.setItem(CLAUDE_API_KEY_STORAGE_KEY, apiKey);
+  try {
+    if (secureSessionStorage.isUnlocked()) {
+      secureSessionStorage.setItem(CLAUDE_API_KEY_STORAGE_KEY, apiKey);
+    }
+  } catch (err) {
+    console.error('Error saving Claude API key:', err);
+  }
 };
 
 // Clear the Claude API key
 export const clearClaudeApiKey = (): void => {
-  localStorage.removeItem(CLAUDE_API_KEY_STORAGE_KEY);
+  try {
+    secureSessionStorage.removeItem(CLAUDE_API_KEY_STORAGE_KEY);
+  } catch (err) {
+    console.error('Error clearing Claude API key:', err);
+  }
 };
 
 // Enhanced function to categorize transactions using Claude API
