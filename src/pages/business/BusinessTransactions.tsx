@@ -13,6 +13,7 @@ const BusinessTransactions = () => {
   const { businessAccounts, selectedAccountIds, getAccountTransactions } = useFinance();
   const [currentPage, setCurrentPage] = useState(1);
   const [filteredTransactions, setFilteredTransactions] = useState<BusinessTransaction[]>([]);
+  const searchInitialized = React.useRef(false);
   const transactionsPerPage = 25;
 
   const { consolidatedTransactions } = useConsolidation({
@@ -24,13 +25,12 @@ const BusinessTransactions = () => {
   // Handle filtered transactions from search component
   const handleFilteredTransactionsChange = useCallback((transactions: BusinessTransaction[]) => {
     setFilteredTransactions(transactions);
-    setCurrentPage(1); // Reset to first page when filters change
+    searchInitialized.current = true;
+    setCurrentPage(1);
   }, []);
 
-  // Use filtered transactions if available, otherwise use all consolidated transactions
-  const transactionsToDisplay = filteredTransactions.length > 0 || consolidatedTransactions.length === 0
-    ? filteredTransactions
-    : consolidatedTransactions;
+  // Once search is initialized, always use filtered results (may be empty on no match)
+  const transactionsToDisplay = searchInitialized.current ? filteredTransactions : consolidatedTransactions;
 
   // Calculate pagination values
   const totalPages = Math.ceil(transactionsToDisplay.length / transactionsPerPage);
@@ -47,6 +47,7 @@ const BusinessTransactions = () => {
   React.useEffect(() => {
     setCurrentPage(1);
     setFilteredTransactions([]);
+    searchInitialized.current = false;
   }, [selectedAccountIds]);
 
   // Build account list for search component
