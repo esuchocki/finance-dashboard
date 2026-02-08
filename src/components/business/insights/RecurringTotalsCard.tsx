@@ -246,12 +246,12 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
                         <div className="flex gap-2 mt-1">
                           {account.subscriptionCount > 0 && (
                             <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
-                              {account.subscriptionCount} subs
+                              {account.subscriptionCount} {account.subscriptionCount === 1 ? 'subscription' : 'subscriptions'}
                             </Badge>
                           )}
                           {account.recurringCount > 0 && (
                             <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                              {account.recurringCount} recurring
+                              {account.recurringCount} {account.recurringCount === 1 ? 'recurring payment' : 'recurring payments'}
                             </Badge>
                           )}
                         </div>

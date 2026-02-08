@@ -18,51 +18,78 @@ const InactivityTimeout: React.FC<{ children: React.ReactNode }> = ({ children }
 
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasLoggedOut = useRef(false);
+
+  const clearTimers = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = null;
+    }
+    if (countdownTimer.current) {
+      clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+    }
+  }, []);
 
   const doLogout = useCallback(() => {
-    setShowWarning(false);
+    if (hasLoggedOut.current) return;
+    hasLoggedOut.current = true;
+
     clearTimers();
+    setShowWarning(false);
     logout();
     toast.info('Session ended due to inactivity.');
     navigate('/login');
-  }, [logout, navigate]);
+  }, [logout, navigate, clearTimers]);
 
-  const clearTimers = () => {
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    if (countdownTimer.current) clearInterval(countdownTimer.current);
-    inactivityTimer.current = null;
-    countdownTimer.current = null;
-  };
+  const startCountdown = useCallback(() => {
+    setShowWarning(true);
+    setSecondsLeft(WARNING_MS / 1000);
+
+    if (countdownTimer.current) {
+      clearInterval(countdownTimer.current);
+    }
+
+    countdownTimer.current = setInterval(() => {
+      setSecondsLeft(prev => prev - 1);
+    }, 1000);
+  }, []);
 
   const startInactivityTimer = useCallback(() => {
     clearTimers();
-    inactivityTimer.current = setTimeout(() => {
-      setShowWarning(true);
-      setSecondsLeft(WARNING_MS / 1000);
-      countdownTimer.current = setInterval(() => {
-        setSecondsLeft(prev => {
-          if (prev <= 1) {
-            doLogout();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }, INACTIVITY_MS);
-  }, [doLogout]);
+    hasLoggedOut.current = false;
 
-  const handleContinue = () => {
+    inactivityTimer.current = setTimeout(() => {
+      startCountdown();
+    }, INACTIVITY_MS);
+  }, [clearTimers, startCountdown]);
+
+  const handleContinue = useCallback(() => {
+    clearTimers();
     setShowWarning(false);
     startInactivityTimer();
-  };
+  }, [clearTimers, startInactivityTimer]);
 
+  // Separate effect to handle countdown reaching zero
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (showWarning && secondsLeft <= 0) {
+      doLogout();
+    }
+  }, [showWarning, secondsLeft, doLogout]);
+
+  // Main effect for setting up inactivity detection
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearTimers();
+      return;
+    }
 
     startInactivityTimer();
 
     const resetTimer = () => {
-      if (!showWarning) startInactivityTimer();
+      if (!showWarning) {
+        startInactivityTimer();
+      }
     };
 
     ACTIVITY_EVENTS.forEach(event => window.addEventListener(event, resetTimer, { passive: true }));
@@ -71,7 +98,7 @@ const InactivityTimeout: React.FC<{ children: React.ReactNode }> = ({ children }
       clearTimers();
       ACTIVITY_EVENTS.forEach(event => window.removeEventListener(event, resetTimer));
     };
-  }, [isAuthenticated, startInactivityTimer, showWarning]);
+  }, [isAuthenticated, startInactivityTimer, clearTimers]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = secondsLeft % 60;
