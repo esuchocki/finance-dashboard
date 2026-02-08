@@ -15,7 +15,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
+    <BrowserRouter basename="/finance-dashboard">
       <AuthProvider>
         <Routes>
           {/* Login - Only unprotected route */}

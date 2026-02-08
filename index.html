@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Finance</title>
+    <title>Finance Dashboard</title>
+    <script>
+      // Handle redirect from 404.html for SPA routing on GitHub Pages
+      (function() {
+        var redirect = sessionStorage.redirect;
+        delete sessionStorage.redirect;
+        if (redirect && redirect !== location.href) {
+          history.replaceState(null, null, redirect);
+        }
+        // Also handle ?p= query param redirect
+        var search = window.location.search;
+        if (search && search.indexOf('?p=') === 0) {
+          var path = decodeURIComponent(search.slice(3));
+          history.replaceState(null, null, '/finance-dashboard' + path);
+        }
+      })();
+    </script>
     <meta name="description" content="Lovable Generated Project" />
     <meta name="author" content="Lovable" />
 
