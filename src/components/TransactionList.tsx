@@ -245,7 +245,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
                    transaction.description !== getDisplayName(transaction) && (
                     <>
                       <span>•</span>
-                      <span className="text-xs opacity-70 max-w-[150px] truncate" title={transaction.description}>
+                      <span className="text-xs opacity-70 max-w-[80px] sm:max-w-[150px] truncate" title={transaction.description}>
                         {transaction.description}
                       </span>
                     </>
@@ -271,7 +271,7 @@ const TransactionList: React.FC<TransactionListProps> = ({
         
         {/* Pagination controls */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="mt-4">
+          <div className="mt-4 overflow-x-auto">
             <Pagination>
               <PaginationContent>
                 {/* First page button */}

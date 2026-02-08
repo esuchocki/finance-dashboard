@@ -31,6 +31,7 @@ const AccountBreakdownTable: React.FC<AccountBreakdownTableProps> = ({ accountsS
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -83,6 +84,7 @@ const AccountBreakdownTable: React.FC<AccountBreakdownTableProps> = ({ accountsS
             ))}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

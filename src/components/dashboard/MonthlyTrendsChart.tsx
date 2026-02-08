@@ -119,11 +119,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           
           <TabsContent value="combined" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-7 h-[300px]">
+              <div className="md:col-span-7 h-[220px] sm:h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
-                    className="h-[300px]"
+                    className="h-[220px] sm:h-[300px]"
                   >
                     <BarChart
                       data={monthlyTrendData}
@@ -216,11 +216,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Trends Tab showing income and expenses as line chart with dollar amounts */}
           <TabsContent value="trends" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-7 h-[300px]">
+              <div className="md:col-span-7 h-[220px] sm:h-[300px]">
                 {monthlyTrendData.length > 0 ? (
                   <ChartContainer
                     config={chartConfig}
-                    className="h-[300px]"
+                    className="h-[220px] sm:h-[300px]"
                   >
                     <LineChart
                       data={monthlyTrendData}
@@ -316,11 +316,11 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
           {/* Combined Percentage Change Tab */}
           <TabsContent value="percentage" className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              <div className="md:col-span-7 h-[300px]">
+              <div className="md:col-span-7 h-[220px] sm:h-[300px]">
                 {monthlyTrendData.length > 1 ? (
                   <ChartContainer
                     config={chartConfig}
-                    className="h-[300px]"
+                    className="h-[220px] sm:h-[300px]"
                   >
                     <LineChart
                       data={monthlyTrendData}

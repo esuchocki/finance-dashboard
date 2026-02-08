@@ -19,7 +19,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ mode = 'personal' }) => {
         <FinanceProvider mode={mode}>
           <Toaster position="top-right" />
           <AppNavbar mode={mode} />
-          <main className="flex-1 container py-6 px-4">
+          <main className="flex-1 container py-3 md:py-6 px-3 md:px-4">
             <Outlet />
           </main>
           <footer className="py-4 border-t">

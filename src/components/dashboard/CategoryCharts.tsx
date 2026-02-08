@@ -233,7 +233,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
               {drilldownData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie
                       activeIndex={activeIndex}
@@ -329,7 +329,7 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
         <p className="text-muted-foreground">No data available</p>
       </div>
     ) : (
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={260}>
         <PieChart>
           <Pie
             activeIndex={activeIndex}

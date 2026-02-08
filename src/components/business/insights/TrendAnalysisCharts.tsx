@@ -191,7 +191,8 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <div className="h-[220px] sm:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={cashflowChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -229,6 +230,7 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
               />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
@@ -244,7 +246,8 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <div className="h-[220px] sm:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart data={monthlyChartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
@@ -264,6 +267,7 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
               <Bar dataKey="expenses" fill="#f59e0b" fillOpacity={0.65} name="Expenses" />
             </BarChart>
           </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
@@ -276,7 +280,8 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
+          <div className="h-[220px] sm:h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={seasonalityData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
@@ -309,6 +314,7 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
               />
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
 
@@ -321,7 +327,8 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={250}>
+          <div className="h-[180px] sm:h-[250px]">
+          <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={accountFrequencyData.data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" tick={{ fontSize: 12 }} />
@@ -348,6 +355,7 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
               })}
             </AreaChart>
           </ResponsiveContainer>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -32,7 +32,7 @@ const FunctionalExpenseChart: React.FC<FunctionalExpenseChartProps> = ({ functio
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[220px] sm:h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

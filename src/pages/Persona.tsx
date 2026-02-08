@@ -90,7 +90,7 @@ const Persona = () => {
   return (
     <div className="container py-8 space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Financial Persona</h1>
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Financial Persona</h1>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="px-3 py-1">
             Profile {completionPercentage}% Complete
@@ -99,7 +99,7 @@ const Persona = () => {
       </div>
       
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="narrative">
             Narrative Transactions

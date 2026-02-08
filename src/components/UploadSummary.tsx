@@ -40,14 +40,14 @@ const UploadSummary = () => {
   return (
     <Card className="w-full mt-6">
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
           <div>
             <CardTitle>Import Summary</CardTitle>
             <CardDescription>
               Showing data from {startDate} to {endDate} ({dayDiff} days)
             </CardDescription>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate("/transactions")}>
               View All Transactions
             </Button>

@@ -50,7 +50,7 @@ const VendorHierarchyChart: React.FC<VendorHierarchyChartProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div className="h-[280px] sm:h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ bottom: 80, left: 20, right: 20 }}>
               <CartesianGrid strokeDasharray="3 3" />

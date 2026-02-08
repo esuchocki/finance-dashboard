@@ -117,7 +117,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
           )}
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-finance-positive tracking-tight">
+          <div className="text-2xl md:text-3xl font-bold text-finance-positive tracking-tight">
             {summary ? formatCurrency(summary.totalIncome) : "$0.00"}
           </div>
           <div className="flex items-center justify-between mt-2">
@@ -163,7 +163,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ summary, 
           )}
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-finance-negative tracking-tight">
+          <div className="text-2xl md:text-3xl font-bold text-finance-negative tracking-tight">
             {summary ? formatCurrency(summary.totalExpenses) : "$0.00"}
           </div>
           <div className="flex items-center justify-between mt-2">

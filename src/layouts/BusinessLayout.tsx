@@ -12,7 +12,7 @@ const BusinessLayoutContent = () => {
       <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-900">
         <Toaster position="top-right" />
         <AppNavbar mode="business" />
-        <main className="flex-1 container py-6 px-4">
+        <main className="flex-1 container py-3 md:py-6 px-3 md:px-4">
           <Outlet />
         </main>
         <footer className="py-4 border-t bg-white dark:bg-slate-950">

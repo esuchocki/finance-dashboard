@@ -130,7 +130,7 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
   };
 
   return (
-    <Card className="flex flex-col h-[700px]">
+    <Card className="flex flex-col h-[500px] sm:h-[700px]">
       <CardHeader className="flex-shrink-0">
         <CardTitle>{title}</CardTitle>
         <CardDescription>

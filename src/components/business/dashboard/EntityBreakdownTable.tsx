@@ -31,6 +31,7 @@ const EntityBreakdownTable: React.FC<EntityBreakdownTableProps> = ({ entitiesSum
         </CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -76,6 +77,7 @@ const EntityBreakdownTable: React.FC<EntityBreakdownTableProps> = ({ entitiesSum
             ))}
           </TableBody>
         </Table>
+        </div>
       </CardContent>
     </Card>
   );

@@ -24,10 +24,10 @@ const ModeSelection = () => {
         {/* Header */}
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <BarChart3 className="h-12 w-12 text-primary" />
-            <h1 className="text-4xl font-bold">Finance</h1>
+            <BarChart3 className="h-8 w-8 md:h-12 md:w-12 text-primary" />
+            <h1 className="text-2xl md:text-4xl font-bold">Finance</h1>
           </div>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-base md:text-xl text-muted-foreground">
             Financial Analysis & Insights
           </p>
           <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
@@ -36,7 +36,7 @@ const ModeSelection = () => {
         </div>
 
         {/* Mode Selection Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
           {/* Personal Mode Card */}
           <Card
             className={`cursor-pointer transition-all hover:shadow-lg ${
@@ -49,7 +49,7 @@ const ModeSelection = () => {
                 <User className="h-8 w-8 text-primary" />
                 <Badge variant="outline">Individual</Badge>
               </div>
-              <CardTitle className="text-2xl">Personal Finance</CardTitle>
+              <CardTitle className="text-xl md:text-2xl">Personal Finance</CardTitle>
               <CardDescription>
                 Track your personal spending, income, and build financial insights
               </CardDescription>
@@ -112,7 +112,7 @@ const ModeSelection = () => {
                   Nonprofit
                 </Badge>
               </div>
-              <CardTitle className="text-2xl">Business & Nonprofit</CardTitle>
+              <CardTitle className="text-xl md:text-2xl">Business & Nonprofit</CardTitle>
               <CardDescription>
                 Multi-entity consolidation and nonprofit financial analysis
               </CardDescription>

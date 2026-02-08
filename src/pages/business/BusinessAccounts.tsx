@@ -8,7 +8,7 @@ const BusinessAccounts = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Account Management</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">Account Management</h1>
         <p className="text-muted-foreground mt-2">
           Upload and manage QBO files from different bank accounts for consolidated financial analysis
         </p>

@@ -115,7 +115,7 @@ const BusinessDashboard: React.FC = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Total Income</CardDescription>
-              <CardTitle className="text-2xl text-green-600">
+              <CardTitle className="text-xl md:text-2xl text-green-600">
                 {formatCurrency(consolidatedSummary.totalIncome)}
               </CardTitle>
             </CardHeader>
@@ -129,7 +129,7 @@ const BusinessDashboard: React.FC = () => {
           <Card>
             <CardHeader className="pb-3">
               <CardDescription>Total Expenses</CardDescription>
-              <CardTitle className="text-2xl text-orange-600">
+              <CardTitle className="text-xl md:text-2xl text-orange-600">
                 {formatCurrency(consolidatedSummary.totalExpenses)}
               </CardTitle>
             </CardHeader>

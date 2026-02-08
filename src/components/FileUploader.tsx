@@ -100,7 +100,7 @@ const FileUploader = () => {
     <Card className="w-full max-w-3xl mx-auto border border-border bg-card">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl flex items-center gap-2">
+          <CardTitle className="text-xl md:text-2xl flex items-center gap-2">
             <FilePlus className="h-6 w-6 text-finance-primary" />
             Import QBO File
           </CardTitle>
@@ -124,7 +124,7 @@ const FileUploader = () => {
       <CardContent className="pb-6">
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
+          className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center cursor-pointer transition-all duration-200 ${
             isDragActive ? "border-finance-primary bg-muted/50" : "border-border"
           } ${isDragReject ? "border-destructive bg-destructive/10" : ""}`}
         >
@@ -155,10 +155,10 @@ const FileUploader = () => {
         </div>
 
         {file && (
-          <div className="mt-4 p-4 bg-muted/30 rounded-md border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <span className="font-medium">{file.name}</span>
+          <div className="mt-4 p-4 bg-muted/30 rounded-md border flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+              <span className="font-medium truncate">{file.name}</span>
               <Badge variant="outline" className="ml-2">
                 {(file.size / 1024).toFixed(1)} KB
               </Badge>

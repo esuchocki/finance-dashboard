@@ -27,11 +27,11 @@ const MonthlyIncomeExpensesChart: React.FC<MonthlyIncomeExpensesChartProps> = ({
         <CardDescription>Monthly income and expenses over time</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div className="h-[220px] sm:h-[300px]">
           {monthlyTrendData.length > 0 ? (
             <ChartContainer
               config={chartConfig}
-              className="h-[300px]"
+              className="h-[220px] sm:h-[300px]"
             >
               <LineChart
                 data={monthlyTrendData}

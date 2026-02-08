@@ -53,7 +53,7 @@ const Index = () => {
   // Show a loading spinner while processing
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] p-8">
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] p-4 md:p-8">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-finance-primary" />
           <p className="text-lg font-medium">Processing your financial data...</p>

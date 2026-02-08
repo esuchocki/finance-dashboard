@@ -57,12 +57,12 @@ const BalanceChart: React.FC<BalanceChartProps> = ({ balanceData }) => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px] chart-container">
+        <div className="h-[220px] sm:h-[300px] chart-container">
           {balanceData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <ChartContainer
                 config={chartConfig}
-                className="h-[300px]"
+                className="h-[220px] sm:h-[300px]"
               >
                 <AreaChart
                   data={balanceData}
