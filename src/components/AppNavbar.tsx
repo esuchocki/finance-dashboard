@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useFinance } from "@/context/FinanceContext";
 import { useAuth } from "@/context/AuthContext";
 import { CircleDollarSign, UserCircle2, LogOut } from "lucide-react";
@@ -64,21 +65,29 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
             </>
           )}
 
-          {/* User info and logout */}
+          {/* User avatar dropdown */}
           {user && (
-            <div className="flex items-center gap-2 ml-2">
-              {user.picture ? (
-                <img src={user.picture} alt={user.name} className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
-              ) : (
-                <UserCircle2 className="h-7 w-7 text-muted-foreground" />
-              )}
-              <span className="text-sm text-muted-foreground hidden sm:inline">{user.name}</span>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ml-2">
+                  {user.picture ? (
+                    <img src={user.picture} alt={user.name} className="h-8 w-8 rounded-full" referrerPolicy="no-referrer" />
+                  ) : (
+                    <UserCircle2 className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
+                  {user.email}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          <Button variant="outline" size="sm" onClick={handleLogout} className="ml-1">
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
         </div>
       </div>
     </div>

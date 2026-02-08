@@ -17,10 +17,6 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6 text-center">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold">Finance Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Karmê Chöling</p>
-        </div>
 
         <div className="flex justify-center">
           <GoogleLogin
@@ -45,9 +41,6 @@ const Login: React.FC = () => {
           <p className="text-xs text-destructive">{error}</p>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          Sign in with your karmecholing.org Google account
-        </p>
       </div>
     </div>
   );
