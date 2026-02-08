@@ -1,52 +1,73 @@
 /**
  * Authentication Context
  *
- * Manages password-protected session authentication.
- * Session is cleared when browser closes.
+ * Google OAuth authentication restricted to karmecholing.org accounts.
+ * Session is cleared when browser closes (no persistence).
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { secureSessionStorage } from '@/lib/secureSessionStorage';
-import { useNavigate } from 'react-router-dom';
+import React, { createContext, useContext, useState } from 'react';
+
+interface GoogleUser {
+  name: string;
+  email: string;
+  picture: string;
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (password: string) => boolean;
+  user: GoogleUser | null;
+  loginWithGoogle: (credential: string) => { success: boolean; error?: string };
   logout: () => void;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Decode a JWT token payload without external dependencies
+function decodeJwt(token: string): Record<string, unknown> {
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+  );
+  return JSON.parse(jsonPayload);
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<GoogleUser | null>(null);
 
-  useEffect(() => {
-    // Check if already authenticated in this session
-    const isUnlocked = secureSessionStorage.isUnlocked();
-    setIsAuthenticated(isUnlocked);
-    setIsLoading(false);
-  }, []);
+  const loginWithGoogle = (credential: string): { success: boolean; error?: string } => {
+    try {
+      const payload = decodeJwt(credential);
 
-  const login = (password: string): boolean => {
-    const success = secureSessionStorage.unlock(password);
-    if (success) {
+      // Enforce karmecholing.org domain — both checks required
+      const hd = payload.hd as string | undefined;
+      const email = payload.email as string | undefined;
+
+      if (hd !== 'karmecholing.org' || !email?.endsWith('@karmecholing.org')) {
+        return { success: false, error: 'Access restricted to karmecholing.org accounts only.' };
+      }
+
+      setUser({
+        name: payload.name as string,
+        email: email,
+        picture: payload.picture as string,
+      });
       setIsAuthenticated(true);
-      return true;
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Authentication failed. Please try again.' };
     }
-    return false;
   };
 
   const logout = () => {
-    secureSessionStorage.lock();
     setIsAuthenticated(false);
-    sessionStorage.clear();
-    localStorage.clear();
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loginWithGoogle, logout, isLoading: false }}>
       {children}
     </AuthContext.Provider>
   );

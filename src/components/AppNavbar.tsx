@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useFinance } from "@/context/FinanceContext";
 import { useAuth } from "@/context/AuthContext";
-import { CircleDollarSign, UserCircle2, Building2, LogOut } from "lucide-react";
+import { CircleDollarSign, UserCircle2, LogOut } from "lucide-react";
 import { AppMode } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -14,7 +14,7 @@ interface AppNavbarProps {
 
 const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
   const { transactions } = useFinance();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -64,10 +64,20 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
             </>
           )}
 
-          {/* Logout Button - Always visible */}
-          <Button variant="outline" size="sm" onClick={handleLogout} className="ml-2">
+          {/* User info and logout */}
+          {user && (
+            <div className="flex items-center gap-2 ml-2">
+              {user.picture ? (
+                <img src={user.picture} alt={user.name} className="h-7 w-7 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <UserCircle2 className="h-7 w-7 text-muted-foreground" />
+              )}
+              <span className="text-sm text-muted-foreground hidden sm:inline">{user.name}</span>
+            </div>
+          )}
+          <Button variant="outline" size="sm" onClick={handleLogout} className="ml-1">
             <LogOut className="h-4 w-4 mr-2" />
-            End Session
+            Sign Out
           </Button>
         </div>
       </div>

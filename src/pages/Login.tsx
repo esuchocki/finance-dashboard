@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/context/AuthContext';
 
 const Login: React.FC = () => {
-  const [key, setKey] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const { login, isAuthenticated } = useAuth();
+  const { loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,57 +14,40 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    if (!key || key.length < 8) {
-      setError('Key must be at least 8 characters');
-      setIsLoading(false);
-      return;
-    }
-
-    const success = login(key);
-
-    if (success) {
-      navigate('/business/dashboard');
-    } else {
-      setError('Invalid key');
-      setKey('');
-    }
-
-    setIsLoading(false);
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-sm space-y-6 text-center">
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold">Finance Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Karmê Chöling</p>
+        </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-2">
-            <Input
-              id="key"
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              placeholder="Enter key"
-              disabled={isLoading}
-              autoFocus
-            />
-            {error && (
-              <p className="text-xs text-destructive">{error}</p>
-            )}
-          </div>
+        <div className="flex justify-center">
+          <GoogleLogin
+            hosted_domain="karmecholing.org"
+            onSuccess={(response) => {
+              if (!response.credential) {
+                setError('No credential received. Please try again.');
+                return;
+              }
+              const result = loginWithGoogle(response.credential);
+              if (result.success) {
+                navigate('/business/dashboard');
+              } else {
+                setError(result.error || 'Authentication failed.');
+              }
+            }}
+            onError={() => setError('Google sign-in failed. Please try again.')}
+          />
+        </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading || !key || key.length < 8}
-            className="w-full"
-          >
-            {isLoading ? 'Unlocking...' : 'Unlock'}
-          </Button>
-        </form>
+        {error && (
+          <p className="text-xs text-destructive">{error}</p>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          Sign in with your karmecholing.org Google account
+        </p>
       </div>
     </div>
   );
