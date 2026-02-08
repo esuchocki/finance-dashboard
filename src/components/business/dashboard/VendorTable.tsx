@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatPercentage, formatDate } from "@/lib/formatters";
-import { TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ArrowLeft, ArrowUpDown, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowLeft, ArrowUpDown, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface VendorTableProps {
@@ -116,12 +116,6 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
     );
   }
 
-  const icon = type === 'expense' ? (
-    <TrendingDown className="h-5 w-5 text-orange-600" />
-  ) : (
-    <TrendingUp className="h-5 w-5 text-green-600" />
-  );
-
   const getGranularityDescription = () => {
     switch (granularity) {
       case 'consolidated':
@@ -138,10 +132,7 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
   return (
     <Card className="flex flex-col h-[700px]">
       <CardHeader className="flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <CardTitle>{title}</CardTitle>
-          {icon}
-        </div>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>
           {viewMode === 'table' ? getGranularityDescription() : `Transactions for ${selectedVendor}`}
         </CardDescription>
@@ -266,8 +257,9 @@ const VendorTable: React.FC<VendorTableProps> = ({ title, hierarchyNodes, granul
                     return (
                       <Button
                         key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
+                        variant="outline"
                         size="sm"
+                        className={currentPage === pageNum ? "bg-primary/30 border-primary text-primary" : ""}
                         onClick={() => handlePageChange(pageNum)}
                         aria-label={`Go to page ${pageNum}`}
                         aria-current={currentPage === pageNum ? "page" : undefined}

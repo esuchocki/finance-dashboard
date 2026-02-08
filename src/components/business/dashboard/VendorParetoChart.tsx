@@ -49,7 +49,7 @@ const VendorParetoChart: React.FC<VendorParetoChartProps> = ({ vendors }) => {
                   return `${(value as number).toFixed(1)}%`;
                 }}
               />
-              <Bar yAxisId="left" dataKey="amount" fill="#3B82F6" name="Spending" />
+              <Bar yAxisId="left" dataKey="amount" fill="#3B82F6" fillOpacity={0.65} name="Spending" />
               <Line
                 yAxisId="right"
                 type="monotone"

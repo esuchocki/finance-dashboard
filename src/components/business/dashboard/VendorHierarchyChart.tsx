@@ -4,7 +4,6 @@ import { buildVendorChartData } from "@/lib/business/vendorAnalysis";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "@/lib/formatters";
-import { BarChart3 } from "lucide-react";
 
 interface VendorHierarchyChartProps {
   title: string;
@@ -45,10 +44,7 @@ const VendorHierarchyChart: React.FC<VendorHierarchyChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
-          <CardTitle>{title}</CardTitle>
-        </div>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>
           {getGranularityDescription()}
         </CardDescription>
@@ -73,7 +69,7 @@ const VendorHierarchyChart: React.FC<VendorHierarchyChartProps> = ({
                 formatter={(value: number) => formatCurrency(value)}
                 labelStyle={{ color: '#000' }}
               />
-              <Bar dataKey="total" fill={barColor} name="Amount" />
+              <Bar dataKey="total" fill={barColor} fillOpacity={0.65} name="Amount" />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/formatters";
-import { Receipt, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 interface TopTransactionsTableProps {
   title: string;
@@ -47,10 +47,7 @@ const TopTransactionsTable: React.FC<TopTransactionsTableProps> = ({
   return (
     <Card className="flex flex-col h-[700px]">
       <CardHeader className="flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <Receipt className="h-5 w-5" />
-          <CardTitle>{title}</CardTitle>
-        </div>
+        <CardTitle>{title}</CardTitle>
         <CardDescription>
           Individual transactions not grouped by vendor
         </CardDescription>
@@ -145,8 +142,9 @@ const TopTransactionsTable: React.FC<TopTransactionsTableProps> = ({
                   return (
                     <Button
                       key={pageNum}
-                      variant={currentPage === pageNum ? "default" : "outline"}
+                      variant="outline"
                       size="sm"
+                      className={currentPage === pageNum ? "bg-primary/30 border-primary text-primary" : ""}
                       onClick={() => handlePageChange(pageNum)}
                       aria-label={`Go to page ${pageNum}`}
                       aria-current={currentPage === pageNum ? "page" : undefined}

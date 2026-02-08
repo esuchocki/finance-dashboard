@@ -73,7 +73,6 @@ const BusinessTransactions = () => {
 
       {selectedAccountIds.length === 0 ? (
         <Alert>
-          <Info className="h-5 w-5" />
           <AlertDescription>
             Select accounts above to search their transactions.
           </AlertDescription>

@@ -59,7 +59,6 @@ const BusinessDashboard: React.FC = () => {
     return (
       <div className="space-y-4">
         <Alert>
-          <Building2 className="h-5 w-5" />
           <AlertDescription>
             <span className="font-medium">No accounts loaded.</span>
             {' '}Visit the Account Management page to upload QBO files and get started.

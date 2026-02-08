@@ -153,9 +153,10 @@ const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({ transactions }) =
                   cursor={!selectedCategory ? 'pointer' : undefined}
                 >
                   {displayData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={COLORS[index % COLORS.length]} 
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                      fillOpacity={0.65}
                     />
                   ))}
                 </Bar>

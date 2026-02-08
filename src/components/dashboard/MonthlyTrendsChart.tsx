@@ -167,17 +167,19 @@ const MonthlyTrendsChart: React.FC<MonthlyTrendsChartProps> = ({ monthlyTrendDat
                           return null;
                         }}
                       />
-                      <Bar 
-                        dataKey="income" 
-                        name="Income" 
-                        fill="#81C784" // Muted green
-                        radius={[3, 3, 0, 0]} // Slightly rounded bar tops
+                      <Bar
+                        dataKey="income"
+                        name="Income"
+                        fill="#81C784"
+                        fillOpacity={0.65}
+                        radius={[3, 3, 0, 0]}
                       />
-                      <Bar 
-                        dataKey="expenses" 
-                        name="Expense" 
-                        fill="#E57373" // Muted red
-                        radius={[3, 3, 0, 0]} // Slightly rounded bar tops
+                      <Bar
+                        dataKey="expenses"
+                        name="Expense"
+                        fill="#E57373"
+                        fillOpacity={0.65}
+                        radius={[3, 3, 0, 0]}
                       />
                       <Legend 
                         wrapperStyle={{ paddingTop: 15 }} 

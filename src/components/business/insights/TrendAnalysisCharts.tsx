@@ -260,8 +260,8 @@ const TrendAnalysisCharts: React.FC<TrendAnalysisChartsProps> = ({ transactions 
                 labelStyle={{ color: '#000' }}
               />
               <Legend />
-              <Bar dataKey="income" fill="#10b981" name="Income" />
-              <Bar dataKey="expenses" fill="#f59e0b" name="Expenses" />
+              <Bar dataKey="income" fill="#10b981" fillOpacity={0.65} name="Income" />
+              <Bar dataKey="expenses" fill="#f59e0b" fillOpacity={0.65} name="Expenses" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
