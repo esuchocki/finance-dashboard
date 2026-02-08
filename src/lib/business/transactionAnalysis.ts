@@ -30,6 +30,7 @@ export function detectDuplicates(transactions: BusinessTransaction[]): Duplicate
 import {
   detectEnhancedRecurringPatterns,
   type EnhancedRecurringPattern,
+  type PatternType,
   type AmountChange,
   type TrendAnalysis,
   type Anomaly,
@@ -38,7 +39,7 @@ import {
 
 // Re-export enhanced types for backward compatibility
 export type RecurringPattern = EnhancedRecurringPattern;
-export type { AmountChange, TrendAnalysis, Anomaly, PredictiveAnalysis };
+export type { PatternType, AmountChange, TrendAnalysis, Anomaly, PredictiveAnalysis };
 
 export function detectRecurringTransactions(
   transactions: BusinessTransaction[]
@@ -74,12 +75,23 @@ export interface Subscription {
 
 export function detectSubscriptions(
   transactions: BusinessTransaction[],
-  currentDate: Date = new Date()
+  currentDate?: Date
 ): Subscription[] {
   // Subscriptions are recurring EXPENSES (money going out)
   const expenseTransactions = transactions.filter(tx => tx.categoryType === 'expense');
   const recurringPatterns = detectRecurringTransactions(expenseTransactions);
   const subscriptions: Subscription[] = [];
+
+  // Build a map of account names to their last transaction date
+  // Each account may have a different date range
+  const accountLastDates = new Map<string, Date>();
+  transactions.forEach(tx => {
+    const accountName = tx.accountName || 'Unknown Account';
+    const existing = accountLastDates.get(accountName);
+    if (!existing || tx.date > existing) {
+      accountLastDates.set(accountName, tx.date);
+    }
+  });
 
   recurringPatterns.forEach(pattern => {
     // Include monthly, semi-monthly, bi-monthly, and annual patterns
@@ -94,13 +106,32 @@ export function detectSubscriptions(
     const lastChargeDate = sortedTxs[sortedTxs.length - 1].date;
     const totalPaid = sortedTxs.reduce((sum, tx) => sum + tx.amount, 0);
 
-    // Check if subscription is still active (last charge within expected window)
-    const daysSinceLastCharge = (currentDate.getTime() - lastChargeDate.getTime()) / (1000 * 60 * 60 * 24);
+    // Get the reference date for THIS specific account
+    const accountName = sortedTxs[0].accountName || 'Unknown Account';
+    const accountReferenceDate = currentDate || accountLastDates.get(accountName) || new Date();
+
+    // Calculate expected days and next expected date
     const expectedDays = pattern.frequency === 'monthly' ? 30 : 365;
-    const isActive = daysSinceLastCharge <= expectedDays * 1.5; // Allow 50% grace period
+    const nextExpectedDate = pattern.nextExpectedDate;
+
+    // Check if subscription is still active
+    const daysSinceLastCharge = (accountReferenceDate.getTime() - lastChargeDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Check if the expected next payment date has already passed and payment is missing
+    const nextExpectedHasPassed = nextExpectedDate < accountReferenceDate;
+    const daysSinceExpected = (accountReferenceDate.getTime() - nextExpectedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Use a reasonable grace period: 30% of cycle OR 30 days, whichever is SMALLER
+    const gracePeriodDays = Math.min(expectedDays * 0.3, 30);
+    const isPaymentMissing = nextExpectedHasPassed && daysSinceExpected > gracePeriodDays;
+
+    // Mark as inactive if:
+    // 1. Too much time has passed since last charge (1.5x the cycle), OR
+    // 2. Expected payment date is IN THE PAST (within account data range) and payment is missing
+    const isActive = (daysSinceLastCharge <= expectedDays * 1.5) && !isPaymentMissing;
 
     // Count missed payments
-    const expectedPayments = Math.floor((currentDate.getTime() - startDate.getTime()) / (expectedDays * 24 * 60 * 60 * 1000));
+    const expectedPayments = Math.floor((accountReferenceDate.getTime() - startDate.getTime()) / (expectedDays * 24 * 60 * 60 * 1000));
     const missedPayments = Math.max(0, expectedPayments - sortedTxs.length);
 
     // Calculate monthly equivalent

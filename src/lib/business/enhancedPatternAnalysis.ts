@@ -57,6 +57,8 @@ export interface PredictiveAnalysis {
   };
 }
 
+export type PatternType = 'regular' | 'sporadic';
+
 export interface EnhancedRecurringPattern {
   merchantName: string;
   currentAmount: number;
@@ -68,6 +70,9 @@ export interface EnhancedRecurringPattern {
   nextExpectedDate: Date;
   isActive: boolean;
   lastTransactionDate: Date;
+
+  // Pattern classification
+  patternType: PatternType; // 'regular' = predictable for forecasting, 'sporadic' = valuable for outreach
 
   // Enhanced features
   amountHistory: AmountChange[];
@@ -304,6 +309,17 @@ function classifyFrequency(avgDays: number): {
 export function detectEnhancedRecurringPatterns(
   transactions: BusinessTransaction[]
 ): EnhancedRecurringPattern[] {
+  // Build a map of account names to their last transaction date
+  // Each account may have a different date range
+  const accountLastDates = new Map<string, Date>();
+  transactions.forEach(tx => {
+    const accountName = tx.accountName || 'Unknown Account';
+    const existing = accountLastDates.get(accountName);
+    if (!existing || tx.date > existing) {
+      accountLastDates.set(accountName, tx.date);
+    }
+  });
+
   // Group by merchant
   const merchantGroups = new Map<string, BusinessTransaction[]>();
 
@@ -352,17 +368,40 @@ export function detectEnhancedRecurringPatterns(
     // Classify frequency
     const { frequency, customDays } = classifyFrequency(avgDays);
 
+    // Classify pattern type (regular vs sporadic)
+    // Regular: High confidence + standard frequency (predictable for forecasting)
+    // Sporadic: Lower confidence or custom frequency (valuable for donor outreach)
+    const isStandardFrequency = ['weekly', 'biweekly', 'semi-monthly', 'monthly', 'bi-monthly', 'quarterly', 'annual'].includes(frequency);
+    const patternType: PatternType = (confidence === 'high' && isStandardFrequency) ? 'regular' : 'sporadic';
+
     // Calculate current amount (most recent)
     const currentAmount = sorted[sorted.length - 1].amount;
     const lastDate = sorted[sorted.length - 1].date;
 
-    // Check if active
-    const currentDate = new Date();
-    const daysSinceLastTransaction = (currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-    const isActive = daysSinceLastTransaction <= avgDays * 1.5;
+    // Get the reference date for THIS specific account
+    const accountName = sorted[0].accountName || 'Unknown Account';
+    const accountReferenceDate = accountLastDates.get(accountName) || new Date();
 
-    // Next expected date
+    // Next expected date (based on last transaction + average interval)
     const nextExpectedDate = new Date(lastDate.getTime() + avgDays * 24 * 60 * 60 * 1000);
+
+    // Check if active (using THIS account's last transaction date, not a global date)
+    const daysSinceLastTransaction = (accountReferenceDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Check if the expected next payment date has already passed (is before account end date)
+    // and if enough time has passed that we should have seen the payment
+    const nextExpectedHasPassed = nextExpectedDate < accountReferenceDate;
+    const daysSinceExpected = (accountReferenceDate.getTime() - nextExpectedDate.getTime()) / (1000 * 60 * 60 * 24);
+
+    // Use a reasonable grace period: 30% of cycle OR 30 days, whichever is SMALLER
+    // This prevents absurdly long grace periods for irregular patterns
+    const gracePeriodDays = Math.min(avgDays * 0.3, 30);
+    const isPaymentMissing = nextExpectedHasPassed && daysSinceExpected > gracePeriodDays;
+
+    // Mark as inactive if:
+    // 1. Too much time has passed since last transaction (1.5x the cycle), OR
+    // 2. Expected payment date is IN THE PAST (within account data range) and payment is missing
+    const isActive = (daysSinceLastTransaction <= avgDays * 1.5) && !isPaymentMissing;
 
     // Enhanced analysis
     const amountHistory = detectAmountChanges(sorted);
@@ -379,6 +418,7 @@ export function detectEnhancedRecurringPatterns(
       transactions: sorted,
       averageDaysBetween: avgDays,
       confidence,
+      patternType,
       nextExpectedDate,
       isActive,
       lastTransactionDate: lastDate,

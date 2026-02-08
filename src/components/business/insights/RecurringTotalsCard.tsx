@@ -339,7 +339,8 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
                           <div className="text-xs text-muted-foreground whitespace-nowrap">
                             {new Date(sub.date).toLocaleDateString('en-US', {
                               month: 'short',
-                              day: 'numeric'
+                              day: 'numeric',
+                              year: 'numeric'
                             })}
                           </div>
                         </div>
@@ -399,7 +400,8 @@ const RecurringTotalsCard: React.FC<RecurringTotalsCardProps> = ({
                           <div className="text-xs text-muted-foreground whitespace-nowrap">
                             {new Date(rec.date).toLocaleDateString('en-US', {
                               month: 'short',
-                              day: 'numeric'
+                              day: 'numeric',
+                              year: 'numeric'
                             })}
                           </div>
                         </div>
