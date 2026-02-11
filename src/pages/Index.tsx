@@ -62,8 +62,7 @@ const Index = () => {
               <AlertTitle>Processing Large Dataset</AlertTitle>
               <AlertDescription className="space-y-2">
                 <p>
-                  This is taking longer than expected. We're processing your transactions with Claude AI.
-                  For large files, this can take several minutes. Please wait...
+                  This is taking longer than expected. For large files this can take a moment. Please wait...
                 </p>
                 <div className="w-full bg-muted h-2 rounded-full overflow-hidden mt-2">
                   <div className="bg-finance-primary h-2 animate-pulse rounded-full"></div>

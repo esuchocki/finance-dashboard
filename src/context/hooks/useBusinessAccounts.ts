@@ -9,7 +9,6 @@ import { useState, useCallback } from 'react';
 import { BankAccount, BusinessTransaction, AccountType, Transaction } from '@/lib/types';
 import { parseQBOFile } from '@/lib/qboParser';
 import { parseIIFFile, isIIFFile } from '@/lib/iif/parser';
-import { enhanceTransactionsWithClaude } from '@/lib/claudeService';
 import { toast } from 'sonner';
 
 interface UseBusinessAccountsResult {
@@ -23,7 +22,7 @@ interface UseBusinessAccountsResult {
   clearAllAccounts: () => void;
 }
 
-export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAccountsResult => {
+export const useBusinessAccounts = (): UseBusinessAccountsResult => {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [accountTransactions, setAccountTransactions] = useState<Map<string, BusinessTransaction[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
@@ -61,14 +60,6 @@ export const useBusinessAccounts = (claudeApiKey: string | null): UseBusinessAcc
       }
 
       console.log(`Parsed ${transactions.length} transactions from ${file.name} (stored in memory only)`);
-
-      // Enhance transactions with Claude if API key is available
-      if (claudeApiKey) {
-        toast.info('Enhancing transactions with Claude AI...', {
-          duration: 3000
-        });
-        transactions = await enhanceTransactionsWithClaude(transactions, claudeApiKey);
-      }
 
       // Generate unique account ID
       const accountId = `account_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

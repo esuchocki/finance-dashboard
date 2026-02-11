@@ -184,7 +184,7 @@ export function processTransaction(trn: any): Transaction | null {
       isRecurring,
       payee: name,
       verboseDescription,
-      confidence: "low", // Initial confidence is low, Claude will improve this
+      confidence: "low",
       categoryType,
       tags: []
     };
@@ -327,7 +327,7 @@ export function createTransactionFromData(data: Record<string, string>): Transac
       isRecurring,
       payee: name,
       verboseDescription,
-      confidence: "low", // Initial confidence is low, Claude will improve this
+      confidence: "low",
       categoryType,
       tags: []
     };
@@ -399,7 +399,7 @@ export function createNarrativeTransaction(
     narrative = `${userName} transferred ${transaction.amount.toFixed(2)} involving ${transaction.name || "an account"}`;
   }
   
-  // Initial determination of whether this transaction is notable (to be enhanced by Claude)
+  // Initial determination of whether this transaction is notable
   const isNotable = transaction.amount > 1000 || transaction.isRecurring;
   
   return {
@@ -408,9 +408,9 @@ export function createNarrativeTransaction(
     timeOfDay,
     userAge,
     userLocation,
-    lifestyleTags: [], // To be filled by Claude
+    lifestyleTags: [],
     transactionTags: transaction.tags || [],
-    lifeContext: "", // To be filled by Claude
+    lifeContext: "",
     isNotable,
     relatedFactoids: [],
     majorCategory: transaction.category || "Uncategorized",

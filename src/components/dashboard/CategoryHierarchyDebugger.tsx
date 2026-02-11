@@ -212,7 +212,7 @@ const CategoryHierarchyDebugger: React.FC<CategoryHierarchyDebuggerProps> = ({ t
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Claude AI Category Hierarchy Analysis</CardTitle>
+        <CardTitle>Category Hierarchy Analysis</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -294,7 +294,7 @@ const CategoryHierarchyDebugger: React.FC<CategoryHierarchyDebuggerProps> = ({ t
         </div>
 
         <div className="text-xs text-muted-foreground mt-4 border-t pt-2">
-          <p>This debug view shows the exact category hierarchy provided by Claude AI.</p>
+          <p>This debug view shows the exact category hierarchy used for transaction categorization.</p>
         </div>
       </CardContent>
     </Card>

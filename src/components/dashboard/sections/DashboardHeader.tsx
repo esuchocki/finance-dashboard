@@ -29,9 +29,9 @@ const DashboardHeader = ({ onClearData }: DashboardHeaderProps) => {
           </HoverCardTrigger>
           <HoverCardContent className="w-80">
             <div className="space-y-2">
-              <h4 className="font-medium">AI-Enhanced Categories</h4>
+              <h4 className="font-medium">Transaction Categories</h4>
               <p className="text-sm text-muted-foreground">
-                Your transactions have been analyzed and categorized using Claude AI to provide more accurate insights.
+                Your transactions have been analyzed and categorized to provide financial insights.
               </p>
             </div>
           </HoverCardContent>

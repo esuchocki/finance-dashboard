@@ -9,7 +9,6 @@ import { useState, useEffect } from 'react';
 import { Transaction, FinancialSummary, FinancialInsight, FinancialPersona, NarrativeTransaction } from "@/lib/types";
 import { parseQBOFile } from "@/lib/qbo";
 import { toast } from "sonner";
-import { enhanceTransactionsWithClaude, hasClaudeApiKey } from "@/lib/claudeService";
 import { calculateSummary } from "./useFinanceSummary";
 import { generateInsights } from "./useFinanceInsights";
 import { useNavigate } from 'react-router-dom';
@@ -101,64 +100,9 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
 
       let parsedTransactions = parseQBOFile(content);
 
-      // Enhanced categorization with Claude if API key is available
-      if (hasClaudeApiKey()) {
-        try {
-          toast.info("Starting transaction categorization with Claude AI", {
-            description: "This may take a moment for larger datasets",
-            duration: 5000
-          });
-
-          console.log(`Calling Claude AI for ${parsedTransactions.length} transactions`);
-
-          parsedTransactions = await enhanceTransactionsWithClaude(parsedTransactions);
-          console.log(`Transactions enhanced by Claude: ${parsedTransactions.length}`);
-
-          const categorizedCount = parsedTransactions.filter(t =>
-            t.category && t.category !== "Uncategorized"
-          ).length;
-
-          const categorizedPercent = Math.round((categorizedCount / parsedTransactions.length) * 100);
-          const uniqueCategories = new Set(parsedTransactions.map(t => t.category)).size;
-
-          console.log(`Categorization stats: ${categorizedCount}/${parsedTransactions.length} (${categorizedPercent}%) into ${uniqueCategories} categories`);
-
-          if (categorizedPercent < 50) {
-            toast.warning("Limited categorization success", {
-              description: `Only ${categorizedPercent}% of transactions were successfully categorized`,
-              duration: 5000
-            });
-          } else {
-            toast.success("Transactions categorized successfully", {
-              description: `${categorizedPercent}% of transactions were categorized into ${uniqueCategories} categories`,
-              duration: 5000
-            });
-          }
-
-          const initialNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
-          setNarrativeTransactions(initialNarrativeTransactions);
-          updateFinancialPersona(parsedTransactions, initialNarrativeTransactions);
-
-        } catch (error) {
-          console.error("Error enhancing transactions with Claude:", error);
-          toast.error("Could not enhance all transactions with Claude AI", {
-            description: "Using basic categorization instead for some transactions"
-          });
-
-          const basicNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
-          setNarrativeTransactions(basicNarrativeTransactions);
-          updateFinancialPersona(parsedTransactions, basicNarrativeTransactions);
-        }
-      } else {
-        console.warn("No Claude API key available - skipping AI categorization");
-        toast.info("Add a Claude API key to enhance transaction categorization", {
-          description: "Click the 'Add Claude API' button in the navbar"
-        });
-
-        const basicNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
-        setNarrativeTransactions(basicNarrativeTransactions);
-        updateFinancialPersona(parsedTransactions, basicNarrativeTransactions);
-      }
+      const basicNarrativeTransactions = generateInitialNarrativeTransactions(parsedTransactions, financialPersona);
+      setNarrativeTransactions(basicNarrativeTransactions);
+      updateFinancialPersona(parsedTransactions, basicNarrativeTransactions);
 
       // Sort by date descending
       parsedTransactions.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -265,10 +209,6 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
       }
     },
     clearTransactions: clearData,
-    claudeApiKey: null,
-    setClaudeApiKey: () => {},
-    isApiKeyValid: false,
-    isValidatingApiKey: false,
     isProcessingQbo: false,
     uploadProgress: 0,
     isDevelopmentMode: isDevelopmentMode,

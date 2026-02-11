@@ -52,12 +52,6 @@ interface FinanceContextType {
   hasGeneratedInsights: boolean;
   insights: FinancialInsight[];
 
-  // Claude API
-  claudeApiKey: string | null;
-  setClaudeApiKey: (key: string | null) => void;
-  isApiKeyValid: boolean;
-  isValidatingApiKey: boolean;
-
   // Financial persona
   financialPersona: FinancialPersona | null;
   updatePersonalBackground: (personalBackground: PersonalBackground) => boolean;
@@ -122,10 +116,6 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     uploadProgress,
     handleFileUpload,
     clearTransactions,
-    claudeApiKey,
-    setClaudeApiKey,
-    isApiKeyValid,
-    isValidatingApiKey,
     uploadQBOFile,
     error,
     isUsingCache
@@ -141,7 +131,7 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     getAccountTransactions,
     updateAccount,
     clearAllAccounts
-  } = useBusinessAccounts(claudeApiKey);
+  } = useBusinessAccounts();
   
   const {
     filteredTransactions,
@@ -240,11 +230,6 @@ export const FinanceProvider: React.FC<FinanceProviderProps> = ({
     isGeneratingInsights,
     hasGeneratedInsights,
     insights,
-
-    claudeApiKey,
-    setClaudeApiKey,
-    isApiKeyValid,
-    isValidatingApiKey,
 
     financialPersona,
     updatePersonalBackground,

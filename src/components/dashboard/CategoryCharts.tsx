@@ -387,9 +387,9 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>AI-Enhanced Categories</CardTitle>
+            <CardTitle>Transaction Categories</CardTitle>
             <CardDescription>
-              Claude AI-powered transaction categorization
+              Transaction categorization by pattern matching
             </CardDescription>
           </div>
           
@@ -401,14 +401,14 @@ const CategoryCharts: React.FC<CategoryChartsProps> = ({
             </HoverCardTrigger>
             <HoverCardContent className="w-80">
               <div className="space-y-2">
-                <h4 className="font-medium">AI-Enhanced Categories</h4>
+                <h4 className="font-medium">Transaction Categories</h4>
                 <p className="text-sm text-muted-foreground">
-                  {categorizedPercentage}% of your transactions have been categorized by Claude AI.
+                  {categorizedPercentage}% of your transactions have been categorized.
                   Click on any category to see subcategories and transactions.
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Transactions are hierarchically organized into main categories and subcategories
-                  for detailed analysis. Claude AI has also generated more descriptive transaction names.
+                  for detailed analysis.
                 </p>
               </div>
             </HoverCardContent>

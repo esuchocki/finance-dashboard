@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { BusinessEntity, BusinessTransaction, EntityType, Transaction } from '@/lib/types';
 import { parseQBOFile } from '@/lib/qboParser';
 import { parseIIFFile, isIIFFile } from '@/lib/iif/parser';
-import { enhanceTransactionsWithClaude } from '@/lib/claudeService';
 import { toast } from 'sonner';
 
 interface UseBusinessEntitiesResult {
@@ -16,7 +15,7 @@ interface UseBusinessEntitiesResult {
   clearAllEntities: () => void;
 }
 
-export const useBusinessEntities = (claudeApiKey: string | null): UseBusinessEntitiesResult => {
+export const useBusinessEntities = (): UseBusinessEntitiesResult => {
   const [entities, setEntities] = useState<BusinessEntity[]>([]);
   const [entityTransactions, setEntityTransactions] = useState<Map<string, BusinessTransaction[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
@@ -46,13 +45,6 @@ export const useBusinessEntities = (claudeApiKey: string | null): UseBusinessEnt
 
       if (transactions.length === 0) {
         throw new Error('No transactions found in file');
-      }
-
-      if (claudeApiKey) {
-        toast.info('Enhancing transactions with Claude AI...', {
-          duration: 3000
-        });
-        transactions = await enhanceTransactionsWithClaude(transactions, claudeApiKey);
       }
 
       const entityId = `entity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

@@ -26,40 +26,10 @@ export interface CategoryHierarchy {
 
 // Enhanced transaction with detailed information
 export interface EnhancedTransaction extends Omit<Transaction, 'categoryType'> {
-  // Override the categoryType to match the expected type in the Transaction interface
   categoryType: "income" | "expense" | "transfer";
-  // Additional properties that Claude might add
   confidence: "high" | "medium" | "low";
   verboseDescription: string;
-  // Add merchant information 
   merchantType?: string;
   merchantCategory?: string;
   isRecurring: boolean;
-}
-
-// Structured format for Claude's response
-export interface ClaudeEnhancementResponse {
-  transactions: Array<{
-    id: string;
-    category: string;
-    subCategory: string;
-    verboseDescription: string;
-    confidence: "high" | "medium" | "low";
-    categoryType: "income" | "expense" | "transfer";
-    merchantInfo?: {
-      name?: string;
-      type?: string;
-      category?: string;
-    };
-  }>;
-  summary?: {
-    categorizedCount: number;
-    totalCount: number;
-    uniqueCategories: number;
-    confidenceDistribution: {
-      high: number;
-      medium: number;
-      low: number;
-    };
-  };
 }

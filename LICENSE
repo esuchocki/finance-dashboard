@@ -1,0 +1,84 @@
+Copyright (c) 2026 Karme Choling
+All rights reserved.
+
+OWNERSHIP AND INTELLECTUAL PROPERTY ASSIGNMENT
+
+This software, "Transaction Tapestry View," is the exclusive property of
+Karme Choling, a 501(c)(3) nonprofit organization incorporated in the
+State of Vermont. The original author developed this software in their
+capacity as Deputy Executive Director of Karme Choling using professional
+expertise and organizational resources. In accordance with the work-for-hire
+doctrine (17 U.S.C. Section 101) and by express assignment, all rights,
+title, and interest in this software — including all intellectual property
+rights — are vested solely in Karme Choling.
+
+SOURCE-AVAILABLE TERMS
+
+This source code is published for the purposes of transparency, security
+review, and educational reference. Publication of the source code does not
+constitute a grant of license.
+
+You MAY:
+
+  - View and read the source code.
+  - Fork the repository for the sole purpose of submitting pull requests
+    back to the original repository.
+  - Reference the source code for educational or research purposes, with
+    attribution to Karme Choling.
+
+You MAY NOT, without prior written permission from Karme Choling:
+
+  - Use this software or any substantial portion of its source code in
+    any production, commercial, or operational capacity.
+  - Modify and deploy this software, whether for your own use or for
+    the use of others.
+  - Redistribute this software, in original or modified form, as a
+    standalone product or as part of another product.
+  - Use this software to process financial data for any organization
+    other than Karme Choling.
+
+ORGANIZATIONAL CONFIGURATION NOTICE
+
+This repository contains configuration values specific to Karme Choling, including but not limited to:
+
+  - A Google OAuth 2.0 client ID scoped to the karmecholing.org Google
+    Workspace domain. This client ID authenticates only against Karme
+    Choling's organizational accounts and must not be used in any
+    derivative work or external deployment.
+  - Financial classification logic (functional expense categories,
+    revenue source categories, vendor hierarchies) designed for Karme
+    Choling's specific organizational structure and chart of accounts.
+  - An integration endpoint for Anthropic's Claude API. This integration
+    is disabled. Enabling this integration in any derivative or forked
+    version of this software does not constitute authorization by Karme
+    Choling. to transmit data on its behalf, and any such use is at
+    the sole risk and liability of the person enabling it.
+
+Any use of the "Karme Choling" name, logo, or organizational identity in
+connection with a modified version of this software is expressly prohibited.
+
+DISCLAIMER OF WARRANTY
+
+THIS SOFTWARE IS PROVIDED "AS IS," WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. THIS SOFTWARE IS AN
+INTERNAL ANALYTICAL TOOL AND DOES NOT CONSTITUTE FINANCIAL, LEGAL, OR
+ACCOUNTING ADVICE. ITS OUTPUTS HAVE NOT BEEN AUDITED AND MUST NOT BE
+RELIED UPON FOR REGULATORY FILINGS, DONOR COMMUNICATIONS, GRANT
+APPLICATIONS, OR AUDITED FINANCIAL STATEMENTS.
+
+LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL KARME CHOLING, ITS OFFICERS, DIRECTORS, EMPLOYEES,
+OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF,
+OR IN CONNECTION WITH THIS SOFTWARE OR THE USE OR OTHER DEALINGS IN THIS
+SOFTWARE.
+
+CONTACT
+
+For licensing inquiries or permission requests:
+Karme Choling
+369 Patneaude Lane
+Barnet, Vermont 05821
+https://www.karmecholing.org
