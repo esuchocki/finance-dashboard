@@ -112,12 +112,103 @@ export interface KclProgramSummary {
   accommodationRevenue: number;
 }
 
+// Revenue broken into the three operational streams (from Xero GL codes)
+export interface KclRevenueStreams {
+  programs: number;              // GL 4300, 4310, 4510
+  residency: number;             // GL 4500, 4520
+  donationsUnrestricted: number; // GL 4000, 4050
+  donationsRestricted: number;   // GL 4200
+  campaigns: number;             // GL 3xxx excl 3000
+  other: number;                 // remaining 4xxx not in named streams
+}
+
+// One row per calendar month
+export interface KclMonthlyRow {
+  month: number;                 // 1–12
+  revenuePrograms: number;
+  revenueResidency: number;
+  revenueDonations: number;      // unrestricted + restricted combined
+  revenueCampaigns: number;      // GL 3xxx credits
+  revenueTotal: number;
+  revenueManualJournal: number;  // subset of revenueTotal: Omnis period-closing batch postings
+  expenses: number;              // same GL codes as totalExpenses
+}
+
+// Residential occupancy derived from the roster and revenue
+export interface KclOccupancy {
+  monthlyResidents: Record<number, number>; // people present per month (roster-based)
+  avgMonthlyResidents: number;
+  totalResidentDays: number;                // sum of daysInYear across all roster entries
+  impliedResidents: number;                 // residency revenue / ($1,750 × 12)
+}
+
+// Three-lever break-even analysis
+export interface KclBreakEven {
+  deficit: number;
+  avgProgramRevenue: number;
+  residencyRevenuePerResident: number;  // $21,000/year at $1,750/month
+  totalDonationRevenue: number;
+  residentsNeeded: number;
+  programsNeeded: number;
+  donationIncreasePct: number;          // fraction (0.35 = 35%)
+}
+
+// Per-program cost components used in contribution margin analysis
+export interface KclProgramCosts {
+  teacherCost: number;       // GL 5250/5300/5350 — first-claim window attribution (REG only)
+  foodCost: number;          // marginal food rate × participant-days (0 for CABN self-catering)
+  ccFees: number;            // cc_rate × program revenue
+  utilityMarginal: number;   // above-baseline utility for program's dates
+  overheadAlloc: number;     // proportional share of all remaining fixed costs
+}
+
+// Full per-program contribution margin record
+export interface KclProgramPnL {
+  programId: string;
+  name: string;
+  categoryCode: string;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  registrations: number;
+  participantDays: number;
+  revenue: number;
+  costs: KclProgramCosts;
+  totalCosts: number;
+  contributionMargin: number;
+  marginPct: number;          // contributionMargin / revenue (0 if revenue = 0)
+}
+
+// Revenue and participation by program category (REG / CABN / IHR)
+export interface KclProgramCategory {
+  categoryCode: string;
+  label: string;
+  count: number;
+  totalRevenue: number;
+  participantDays: number;
+  avgRevenuePerProgram: number;
+  totalDurationDays: number;     // sum of program duration days (strict-year programs only)
+}
+
+// Residential population breakdown by track (staff / volunteer / residency participant)
+export interface KclVolunteerMetrics {
+  volunteerCount: number;
+  volunteerDays: number;
+  staffCount: number;
+  staffDays: number;
+  residencyCount: number;
+  residencyDays: number;
+  estimatedLaborValue: number;   // volunteerDays × laborValuePerDay
+  laborValuePerDay: number;      // assumed daily equivalent (e.g. $150)
+}
+
 export interface KclComputedMetrics {
   year: number;
 
   // Revenue
   totalRevenue: number;         // Xero cash collected (GL 3xxx/4xxx credits)
   omnisBilledTotal: number;     // Omnis charges (GL 4xxx) — may differ from Xero
+  revenueGapAmount: number;     // totalRevenue - omnisBilledTotal (donations + timing diffs)
 
   // Participation
   participantDays: number;
@@ -137,6 +228,9 @@ export interface KclComputedMetrics {
   // Payment processing
   ccFeeRate: number;
   ccFeeTotal: number;
+  ccFeeBenchmarkRate: number;   // industry standard benchmark (2.5%)
+  ccFeeExcessRate: number;      // max(0, ccFeeRate - benchmark)
+  ccFeeAlert: boolean;          // true if effective rate > 3.5%
 
   // Expenses
   expenseCategories: Record<string, KclExpenseCategory>;
@@ -148,8 +242,10 @@ export interface KclComputedMetrics {
   totalRooms: number;
   staffRooms: number;
   availableRooms: number;
+  cabinRoomCount: number;        // rooms with roomType === 'Tent Cabin'
   opportunityCostAnnual: number;
   avgStaffRoomRate: number;
+  revpar: number;                // residency+room revenue / (availableRooms × 365)
 
   // Payroll
   csvPayrollAnnualized: number;
@@ -160,6 +256,25 @@ export interface KclComputedMetrics {
 
   // Per-program
   topPrograms: KclProgramSummary[];
+
+  // Revenue streams breakdown
+  revenueStreams: KclRevenueStreams;
+
+  // Monthly revenue and expenses (indices 0–11, month=1–12)
+  monthlyData: KclMonthlyRow[];
+
+  // Occupancy from residential roster (null if roster not loaded)
+  occupancy: KclOccupancy | null;
+  volunteerMetrics: KclVolunteerMetrics | null;  // null if roster not loaded
+
+  // Break-even scenario analysis
+  breakEven: KclBreakEven;
+
+  // Program breakdown by category code (REG, CABN, IHR…)
+  programCategories: KclProgramCategory[];
+
+  // Per-program contribution margin (sorted by margin descending)
+  programPnL: KclProgramPnL[];
 
   // Completeness
   dataGaps: string[];
