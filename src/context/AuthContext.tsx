@@ -23,7 +23,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Decode a JWT token payload without external dependencies
+/**
+ * Decode a JWT token payload to extract claims.
+ *
+ * NOTE: This function does NOT verify the token signature. Signature
+ * verification is handled upstream by GoogleOAuthProvider / the Google
+ * Identity Services library before the credential is passed here. This
+ * function exists solely to read the already-verified payload claims
+ * (email, hd, name, picture) without adding an external dependency.
+ */
 function decodeJwt(token: string): Record<string, unknown> {
   const base64Url = token.split('.')[1];
   const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');

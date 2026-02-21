@@ -16,6 +16,12 @@ import {
   parseResidentialRoster,
   parseRoomInventory,
   parseStaffSalaries,
+  parseTrialBalance,
+  parseDonations,
+  parseOutstandingAr,
+  parseProgramTransactions,
+  parseRecurringDonors,
+  parseRoomBookings,
 } from '@/lib/kclParser';
 import { computeKclMetrics } from '@/lib/kclCompute';
 
@@ -26,12 +32,18 @@ const AVAILABLE_YEARS = [2024, 2025, 2026, 2027];
 type ParserFn = (content: string) => unknown[];
 
 const PARSERS: Record<KclDataSourceKey, ParserFn> = {
-  glTransactions:    parseGlTransactions,
-  programCatalog:    parseProgramCatalog,
-  programRevenue:    parseProgramRevenue,
-  residentialRoster: parseResidentialRoster,
-  roomInventory:     parseRoomInventory,
-  staffSalaries:     parseStaffSalaries,
+  glTransactions:      parseGlTransactions,
+  programCatalog:      parseProgramCatalog,
+  programRevenue:      parseProgramRevenue,
+  residentialRoster:   parseResidentialRoster,
+  roomInventory:       parseRoomInventory,
+  staffSalaries:       parseStaffSalaries,
+  trialBalance:        parseTrialBalance,
+  donations:           parseDonations,
+  outstandingAr:       parseOutstandingAr,
+  programTransactions: parseProgramTransactions,
+  recurringDonors:     parseRecurringDonors,
+  roomBookings:        parseRoomBookings,
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -77,6 +89,12 @@ export function useKclPlanning(): UseKclPlanningResult {
         dataset.data.roomInventory,
         dataset.data.residentialRoster,
         dataset.data.staffSalaries,
+        dataset.data.trialBalance,
+        dataset.data.donations,
+        dataset.data.outstandingAr,
+        dataset.data.programTransactions,
+        dataset.data.recurringDonors,
+        dataset.data.roomBookings,
       );
       return { ...dataset, computed };
     } catch (err) {

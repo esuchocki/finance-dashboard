@@ -29,6 +29,12 @@ import type {
   ResidentialRosterEntry,
   RoomEntry,
   StaffSalaryEntry,
+  TrialBalanceEntry,
+  DonationEntry,
+  ArEntry,
+  ProgramTransactionEntry,
+  RecurringDonorEntry,
+  RoomBookingEntry,
   KclComputedMetrics,
   KclExpenseCategory,
   KclProgramSummary,
@@ -40,6 +46,13 @@ import type {
   KclProgramCosts,
   KclProgramPnL,
   KclVolunteerMetrics,
+  KclTrialBalanceSummary,
+  KclDonationFund,
+  KclDonationBreakdown,
+  KclArMetrics,
+  KclDiscountSummary,
+  KclRecurringDonorSummary,
+  KclRoomTypeOccupancy,
   Season,
 } from './kclTypes';
 import { MONTH_NAMES } from './kclTypes';
@@ -55,6 +68,7 @@ const GL_CATEGORIES: Record<string, {
   utilities:          { name: 'Utilities',                glAccounts: ['6270', '6250'],                                 type: 'semi_variable' },
   payroll:            { name: 'Payroll & Contract Labour',glAccounts: ['6105', '6110', '6114', '6116'],                 type: 'overhead' },
   teachers:           { name: 'Teacher Compensation',     glAccounts: ['5250', '5300', '5350'],                         type: 'program_specific' },
+  scholarships:       { name: 'Scholarships & Credits',   glAccounts: ['COGS - SCH', 'COGS - PC'],                      type: 'program_specific' },
   repairs:            { name: 'Repairs & Maintenance',    glAccounts: ['6210'],                                         type: 'overhead' },
   insurance:          { name: 'Insurance',                glAccounts: ['6150'],                                         type: 'overhead' },
   facilities:         { name: 'Facilities',               glAccounts: ['6190', '6200'],                                 type: 'overhead' },
@@ -81,7 +95,7 @@ const ALL_EXPENSE_CODES = new Set<string>(
 // GL codes for each revenue stream
 const PROGRAM_GL   = new Set(['4300', '4310', '4510']);
 const RESIDENCY_GL = new Set(['4500', '4520']);
-const DONATION_GL  = new Set(['4000', '4050', '4200']);
+const DONATION_GL  = new Set(['4000', '4050', '4150', '4200']);
 
 // Category labels for known Omnis program category codes
 const PROG_CATEGORY_LABELS: Record<string, string> = {
@@ -132,7 +146,7 @@ function computeRevenue(txns: GlTransaction[], year: number): number {
       const code = t.accountCode;
       return (code.startsWith('3') || code.startsWith('4')) && code !== '3000';
     })
-    .reduce((sum, t) => sum + t.credit, 0);
+    .reduce((sum, t) => sum + t.credit - t.debit, 0);
 }
 
 // ─── Utility baseline ─────────────────────────────────────────────────────────
@@ -206,7 +220,7 @@ function computeCcFeeRate(txns: GlTransaction[], year: number): { rate: number; 
     .reduce((s, t) => s + t.debit, 0);
   const revenue = yearTxns
     .filter(t => (t.accountCode.startsWith('3') || t.accountCode.startsWith('4')) && t.accountCode !== '3000')
-    .reduce((s, t) => s + t.credit, 0);
+    .reduce((s, t) => s + t.credit - t.debit, 0);
   return { rate: revenue > 0 ? total / revenue : 0, total };
 }
 
@@ -422,14 +436,16 @@ function computeRevenueStreams(txns: GlTransaction[], year: number): KclRevenueS
     donationsRestricted: 0, campaigns: 0, other: 0,
   };
   for (const t of txns) {
-    if (txnYear(t) !== year || t.credit <= 0) continue;
+    if (txnYear(t) !== year) continue;
+    const net = t.credit - t.debit;
+    if (net === 0) continue;
     const code = t.accountCode;
-    if (PROGRAM_GL.has(code))           s.programs             += t.credit;
-    else if (RESIDENCY_GL.has(code))    s.residency            += t.credit;
-    else if (code === '4000' || code === '4050') s.donationsUnrestricted += t.credit;
-    else if (code === '4200')           s.donationsRestricted  += t.credit;
-    else if (code.startsWith('3') && code !== '3000') s.campaigns += t.credit;
-    else if (code.startsWith('4'))      s.other                += t.credit;
+    if (PROGRAM_GL.has(code))                                        s.programs             += net;
+    else if (RESIDENCY_GL.has(code))                                 s.residency            += net;
+    else if (code === '4000' || code === '4050' || code === '4150') s.donationsUnrestricted += net;
+    else if (code === '4200')                                        s.donationsRestricted  += net;
+    else if (code.startsWith('3') && code !== '3000')                s.campaigns            += net;
+    else if (code.startsWith('4'))                                   s.other                += net;
   }
   return s;
 }
@@ -450,32 +466,32 @@ function computeMonthlyData(txns: GlTransaction[], year: number): KclMonthlyRow[
     const m = txnMonth(t);
     if (m < 1 || m > 12) continue;
     const code = t.accountCode;
-    // Revenue credits
-    if (t.credit > 0) {
+    // Revenue — net credits and debits on income accounts
+    const rev = t.credit - t.debit;
+    if (rev !== 0) {
       let addedToTotal = false;
       if (PROGRAM_GL.has(code)) {
-        rows[m].revenuePrograms += t.credit;
-        rows[m].revenueTotal    += t.credit;
+        rows[m].revenuePrograms += rev;
+        rows[m].revenueTotal    += rev;
         addedToTotal = true;
       } else if (RESIDENCY_GL.has(code)) {
-        rows[m].revenueResidency += t.credit;
-        rows[m].revenueTotal     += t.credit;
+        rows[m].revenueResidency += rev;
+        rows[m].revenueTotal     += rev;
         addedToTotal = true;
       } else if (DONATION_GL.has(code)) {
-        rows[m].revenueDonations += t.credit;
-        rows[m].revenueTotal     += t.credit;
+        rows[m].revenueDonations += rev;
+        rows[m].revenueTotal     += rev;
         addedToTotal = true;
       } else if (code.startsWith('3') && code !== '3000') {
-        rows[m].revenueCampaigns += t.credit;
-        rows[m].revenueTotal     += t.credit;
+        rows[m].revenueCampaigns += rev;
+        rows[m].revenueTotal     += rev;
         addedToTotal = true;
       } else if (code.startsWith('4')) {
-        rows[m].revenueTotal     += t.credit;
+        rows[m].revenueTotal     += rev;
         addedToTotal = true;
       }
-      // Track the Omnis period-closing batch subset (Xero Source = "Manual Journal")
       if (addedToTotal && t.sourceName === 'Manual Journal') {
-        rows[m].revenueManualJournal += t.credit;
+        rows[m].revenueManualJournal += rev;
       }
     }
     // Expense debits — only GL codes tracked in our categories
@@ -789,6 +805,128 @@ function computeProgramPnL(
   return results.sort((a, b) => b.contributionMargin - a.contributionMargin);
 }
 
+// ─── Trial balance summary ────────────────────────────────────────────────────
+
+function computeTrialBalanceSummary(entries: TrialBalanceEntry[]): KclTrialBalanceSummary {
+  let trialRevenue = 0, trialExpenses = 0, depreciation = 0;
+  let retainedEarnings = 0, programDeposits = 0, investmentAccount = 0;
+  let cashAndBanks = 0, mortgage = 0, sbaLoan = 0;
+  let totalAssets = 0, totalLiabilities = 0, totalEquity = 0;
+
+  for (const e of entries) {
+    const code = e.accountCode.trim();
+    const cls  = e.accountClass.toLowerCase();
+
+    if (cls === 'revenue') {
+      trialRevenue += e.credit;
+    } else if (cls === 'expense') {
+      trialExpenses += e.debit;
+      if (code === '6130') depreciation = e.debit;
+    } else if (cls === 'asset') {
+      // Net: assets carry debit balances; accumulated depreciation carries credits
+      totalAssets += e.debit - e.credit;
+      // Bank accounts: codes 1000–1009
+      if (/^100\d$/.test(code)) cashAndBanks += e.debit;
+      if (code === '1005') investmentAccount = e.debit;
+    } else if (cls === 'liability') {
+      totalLiabilities += e.credit;
+      if (code === '2010') programDeposits = e.credit;
+      if (code === '2500') mortgage = e.credit;
+      if (code === '2501') sbaLoan = e.credit;
+    } else if (cls === 'equity') {
+      totalEquity += e.credit - e.debit;
+      if (code === '3000') retainedEarnings = e.credit;
+    }
+  }
+
+  return {
+    trialRevenue,
+    trialExpenses,
+    trialNetIncome: trialRevenue - trialExpenses,
+    depreciation,
+    retainedEarnings,
+    programDeposits,
+    investmentAccount,
+    cashAndBanks,
+    mortgage,
+    sbaLoan,
+    totalAssets,
+    totalLiabilities,
+    totalEquity,
+  };
+}
+
+// ─── Donation breakdown ───────────────────────────────────────────────────────
+
+function computeDonationBreakdown(donations: DonationEntry[]): KclDonationBreakdown {
+  const fundMap: Record<string, KclDonationFund> = {};
+  let totalPledged = 0, totalPaid = 0;
+  let monthlyCount = 0, oneTimeCount = 0, cancelledCount = 0, voidCount = 0;
+
+  for (const d of donations) {
+    if (d.cancelled) { cancelledCount++; continue; }
+    if (d.voidTransaction) { voidCount++; continue; }
+
+    const type = d.donationType.toUpperCase();
+    if (type.includes('MONTHLY') || type.includes('RECURRING')) monthlyCount++;
+    else oneTimeCount++;
+
+    totalPledged += d.pledgedAmount;
+    totalPaid += d.amountPaid;
+
+    if (!fundMap[d.fundName]) {
+      fundMap[d.fundName] = {
+        fundName: d.fundName,
+        glAccount: d.glAccount,
+        totalPledged: 0,
+        totalPaid: 0,
+        transactionCount: 0,
+      };
+    }
+    fundMap[d.fundName].totalPledged += d.pledgedAmount;
+    fundMap[d.fundName].totalPaid += d.amountPaid;
+    fundMap[d.fundName].transactionCount++;
+  }
+
+  return {
+    funds: Object.values(fundMap).sort((a, b) => b.totalPaid - a.totalPaid),
+    totalPledged,
+    totalPaid,
+    paymentRate: totalPledged > 0 ? totalPaid / totalPledged : 0,
+    monthlyCount,
+    oneTimeCount,
+    cancelledCount,
+    voidCount,
+  };
+}
+
+// ─── Accounts receivable ──────────────────────────────────────────────────────
+
+function computeArMetrics(arEntries: ArEntry[]): KclArMetrics {
+  const totalOutstanding = arEntries.reduce((s, e) => s + e.outstanding, 0);
+  const totalCharged     = arEntries.reduce((s, e) => s + e.totalCharged, 0);
+  const totalPaid        = arEntries.reduce((s, e) => s + e.totalPaid, 0);
+
+  const topDebtors = [...arEntries]
+    .filter(e => e.outstanding > 0)
+    .sort((a, b) => b.outstanding - a.outstanding)
+    .slice(0, 10)
+    .map(e => ({
+      participantName: e.participantName,
+      programName: e.programName,
+      outstanding: e.outstanding,
+    }));
+
+  return {
+    totalOutstanding,
+    totalCharged,
+    totalPaid,
+    collectionRate: totalCharged > 0 ? totalPaid / totalCharged : 0,
+    debtorCount: arEntries.filter(e => e.outstanding > 0).length,
+    topDebtors,
+  };
+}
+
 // ─── Volunteer / residential population breakdown ─────────────────────────────
 
 function computeVolunteerMetrics(roster: ResidentialRosterEntry[]): KclVolunteerMetrics {
@@ -822,6 +960,91 @@ function computeVolunteerMetrics(roster: ResidentialRosterEntry[]): KclVolunteer
   };
 }
 
+// ─── Discount summary ─────────────────────────────────────────────────────────
+
+function computeDiscountSummary(txns: ProgramTransactionEntry[]): KclDiscountSummary {
+  const cats: Record<string, { totalAmount: number; totalDiscount: number }> = {};
+  let totalAmount = 0;
+  let totalDiscount = 0;
+
+  for (const t of txns) {
+    totalAmount += t.totalAmount;
+    totalDiscount += t.totalDiscount;
+    const code = t.categoryCode || 'OTHER';
+    if (!cats[code]) cats[code] = { totalAmount: 0, totalDiscount: 0 };
+    cats[code].totalAmount += t.totalAmount;
+    cats[code].totalDiscount += t.totalDiscount;
+  }
+
+  const byCategory = Object.entries(cats)
+    .map(([code, d]) => ({
+      categoryCode: code,
+      label: PROG_CATEGORY_LABELS[code] ?? code,
+      totalAmount: d.totalAmount,
+      totalDiscount: d.totalDiscount,
+      discountRate: d.totalAmount > 0 ? d.totalDiscount / d.totalAmount : 0,
+    }))
+    .sort((a, b) => b.totalDiscount - a.totalDiscount);
+
+  return {
+    totalAmount,
+    totalDiscount,
+    netRevenue: totalAmount - totalDiscount,
+    discountRate: totalAmount > 0 ? totalDiscount / totalAmount : 0,
+    byCategory,
+  };
+}
+
+// ─── Recurring donor summary ──────────────────────────────────────────────────
+
+function computeRecurringDonorSummary(donors: RecurringDonorEntry[]): KclRecurringDonorSummary {
+  const donorCount = donors.length;
+  const totalPaid = donors.reduce((s, d) => s + d.totalPaid, 0);
+  const totalPayments = donors.reduce((s, d) => s + d.paymentsMade, 0);
+
+  const topDonors = [...donors]
+    .sort((a, b) => b.totalPaid - a.totalPaid)
+    .slice(0, 10)
+    .map(d => ({ donorName: d.donorName, payments: d.paymentsMade, totalPaid: d.totalPaid }));
+
+  return {
+    donorCount,
+    totalPaid,
+    avgPaymentsPerDonor: donorCount > 0 ? totalPayments / donorCount : 0,
+    avgAmountPerDonor: donorCount > 0 ? totalPaid / donorCount : 0,
+    topDonors,
+  };
+}
+
+// ─── Room type occupancy ──────────────────────────────────────────────────────
+
+function computeRoomTypeOccupancy(bookings: RoomBookingEntry[]): KclRoomTypeOccupancy {
+  const valid = bookings.filter(b => b.nights > 0);
+  const typeMap: Record<string, { bookings: number; totalNights: number }> = {};
+
+  for (const b of valid) {
+    const type = b.roomTypeDesc || b.roomTypeCode || 'Unknown';
+    if (!typeMap[type]) typeMap[type] = { bookings: 0, totalNights: 0 };
+    typeMap[type].bookings++;
+    typeMap[type].totalNights += b.nights;
+  }
+
+  const byType = Object.entries(typeMap)
+    .map(([roomTypeDesc, d]) => ({
+      roomTypeDesc,
+      bookings: d.bookings,
+      totalNights: d.totalNights,
+      avgNights: d.bookings > 0 ? d.totalNights / d.bookings : 0,
+    }))
+    .sort((a, b) => b.totalNights - a.totalNights);
+
+  return {
+    totalNights: valid.reduce((s, b) => s + b.nights, 0),
+    totalBookings: valid.length,
+    byType,
+  };
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 export function computeKclMetrics(
@@ -832,6 +1055,12 @@ export function computeKclMetrics(
   roomInventory: RoomEntry[],
   residentialRoster: ResidentialRosterEntry[],
   staffSalaries: StaffSalaryEntry[],
+  trialBalanceEntries: TrialBalanceEntry[],
+  donations: DonationEntry[],
+  arEntries: ArEntry[],
+  programTransactions: ProgramTransactionEntry[],
+  recurringDonors: RecurringDonorEntry[],
+  roomBookings: RoomBookingEntry[],
 ): KclComputedMetrics {
 
   // Revenue
@@ -886,6 +1115,36 @@ export function computeKclMetrics(
   // Volunteer / residential population breakdown
   const volunteerMetrics = residentialRoster.length > 0
     ? computeVolunteerMetrics(residentialRoster)
+    : null;
+
+  // Trial balance summary
+  const balanceSheet = trialBalanceEntries.length > 0
+    ? computeTrialBalanceSummary(trialBalanceEntries)
+    : null;
+
+  // Donation fund breakdown
+  const donationBreakdown = donations.length > 0
+    ? computeDonationBreakdown(donations)
+    : null;
+
+  // Accounts receivable health
+  const arMetrics = arEntries.length > 0
+    ? computeArMetrics(arEntries)
+    : null;
+
+  // Discount summary from program transactions
+  const discountSummary = programTransactions.length > 0
+    ? computeDiscountSummary(programTransactions)
+    : null;
+
+  // Recurring donor base
+  const recurringDonorSummary = recurringDonors.length > 0
+    ? computeRecurringDonorSummary(recurringDonors)
+    : null;
+
+  // Room type occupancy
+  const roomTypeOccupancy = roomBookings.length > 0
+    ? computeRoomTypeOccupancy(roomBookings)
     : null;
 
   // CC fee benchmark
@@ -975,6 +1234,12 @@ export function computeKclMetrics(
     monthlyData,
     occupancy,
     volunteerMetrics,
+    balanceSheet,
+    donationBreakdown,
+    arMetrics,
+    discountSummary,
+    recurringDonorSummary,
+    roomTypeOccupancy,
     breakEven,
     programCategories,
     programPnL,

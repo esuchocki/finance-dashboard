@@ -3,8 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Upload, CheckCircle2, AlertCircle, X, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 import type { KclDataSourceKey, KclSourceStatus } from '@/lib/kclTypes';
 import { KCL_SOURCE_META } from '@/lib/kclTypes';
+
+const CSV_MAX_SIZE = 100 * 1024 * 1024; // 100 MB
 
 interface DataSourceUploaderProps {
   sourceKey: KclDataSourceKey;
@@ -27,7 +30,9 @@ const DataSourceUploader: React.FC<DataSourceUploaderProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
 
   const handleFile = async (file: File) => {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
+    if (!file.name.toLowerCase().endsWith('.csv')) return;
+    if (file.size > CSV_MAX_SIZE) {
+      toast.error(`File too large — maximum is 100 MB (received ${(file.size / 1024 / 1024).toFixed(1)} MB)`);
       return;
     }
     setIsLoading(true);

@@ -3,33 +3,27 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Content Security Policy
+      - script-src: self + Google OAuth library (accounts.google.com)
+      - style-src:  'unsafe-inline' required for Radix UI / Tailwind inline styles
+      - img-src:    Google user profile pictures (*.googleusercontent.com)
+      - frame-src:  Google OAuth popup
+      - connect-src: Google OAuth token and OpenID Connect endpoints
+      Note: frame-ancestors cannot be set via meta tag (header-only directive).
+    -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' https://accounts.google.com https://apis.google.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https://*.googleusercontent.com;
+      frame-src https://accounts.google.com;
+      connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://openidconnect.googleapis.com;
+    " />
     <link rel="icon" type="image/png" href="%BASE_URL%logo.png" />
     <title>Finance Dashboard</title>
-    <script>
-      // Handle redirect from 404.html for SPA routing on GitHub Pages
-      (function() {
-        var redirect = sessionStorage.redirect;
-        delete sessionStorage.redirect;
-        if (redirect && redirect !== location.href) {
-          history.replaceState(null, null, redirect);
-        }
-        // Also handle ?p= query param redirect
-        var search = window.location.search;
-        if (search && search.indexOf('?p=') === 0) {
-          var path = decodeURIComponent(search.slice(3));
-          history.replaceState(null, null, '/finance-dashboard' + path);
-        }
-      })();
-    </script>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-
-    <meta property="og:title" content="Lovable Generated Project" />
-    <meta property="og:description" content="Lovable Generated Project" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
+    <script src="%BASE_URL%redirect.js"></script>
+    <meta name="description" content="Finance Dashboard" />
   </head>
 
   <body>

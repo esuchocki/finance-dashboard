@@ -138,7 +138,7 @@ export const useFinanceUpload = (isDevelopmentMode: boolean = false) => {
           toast.success(
             `Imported ${transactionCount} transactions from ${formattedStartDate} to ${formattedEndDate}.`,
             {
-              description: "Data stored in encrypted session (cleared when browser closes)"
+              description: "Data is stored in memory only and cleared when the browser closes."
             }
           );
 

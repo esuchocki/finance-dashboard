@@ -4,7 +4,7 @@
 --
 -- Output columns used by the web app:
 --   PROGRAM_ID, PROGRAM_NAME, START_DATE, END_DATE, PROG_CATEGORY_CODE,
---   PROG_CATEGORY_DESC, total_registrations, active_registrations, total_participant_days
+--   total_registrations, active_registrations, total_participant_days
 
 SELECT
     prog.PROGRAM_ID,
@@ -12,7 +12,6 @@ SELECT
     prog.START_DATE,
     prog.END_DATE,
     prog.PROG_CATEGORY_CODE,
-    prog.PROG_CATEGORY_DESC,
     COUNT(reg.REGISTRATION_ID)                                         AS total_registrations,
     COUNT(CASE WHEN reg.CANCELLED IS NULL THEN 1 END)                  AS active_registrations,
     SUM(CASE WHEN reg.CANCELLED IS NULL THEN DATEDIFF(
@@ -28,6 +27,5 @@ GROUP BY
     prog.PROGRAM_NAME,
     prog.START_DATE,
     prog.END_DATE,
-    prog.PROG_CATEGORY_CODE,
-    prog.PROG_CATEGORY_DESC
+    prog.PROG_CATEGORY_CODE
 ORDER BY prog.START_DATE, prog.PROGRAM_NAME;

@@ -13,7 +13,13 @@ export type KclDataSourceKey =
   | 'programRevenue'
   | 'residentialRoster'
   | 'roomInventory'
-  | 'staffSalaries';
+  | 'staffSalaries'
+  | 'trialBalance'
+  | 'donations'
+  | 'outstandingAr'
+  | 'programTransactions'
+  | 'recurringDonors'
+  | 'roomBookings';
 
 export type KclLoadStatus = 'missing' | 'loaded' | 'error';
 
@@ -83,6 +89,79 @@ export interface StaffSalaryEntry {
   annualSalary: number;
   hourlyRate: number | null;
   hoursPerMonth: number | null;
+}
+
+export interface TrialBalanceEntry {
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+  accountClass: string;
+  debit: number;
+  credit: number;
+}
+
+export interface DonationEntry {
+  donationId: string;
+  donorName: string;
+  email: string;
+  fundName: string;
+  glAccount: string;
+  pledgedAmount: number;
+  donationType: string;    // 'ONE TIME' | 'MONTHLY' | etc.
+  paymentCat: string;
+  cancelled: boolean;
+  paymentDate: string;     // ISO YYYY-MM-DD or ''
+  paymentMethod: string;
+  voidTransaction: boolean;
+  amountPaid: number;
+}
+
+export interface ArEntry {
+  registrationId: string;
+  participantName: string;
+  email: string;
+  programName: string;
+  startDate: string;
+  endDate: string;
+  totalCharged: number;
+  totalPaid: number;
+  outstanding: number;
+}
+
+export interface ProgramTransactionEntry {
+  programId: string;
+  programName: string;
+  categoryCode: string;
+  startDate: string;
+  endDate: string;
+  glAccount: string;
+  transType: string;
+  transDesc: string;
+  numLines: number;
+  totalAmount: number;
+  totalDiscount: number;
+}
+
+export interface RecurringDonorEntry {
+  personId: string;
+  donorName: string;
+  email: string;
+  activeEnrollments: number;
+  paymentsMade: number;
+  totalPaid: number;
+}
+
+export interface RoomBookingEntry {
+  bookingId: string;
+  roomId: string;
+  roomNo: string;
+  roomTypeCode: string;
+  roomTypeDesc: string;
+  registrationId: string;
+  programId: string;
+  arrivalDate: string;
+  departureDate: string;
+  nights: number;
 }
 
 // ─── Computed output ──────────────────────────────────────────────────────────
@@ -202,6 +281,98 @@ export interface KclVolunteerMetrics {
   laborValuePerDay: number;      // assumed daily equivalent (e.g. $150)
 }
 
+// Key balance sheet line items from the Xero trial balance
+export interface KclTrialBalanceSummary {
+  trialRevenue: number;         // sum of all revenue account credits
+  trialExpenses: number;        // sum of all expense account debits
+  trialNetIncome: number;       // trialRevenue - trialExpenses
+  depreciation: number;         // GL 6130 debit (0 if not in data)
+  retainedEarnings: number;     // account 3000 credit
+  programDeposits: number;      // account 2010 — deferred revenue liability
+  investmentAccount: number;    // account 1005 (Schwab)
+  cashAndBanks: number;         // sum of 1000–1009 bank accounts
+  mortgage: number;             // account 2500
+  sbaLoan: number;              // account 2501
+  totalAssets: number;          // sum of all asset account debits (net, after depreciation credits)
+  totalLiabilities: number;     // sum of all liability account credits
+  totalEquity: number;          // sum of all equity account credits
+}
+
+// Per-fund donation totals
+export interface KclDonationFund {
+  fundName: string;
+  glAccount: string;
+  totalPledged: number;
+  totalPaid: number;
+  transactionCount: number;
+}
+
+// Donation aggregate analysis
+export interface KclDonationBreakdown {
+  funds: KclDonationFund[];     // sorted by totalPaid descending
+  totalPledged: number;
+  totalPaid: number;
+  paymentRate: number;          // totalPaid / totalPledged
+  monthlyCount: number;         // DONATION_TYPE === 'MONTHLY'
+  oneTimeCount: number;
+  cancelledCount: number;
+  voidCount: number;
+}
+
+// Accounts receivable health metrics
+export interface KclArMetrics {
+  totalOutstanding: number;
+  totalCharged: number;
+  totalPaid: number;
+  collectionRate: number;       // totalPaid / totalCharged
+  debtorCount: number;          // participants with outstanding > 0
+  topDebtors: Array<{
+    participantName: string;
+    programName: string;
+    outstanding: number;
+  }>;
+}
+
+// Discount analysis from program transactions
+export interface KclDiscountSummary {
+  totalAmount: number;      // gross billed (sum of total_amount)
+  totalDiscount: number;    // sum of total_discount
+  netRevenue: number;       // totalAmount - totalDiscount
+  discountRate: number;     // totalDiscount / totalAmount
+  byCategory: Array<{
+    categoryCode: string;
+    label: string;
+    totalAmount: number;
+    totalDiscount: number;
+    discountRate: number;
+  }>;
+}
+
+// Recurring donor base analysis
+export interface KclRecurringDonorSummary {
+  donorCount: number;
+  totalPaid: number;
+  avgPaymentsPerDonor: number;
+  avgAmountPerDonor: number;
+  topDonors: Array<{
+    donorName: string;
+    payments: number;
+    totalPaid: number;
+  }>;
+}
+
+// Room-type occupancy from booking records
+export interface KclRoomTypeOccupancy {
+  totalNights: number;
+  totalBookings: number;
+  byType: Array<{
+    roomTypeDesc: string;
+    bookings: number;
+    totalNights: number;
+    avgNights: number;
+  }>;
+}
+
 export interface KclComputedMetrics {
   year: number;
 
@@ -267,6 +438,24 @@ export interface KclComputedMetrics {
   occupancy: KclOccupancy | null;
   volunteerMetrics: KclVolunteerMetrics | null;  // null if roster not loaded
 
+  // Balance sheet snapshot from trial balance (null if not loaded)
+  balanceSheet: KclTrialBalanceSummary | null;
+
+  // Donation fund breakdown from Omnis (null if not loaded)
+  donationBreakdown: KclDonationBreakdown | null;
+
+  // Accounts receivable health from Omnis (null if not loaded)
+  arMetrics: KclArMetrics | null;
+
+  // Discount analysis from Omnis program transactions (null if not loaded)
+  discountSummary: KclDiscountSummary | null;
+
+  // Recurring donor base analysis (null if not loaded)
+  recurringDonorSummary: KclRecurringDonorSummary | null;
+
+  // Room-type occupancy from booking records (null if not loaded)
+  roomTypeOccupancy: KclRoomTypeOccupancy | null;
+
   // Break-even scenario analysis
   breakEven: KclBreakEven;
 
@@ -301,6 +490,12 @@ export interface KclAnnualDataset {
     residentialRoster: ResidentialRosterEntry[];
     roomInventory: RoomEntry[];
     staffSalaries: StaffSalaryEntry[];
+    trialBalance: TrialBalanceEntry[];
+    donations: DonationEntry[];
+    outstandingAr: ArEntry[];
+    programTransactions: ProgramTransactionEntry[];
+    recurringDonors: RecurringDonorEntry[];
+    roomBookings: RoomBookingEntry[];
   };
   computed: KclComputedMetrics | null;
 }
@@ -314,6 +509,8 @@ export interface KclDataSourceMeta {
   required: boolean;
   origin: string;
   expectedColumns: string[];
+  /** Lowercase substrings matched against zip entry basenames to auto-assign the source key. */
+  zipPatterns: string[];
 }
 
 export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
@@ -324,6 +521,7 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: true,
     origin: 'Xero → Reports → Account Transactions → Export CSV',
     expectedColumns: ['Date', 'Account Code', 'Debit', 'Credit', 'Description', 'Source'],
+    zipPatterns: ['account_transactions', 'account transactions', 'gl_transactions', 'gl transactions'],
   },
   programCatalog: {
     label: 'Program Catalog',
@@ -332,6 +530,7 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: true,
     origin: 'KCLdb MySQL: data/queries/program_catalog.sql',
     expectedColumns: ['PROGRAM_ID', 'PROGRAM_NAME', 'START_DATE', 'END_DATE', 'total_participant_days'],
+    zipPatterns: ['program_catalog', 'program catalog'],
   },
   programRevenue: {
     label: 'Program Revenue',
@@ -340,6 +539,7 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: true,
     origin: 'KCLdb MySQL: data/queries/program_revenue.sql',
     expectedColumns: ['PROGRAM_NAME', 'total_revenue', 'tuition_revenue', 'registrations'],
+    zipPatterns: ['program_revenue', 'program revenue'],
   },
   residentialRoster: {
     label: 'Residential Roster',
@@ -348,6 +548,7 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: false,
     origin: 'KCLdb MySQL: data/queries/residential_staff.sql',
     expectedColumns: ['FIRST_NAME', 'LAST_NAME', 'ARRIVAL_DATE', 'DEPARTURE_DATE', 'days_in_year'],
+    zipPatterns: ['residential_staff', 'residential staff', 'residential_roster', 'residential roster'],
   },
   roomInventory: {
     label: 'Room Inventory',
@@ -356,6 +557,7 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: true,
     origin: 'Internal spreadsheet (kcl_accommodations.csv) — update annually',
     expectedColumns: ['Room Number', 'Room Type', 'Price for Single Occupancy', 'Occupied by Staff'],
+    zipPatterns: ['accommodation', 'room_inventory', 'room inventory'],
   },
   staffSalaries: {
     label: 'Staff Salaries',
@@ -364,8 +566,77 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     required: false,
     origin: 'HR records (salaries.csv) — update annually',
     expectedColumns: ['Employee', 'Department', 'Annual Salary'],
+    zipPatterns: ['salaries', 'salary'],
+  },
+  trialBalance: {
+    label: 'Trial Balance',
+    description: 'Xero period trial balance — provides balance sheet snapshot, program deposit liability, investment account, and debt balances. Required to see the full financial position including items not in the GL transaction export.',
+    fileType: 'CSV',
+    required: false,
+    origin: 'Xero → Reports → Trial Balance → Export CSV',
+    expectedColumns: ['Account Code', 'Account', 'Account Type', 'Account Class', 'Debit', 'Credit'],
+    zipPatterns: ['trial_balance', 'trial balance'],
+  },
+  donations: {
+    label: 'Donations',
+    description: 'Omnis donation records — fund-level breakdown (Kubera, Saddharma, scholarships), pledge vs. paid, one-time vs. monthly split',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: context/omnis/kcl_db/results/donations.csv',
+    expectedColumns: ['DONATION_ID', 'donor_name', 'fund_name', 'pledged_amount', 'amount_paid'],
+    zipPatterns: ['donations'],
+  },
+  outstandingAr: {
+    label: 'Outstanding AR',
+    description: 'Accounts receivable from Omnis — outstanding balances by participant, collection rate, top debtors',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: context/omnis/kcl_db/results/outstanding-accounts-receivable.csv',
+    expectedColumns: ['participant_name', 'PROGRAM_NAME', 'total_charged', 'total_paid', 'outstanding'],
+    zipPatterns: ['outstanding', 'receivable'],
+  },
+  programTransactions: {
+    label: 'Program Transactions',
+    description: 'Omnis transaction detail by program and GL account — includes discount amounts that reduce effective revenue',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/all-2025-program-transactions.csv',
+    expectedColumns: ['PROGRAM_ID', 'PROGRAM_NAME', 'GL_ACCOUNT', 'TRANS_TYPE', 'total_amount', 'total_discount'],
+    zipPatterns: ['program-transactions', 'program_transactions', 'all-2025-program'],
+  },
+  recurringDonors: {
+    label: 'Recurring Donors',
+    description: 'Active recurring donor base — count, payment frequency, and amounts for the year',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/recurring-donors.csv',
+    expectedColumns: ['PERSON_ID', 'donor_name', 'num_active_enrollments', 'payments_made_2025', 'total_paid_2025'],
+    zipPatterns: ['recurring-donors', 'recurring_donors'],
+  },
+  roomBookings: {
+    label: 'Room Bookings',
+    description: 'Individual room booking records — occupancy by room type, average stay length',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/room-bookings.csv',
+    expectedColumns: ['ROOM_NO', 'ROOM_TYPE_DESC', 'PROGRAM_ID', 'nights'],
+    zipPatterns: ['room-bookings', 'room_bookings'],
   },
 };
+
+// ─── Zip filename matching ─────────────────────────────────────────────────────
+
+/**
+ * Given a zip entry basename, returns the matching KclDataSourceKey or null.
+ * Sources are checked in ALL_SOURCES order; first match wins.
+ */
+export function matchZipFilename(filename: string): KclDataSourceKey | null {
+  const lower = filename.toLowerCase();
+  for (const key of ALL_SOURCES) {
+    if (KCL_SOURCE_META[key].zipPatterns.some(p => lower.includes(p))) return key;
+  }
+  return null;
+}
 
 export const REQUIRED_SOURCES: KclDataSourceKey[] = [
   'glTransactions',
@@ -381,6 +652,12 @@ export const ALL_SOURCES: KclDataSourceKey[] = [
   'roomInventory',
   'residentialRoster',
   'staffSalaries',
+  'trialBalance',
+  'donations',
+  'outstandingAr',
+  'programTransactions',
+  'recurringDonors',
+  'roomBookings',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -403,6 +680,12 @@ export function emptyDataset(year: number): KclAnnualDataset {
       residentialRoster: { ...emptyStatus },
       roomInventory: { ...emptyStatus },
       staffSalaries: { ...emptyStatus },
+      trialBalance: { ...emptyStatus },
+      donations: { ...emptyStatus },
+      outstandingAr: { ...emptyStatus },
+      programTransactions: { ...emptyStatus },
+      recurringDonors: { ...emptyStatus },
+      roomBookings: { ...emptyStatus },
     },
     data: {
       glTransactions: [],
@@ -411,6 +694,12 @@ export function emptyDataset(year: number): KclAnnualDataset {
       residentialRoster: [],
       roomInventory: [],
       staffSalaries: [],
+      trialBalance: [],
+      donations: [],
+      outstandingAr: [],
+      programTransactions: [],
+      recurringDonors: [],
+      roomBookings: [],
     },
     computed: null,
   };

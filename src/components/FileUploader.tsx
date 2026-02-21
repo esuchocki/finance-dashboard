@@ -29,6 +29,8 @@ const FileUploader = () => {
   const [backgroundData, setBackgroundData] = useState<BackgroundFormData | null>(null);
   const { toast } = useToast();
 
+  const QBO_MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
@@ -36,9 +38,19 @@ const FileUploader = () => {
     }
   }, []);
 
+  const onDropRejected = useCallback(() => {
+    toast({
+      title: "File rejected",
+      description: "Only .qbo files up to 50 MB are accepted.",
+      variant: "destructive",
+    });
+  }, [toast]);
+
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     onDrop,
+    onDropRejected,
     multiple: false,
+    maxSize: QBO_MAX_SIZE,
     accept: {
       "application/xml": [".qbo"],
     },

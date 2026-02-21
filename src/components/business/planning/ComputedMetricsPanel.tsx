@@ -221,6 +221,36 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
       {/* CC fees */}
       <CcFeeCard metrics={metrics} />
 
+      {/* Balance sheet snapshot */}
+      {metrics.balanceSheet && (
+        <TrialBalanceCard metrics={metrics} />
+      )}
+
+      {/* Discount analysis from program transactions */}
+      {metrics.discountSummary && (
+        <DiscountSummaryCard metrics={metrics} />
+      )}
+
+      {/* Donation fund breakdown */}
+      {metrics.donationBreakdown && (
+        <DonationBreakdownCard metrics={metrics} />
+      )}
+
+      {/* Recurring donor base */}
+      {metrics.recurringDonorSummary && (
+        <RecurringDonorCard metrics={metrics} />
+      )}
+
+      {/* Accounts receivable health */}
+      {metrics.arMetrics && (
+        <ArMetricsCard metrics={metrics} />
+      )}
+
+      {/* Room type occupancy */}
+      {metrics.roomTypeOccupancy && (
+        <RoomTypeOccupancyCard metrics={metrics} />
+      )}
+
       {/* Break-even analysis */}
       <BreakEvenCard metrics={metrics} />
 
@@ -728,6 +758,265 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
   );
 };
 
+// ─── Trial Balance Card ───────────────────────────────────────────────────────
+
+const TrialBalanceCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const bs = metrics.balanceSheet;
+  if (!bs) return null;
+
+  const glNet = metrics.totalRevenue - metrics.totalExpenses;
+  const trialSurplusColor = bs.trialNetIncome >= 0 ? 'text-emerald-600' : 'text-red-600';
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Balance Sheet Snapshot</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+
+        {/* Net income reconciliation */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard
+            label="Trial Revenue"
+            value={fmtCurrency(bs.trialRevenue)}
+            sub="all Xero accounts"
+          />
+          <SummaryCard
+            label="Trial Expenses"
+            value={fmtCurrency(bs.trialExpenses)}
+            sub="all Xero accounts"
+          />
+          <SummaryCard
+            label="Net Income"
+            value={fmtCurrency(bs.trialNetIncome)}
+            valueClass={trialSurplusColor}
+            sub="trial balance"
+          />
+          {bs.depreciation > 0 && (
+            <SummaryCard
+              label="Depreciation"
+              value={fmtCurrency(bs.depreciation)}
+              sub="GL 6130 — included above"
+            />
+          )}
+        </div>
+
+        {/* GL vs trial balance check */}
+        {Math.abs(glNet - bs.trialNetIncome) > 100 && (
+          <div className="rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-1">
+            <p className="font-medium text-amber-800 dark:text-amber-300">GL vs trial balance gap</p>
+            <p className="text-amber-700 dark:text-amber-400">
+              GL transaction net: <strong>{fmtCurrency(glNet)}</strong> vs trial balance net:{' '}
+              <strong>{fmtCurrency(bs.trialNetIncome)}</strong> ({fmtCurrency(Math.abs(glNet - bs.trialNetIncome))} difference).
+            </p>
+            <p className="text-amber-700 dark:text-amber-400">
+              First verify the trial balance was exported for exactly Jan&nbsp;1&ndash;Dec&nbsp;31,&nbsp;{metrics.year}
+              using &ldquo;Trial Balance by Date Range&rdquo; in Xero (not the year-to-date view, which
+              accumulates from the start of the organisation). If the date range is correct, the
+              remaining gap is typically non-cash items (depreciation does not appear in cash-basis
+              exports), account class mismatches in the Xero chart of accounts, or GL codes outside
+              the expense category map.
+            </p>
+          </div>
+        )}
+
+        {/* Balance sheet highlights */}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Item</TableHead>
+              <TableHead className="text-xs text-right">Amount</TableHead>
+              <TableHead className="text-xs text-muted-foreground">Note</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {bs.cashAndBanks > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">Cash & Bank Accounts</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(bs.cashAndBanks)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">1000–1009</TableCell>
+              </TableRow>
+            )}
+            {bs.investmentAccount > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">Investment Account (Schwab)</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(bs.investmentAccount)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">1005</TableCell>
+              </TableRow>
+            )}
+            {bs.programDeposits > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">Program Deposits (deferred revenue)</TableCell>
+                <TableCell className="text-xs text-right py-1.5 text-amber-700">{fmtCurrency(bs.programDeposits)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">2010 — liability, not yet earned</TableCell>
+              </TableRow>
+            )}
+            {bs.mortgage > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">Mortgage Loan</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(bs.mortgage)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">2500</TableCell>
+              </TableRow>
+            )}
+            {bs.sbaLoan > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">SBA Loan</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(bs.sbaLoan)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">2501</TableCell>
+              </TableRow>
+            )}
+            {bs.retainedEarnings > 0 && (
+              <TableRow>
+                <TableCell className="text-xs font-medium py-1.5">Retained Earnings</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(bs.retainedEarnings)}</TableCell>
+                <TableCell className="text-xs text-muted-foreground py-1.5">3000 — cumulative</TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Donation Breakdown Card ──────────────────────────────────────────────────
+
+const DonationBreakdownCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const db = metrics.donationBreakdown;
+  if (!db) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Donation Fund Breakdown</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard label="Total Pledged" value={fmtCurrency(db.totalPledged)} />
+          <SummaryCard label="Total Paid" value={fmtCurrency(db.totalPaid)} />
+          <SummaryCard
+            label="Payment Rate"
+            value={fmtPct(db.paymentRate)}
+            valueClass={db.paymentRate >= 0.95 ? 'text-emerald-600' : 'text-amber-600'}
+          />
+          <div className="rounded border px-3 py-2 space-y-1">
+            <p className="text-xs text-muted-foreground">Donor split</p>
+            <p className="text-xs">{db.monthlyCount.toLocaleString()} monthly</p>
+            <p className="text-xs">{db.oneTimeCount.toLocaleString()} one-time</p>
+          </div>
+        </div>
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Fund</TableHead>
+              <TableHead className="text-xs text-right">Pledged</TableHead>
+              <TableHead className="text-xs text-right">Paid</TableHead>
+              <TableHead className="text-xs text-right">Rate</TableHead>
+              <TableHead className="text-xs text-right">Txns</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {db.funds.slice(0, 15).map((f, i) => (
+              <TableRow key={i}>
+                <TableCell className="text-xs py-1.5 max-w-52 truncate" title={f.fundName}>{f.fundName}</TableCell>
+                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{fmtCurrency(f.totalPledged)}</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{fmtCurrency(f.totalPaid)}</TableCell>
+                <TableCell className="text-xs text-right py-1.5">
+                  {f.totalPledged > 0
+                    ? <span className={f.totalPaid / f.totalPledged >= 0.95 ? 'text-emerald-600' : 'text-amber-600'}>
+                        {fmtPct(f.totalPaid / f.totalPledged, 0)}
+                      </span>
+                    : <span className="text-muted-foreground">—</span>}
+                </TableCell>
+                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{f.transactionCount}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="border-t-2">
+              <TableCell className="text-xs font-semibold py-2">Total</TableCell>
+              <TableCell className="text-xs font-semibold text-right py-2">{fmtCurrency(db.totalPledged)}</TableCell>
+              <TableCell className="text-xs font-semibold text-right py-2">{fmtCurrency(db.totalPaid)}</TableCell>
+              <TableCell className="text-xs font-semibold text-right py-2">{fmtPct(db.paymentRate)}</TableCell>
+              <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                {(db.monthlyCount + db.oneTimeCount).toLocaleString()}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+
+        {(db.cancelledCount > 0 || db.voidCount > 0) && (
+          <p className="text-xs text-muted-foreground px-1">
+            {db.cancelledCount} cancelled and {db.voidCount} voided records excluded from totals above.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── AR Metrics Card ──────────────────────────────────────────────────────────
+
+const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const ar = metrics.arMetrics;
+  if (!ar) return null;
+
+  const collectionColor = ar.collectionRate >= 0.7 ? 'text-emerald-600'
+    : ar.collectionRate >= 0.4 ? 'text-amber-600'
+    : 'text-red-600';
+
+  return (
+    <Card className={ar.collectionRate < 0.5 ? 'border-amber-300' : ''}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          Accounts Receivable
+          {ar.collectionRate < 0.5 && (
+            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+              low collection rate
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard label="Total Outstanding" value={fmtCurrency(ar.totalOutstanding)} valueClass="text-red-600" />
+          <SummaryCard label="Total Charged" value={fmtCurrency(ar.totalCharged)} />
+          <SummaryCard label="Total Paid" value={fmtCurrency(ar.totalPaid)} />
+          <SummaryCard
+            label="Collection Rate"
+            value={fmtPct(ar.collectionRate)}
+            valueClass={collectionColor}
+            sub={`${ar.debtorCount} participants with balance`}
+          />
+        </div>
+
+        {ar.topDebtors.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Participant</TableHead>
+                <TableHead className="text-xs">Program</TableHead>
+                <TableHead className="text-xs text-right">Outstanding</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ar.topDebtors.map((d, i) => (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-1.5 font-medium">{d.participantName}</TableCell>
+                  <TableCell className="text-xs py-1.5 text-muted-foreground max-w-48 truncate" title={d.programName}>
+                    {d.programName}
+                  </TableCell>
+                  <TableCell className="text-xs text-right py-1.5 text-red-600">{fmtCurrency(d.outstanding)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 // ─── CC Fee Benchmark Card ────────────────────────────────────────────────────
 
 const CcFeeCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
@@ -848,6 +1137,143 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
             </p>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Discount Summary Card ────────────────────────────────────────────────────
+
+const DiscountSummaryCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const ds = metrics.discountSummary;
+  if (!ds) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Program Discounts</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard label="Gross Billed" value={fmtCurrency(ds.totalAmount)} sub="Omnis total_amount" />
+          <SummaryCard label="Total Discounts" value={fmtCurrency(ds.totalDiscount)} valueClass="text-amber-600" />
+          <SummaryCard label="Net Revenue" value={fmtCurrency(ds.netRevenue)} sub="after discounts" />
+          <SummaryCard
+            label="Discount Rate"
+            value={fmtPct(ds.discountRate)}
+            valueClass={ds.discountRate > 0.05 ? 'text-amber-600' : 'text-muted-foreground'}
+            sub="of gross billed"
+          />
+        </div>
+        {ds.byCategory.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Category</TableHead>
+                <TableHead className="text-xs text-right">Gross</TableHead>
+                <TableHead className="text-xs text-right">Discounts</TableHead>
+                <TableHead className="text-xs text-right">Rate</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ds.byCategory.map((c, i) => (
+                <TableRow key={i}>
+                  <TableCell className="py-1.5">
+                    <p className="text-xs font-medium">{c.label}</p>
+                    <p className="text-xs text-muted-foreground">{c.categoryCode}</p>
+                  </TableCell>
+                  <TableCell className="text-xs text-right py-1.5">{fmtCurrency(c.totalAmount)}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 text-amber-600">{fmtCurrency(c.totalDiscount)}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{fmtPct(c.discountRate)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Recurring Donor Card ─────────────────────────────────────────────────────
+
+const RecurringDonorCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const rd = metrics.recurringDonorSummary;
+  if (!rd) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Recurring Donor Base</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard label="Active Donors" value={rd.donorCount.toLocaleString()} />
+          <SummaryCard label="Total Paid" value={fmtCurrency(rd.totalPaid)} sub="year to date" />
+          <SummaryCard label="Avg Payments" value={rd.avgPaymentsPerDonor.toFixed(1)} sub="payments per donor" />
+          <SummaryCard label="Avg Amount" value={fmtCurrency(rd.avgAmountPerDonor)} sub="per donor" />
+        </div>
+        {rd.topDonors.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Donor</TableHead>
+                <TableHead className="text-xs text-right">Payments</TableHead>
+                <TableHead className="text-xs text-right">Total Paid</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rd.topDonors.map((d, i) => (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-1.5 font-medium">{d.donorName}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{d.payments}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5">{fmtCurrency(d.totalPaid)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Room Type Occupancy Card ─────────────────────────────────────────────────
+
+const RoomTypeOccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const ro = metrics.roomTypeOccupancy;
+  if (!ro) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Room Bookings by Type</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <SummaryCard label="Total Bookings" value={ro.totalBookings.toLocaleString()} />
+          <SummaryCard label="Total Nights" value={ro.totalNights.toLocaleString()} />
+        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Room Type</TableHead>
+              <TableHead className="text-xs text-right">Bookings</TableHead>
+              <TableHead className="text-xs text-right">Total Nights</TableHead>
+              <TableHead className="text-xs text-right">Avg Stay</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ro.byType.map((t, i) => (
+              <TableRow key={i}>
+                <TableCell className="text-xs py-1.5 font-medium">{t.roomTypeDesc}</TableCell>
+                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{t.bookings}</TableCell>
+                <TableCell className="text-xs text-right py-1.5">{t.totalNights.toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{t.avgNights.toFixed(1)} nights</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

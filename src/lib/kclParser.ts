@@ -13,6 +13,12 @@ import type {
   ResidentialRosterEntry,
   RoomEntry,
   StaffSalaryEntry,
+  TrialBalanceEntry,
+  DonationEntry,
+  ArEntry,
+  ProgramTransactionEntry,
+  RecurringDonorEntry,
+  RoomBookingEntry,
 } from './kclTypes';
 
 // ─── Core CSV utility ─────────────────────────────────────────────────────────
@@ -338,6 +344,120 @@ export function parseRoomInventory(content: string): RoomEntry[] {
  *   Employee, Department, Position/Title, Hourly Rate, Hours Per Month,
  *   Monthly Salary, Annual Salary
  */
+// ─── Trial Balance (Xero export) ──────────────────────────────────────────────
+
+/**
+ * Parses a Xero Trial Balance CSV export.
+ *
+ * The file has the same 4-row preamble as GL Transactions (title, org, date
+ * range, blank). We locate the real header by scanning for 'Account Code'.
+ *
+ * Expected columns: Account Code, Account, Account Type, Account Class, Debit, Credit
+ */
+export function parseTrialBalance(content: string): TrialBalanceEntry[] {
+  const normalised = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalised.split('\n');
+  const headerIdx = lines.findIndex(l => /account code/i.test(l));
+  const stripped = headerIdx >= 0 ? lines.slice(headerIdx).join('\n') : content;
+
+  const rows = parseCSVText(stripped);
+  const results: TrialBalanceEntry[] = [];
+
+  for (const row of rows) {
+    const accountCode = col(row, ['Account Code', 'AccountCode', 'account_code']).trim();
+    if (!accountCode) continue;
+
+    results.push({
+      accountCode,
+      accountName: col(row, ['Account', 'account_name', 'Account Name']),
+      accountType: col(row, ['Account Type', 'AccountType', 'account_type']),
+      accountClass: col(row, ['Account Class', 'AccountClass', 'account_class']),
+      debit: num(col(row, ['Debit', 'debit', 'DEBIT'])),
+      credit: num(col(row, ['Credit', 'credit', 'CREDIT'])),
+    });
+  }
+
+  return results;
+}
+
+// ─── Donations (Omnis export) ─────────────────────────────────────────────────
+
+/**
+ * Parses the Omnis donations CSV.
+ *
+ * Expected columns: DONATION_ID, donor_name, EMAIL_ADDRESS, fund_name,
+ *   GL_ACCOUNT, pledged_amount, DONATION_TYPE, PAYMENT_CAT, CANCELLED,
+ *   PAYMENT_DATE, payment_method, VOID_TRANSACTION, amount_paid
+ *
+ * NULL is the literal string "NULL" in Omnis exports.
+ */
+export function parseDonations(content: string): DonationEntry[] {
+  const rows = parseCSVText(content);
+  const results: DonationEntry[] = [];
+
+  const nullStr = (v: string) => (v === 'NULL' || v === '') ? '' : v;
+  const nullBool = (v: string) => v !== 'NULL' && v !== '' && v.toLowerCase() !== 'false' && v !== '0';
+
+  for (const row of rows) {
+    const fundName = col(row, ['fund_name', 'FUND_NAME', 'Fund Name']);
+    if (!fundName || fundName === 'NULL') continue;
+
+    const paidStr = nullStr(col(row, ['amount_paid', 'AMOUNT_PAID', 'Amount Paid']));
+
+    results.push({
+      donationId: col(row, ['DONATION_ID', 'donation_id', 'ID']),
+      donorName: nullStr(col(row, ['donor_name', 'DONOR_NAME', 'Donor'])),
+      email: nullStr(col(row, ['EMAIL_ADDRESS', 'email_address', 'Email'])),
+      fundName,
+      glAccount: col(row, ['GL_ACCOUNT', 'gl_account', 'GL Account']),
+      pledgedAmount: num(col(row, ['pledged_amount', 'PLEDGED_AMOUNT', 'Pledged'])),
+      donationType: col(row, ['DONATION_TYPE', 'donation_type', 'Type']),
+      paymentCat: col(row, ['PAYMENT_CAT', 'payment_cat', 'Payment Category']),
+      cancelled: nullBool(col(row, ['CANCELLED', 'cancelled'])),
+      paymentDate: nullStr(col(row, ['PAYMENT_DATE', 'payment_date', 'Date'])).substring(0, 10),
+      paymentMethod: nullStr(col(row, ['payment_method', 'PAYMENT_METHOD', 'Method'])),
+      voidTransaction: nullBool(col(row, ['VOID_TRANSACTION', 'void_transaction', 'Void'])),
+      amountPaid: paidStr ? num(paidStr) : 0,
+    });
+  }
+
+  return results;
+}
+
+// ─── Outstanding AR (Omnis export) ───────────────────────────────────────────
+
+/**
+ * Parses the Omnis outstanding accounts receivable CSV.
+ *
+ * Expected columns: REGISTRATION_ID, participant_name, EMAIL_ADDRESS,
+ *   PROGRAM_NAME, START_DATE, END_DATE, total_charged, total_paid, outstanding
+ */
+export function parseOutstandingAr(content: string): ArEntry[] {
+  const rows = parseCSVText(content);
+  const results: ArEntry[] = [];
+
+  for (const row of rows) {
+    const participantName = col(row, ['participant_name', 'PARTICIPANT_NAME', 'Participant', 'name']);
+    if (!participantName) continue;
+
+    results.push({
+      registrationId: col(row, ['REGISTRATION_ID', 'registration_id', 'ID']),
+      participantName,
+      email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email']),
+      programName: col(row, ['PROGRAM_NAME', 'program_name', 'Program']),
+      startDate: col(row, ['START_DATE', 'start_date', 'Start']).substring(0, 10),
+      endDate: col(row, ['END_DATE', 'end_date', 'End']).substring(0, 10),
+      totalCharged: num(col(row, ['total_charged', 'TOTAL_CHARGED', 'Charged'])),
+      totalPaid: num(col(row, ['total_paid', 'TOTAL_PAID', 'Paid'])),
+      outstanding: num(col(row, ['outstanding', 'OUTSTANDING', 'Balance'])),
+    });
+  }
+
+  return results;
+}
+
+// ─── Staff Salaries ───────────────────────────────────────────────────────────
+
 export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
   const rows = parseCSVText(content);
   const results: StaffSalaryEntry[] = [];
@@ -358,6 +478,120 @@ export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
       annualSalary: annual,
       hourlyRate: hourlyStr ? num(hourlyStr) || null : null,
       hoursPerMonth: hoursStr ? int(hoursStr) || null : null,
+    });
+  }
+
+  return results;
+}
+
+// ─── Program Transactions (Omnis export) ──────────────────────────────────────
+
+/**
+ * Parses the Omnis all-program-transactions CSV.
+ *
+ * Expected columns: PROGRAM_ID, PROGRAM_NAME, PROG_CATEGORY_CODE, START_DATE,
+ *   END_DATE, GL_ACCOUNT, TRANS_TYPE, TRANS_DESC, num_lines, total_amount, total_discount
+ */
+export function parseProgramTransactions(content: string): ProgramTransactionEntry[] {
+  const rows = parseCSVText(content);
+  const results: ProgramTransactionEntry[] = [];
+
+  for (const row of rows) {
+    const programName = col(row, ['PROGRAM_NAME', 'program_name', 'Program Name']);
+    if (!programName) continue;
+
+    results.push({
+      programId: col(row, ['PROGRAM_ID', 'program_id']),
+      programName,
+      categoryCode: col(row, ['PROG_CATEGORY_CODE', 'prog_category_code', 'Category']),
+      startDate: col(row, ['START_DATE', 'start_date']).substring(0, 10),
+      endDate: col(row, ['END_DATE', 'end_date']).substring(0, 10),
+      glAccount: col(row, ['GL_ACCOUNT', 'gl_account', 'GL Account']),
+      transType: col(row, ['TRANS_TYPE', 'trans_type', 'Transaction Type']),
+      transDesc: col(row, ['TRANS_DESC', 'trans_desc', 'Description']),
+      numLines: int(col(row, ['num_lines', 'NUM_LINES', 'Lines'])),
+      totalAmount: num(col(row, ['total_amount', 'TOTAL_AMOUNT', 'Amount'])),
+      totalDiscount: num(col(row, ['total_discount', 'TOTAL_DISCOUNT', 'Discount'])),
+    });
+  }
+
+  return results;
+}
+
+// ─── Recurring Donors (Omnis export) ──────────────────────────────────────────
+
+/**
+ * Parses the Omnis recurring-donors CSV.
+ *
+ * Expected columns: PERSON_ID, donor_name, EMAIL_ADDRESS, num_active_enrollments,
+ *   payments_made_<YYYY>, total_paid_<YYYY>
+ *
+ * The year-specific columns (payments_made_2025, total_paid_2025) are detected
+ * dynamically so this parser works for any year's export.
+ */
+export function parseRecurringDonors(content: string): RecurringDonorEntry[] {
+  const rows = parseCSVText(content);
+  if (rows.length === 0) return [];
+
+  // Detect year-specific column names
+  const sampleRow = rows[0];
+  const paymentsCol = Object.keys(sampleRow).find(k =>
+    k.toLowerCase().startsWith('payments_made')
+  ) ?? 'payments_made';
+  const paidCol = Object.keys(sampleRow).find(k =>
+    k.toLowerCase().startsWith('total_paid')
+  ) ?? 'total_paid';
+
+  const results: RecurringDonorEntry[] = [];
+
+  for (const row of rows) {
+    const donorName = col(row, ['donor_name', 'DONOR_NAME', 'Name']);
+    if (!donorName) continue;
+
+    results.push({
+      personId: col(row, ['PERSON_ID', 'person_id', 'ID']),
+      donorName,
+      email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email']),
+      activeEnrollments: int(col(row, ['num_active_enrollments', 'NUM_ACTIVE_ENROLLMENTS', 'Enrollments'])),
+      paymentsMade: int(row[paymentsCol] ?? '0'),
+      totalPaid: num(row[paidCol] ?? '0'),
+    });
+  }
+
+  return results;
+}
+
+// ─── Room Bookings (Omnis export) ─────────────────────────────────────────────
+
+/**
+ * Parses the Omnis room-bookings CSV.
+ *
+ * Expected columns: ROOM_BOOKING_ID, ROOM_ID, ROOM_NO, ROOM_TYPE_CODE,
+ *   ROOM_TYPE_DESC, REGISTRATION_ID, PROGRAM_ID, ARRIVAL_DATE_TIME,
+ *   DEPARTURE_DATE_TIME, nights
+ */
+export function parseRoomBookings(content: string): RoomBookingEntry[] {
+  const rows = parseCSVText(content);
+  const results: RoomBookingEntry[] = [];
+
+  for (const row of rows) {
+    const roomNo = col(row, ['ROOM_NO', 'room_no', 'Room Number', 'Room']);
+    if (!roomNo) continue;
+
+    const arrivalRaw = col(row, ['ARRIVAL_DATE_TIME', 'arrival_date_time', 'Arrival']);
+    const departureRaw = col(row, ['DEPARTURE_DATE_TIME', 'departure_date_time', 'Departure']);
+
+    results.push({
+      bookingId: col(row, ['ROOM_BOOKING_ID', 'room_booking_id', 'ID']),
+      roomId: col(row, ['ROOM_ID', 'room_id']),
+      roomNo,
+      roomTypeCode: col(row, ['ROOM_TYPE_CODE', 'room_type_code']),
+      roomTypeDesc: col(row, ['ROOM_TYPE_DESC', 'room_type_desc', 'Room Type']),
+      registrationId: col(row, ['REGISTRATION_ID', 'registration_id']),
+      programId: col(row, ['PROGRAM_ID', 'program_id']),
+      arrivalDate: arrivalRaw ? arrivalRaw.substring(0, 10) : '',
+      departureDate: departureRaw ? departureRaw.substring(0, 10) : '',
+      nights: int(col(row, ['nights', 'NIGHTS', 'Nights'])),
     });
   }
 
