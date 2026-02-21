@@ -90,6 +90,31 @@ function int(value: string): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+const MONTH_MAP: Record<string, string> = {
+  jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+  jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+};
+
+/**
+ * Normalise a date string to ISO YYYY-MM-DD.
+ * Handles:
+ *   - Already ISO: "2025-01-06" → "2025-01-06"
+ *   - Xero Account Transactions format: "06 Jan 2025" → "2025-01-06"
+ * Returns empty string if the format is unrecognised.
+ */
+function normaliseDate(raw: string): string {
+  const s = raw.trim();
+  // Already ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+  // "DD MMM YYYY" or "D MMM YYYY"
+  const m = s.match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})/);
+  if (m) {
+    const month = MONTH_MAP[m[2].toLowerCase()];
+    if (month) return `${m[3]}-${month}-${m[1].padStart(2, '0')}`;
+  }
+  return '';
+}
+
 // ─── GL Transactions (Xero export) ───────────────────────────────────────────
 
 /**
@@ -122,11 +147,12 @@ export function parseGlTransactions(content: string): GlTransaction[] {
   const results: GlTransaction[] = [];
 
   for (const row of rows) {
-    const date = col(row, ['Date', 'date', 'DATE', 'Transaction Date']);
+    const rawDate = col(row, ['Date', 'date', 'DATE', 'Transaction Date']);
     const accountCode = col(row, ['Account Code', 'AccountCode', 'account_code', 'GL Code', 'GL Account']);
-    if (!date || !accountCode) continue;
-    // Skip section headers, opening/closing balance rows, and blank rows
-    if (!/^\d{4}-\d{2}-\d{2}/.test(date)) continue;
+    if (!rawDate || !accountCode) continue;
+    // Normalise date; skip section headers and unrecognised rows
+    const date = normaliseDate(rawDate);
+    if (!date) continue;
 
     const debit  = num(col(row, ['Debit',  'debit',  'DEBIT']));
     const credit = num(col(row, ['Credit', 'credit', 'CREDIT']));
@@ -141,7 +167,7 @@ export function parseGlTransactions(content: string): GlTransaction[] {
     seen.add(sig);
 
     results.push({
-      date: date.substring(0, 10),
+      date,
       accountCode: accountCode.trim(),
       accountName: col(row, ['Account Name', 'AccountName', 'account_name', 'Account']),
       description,
