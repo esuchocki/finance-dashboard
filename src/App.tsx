@@ -10,6 +10,7 @@ import BusinessLayout from "./layouts/BusinessLayout";
 import BusinessAccounts from "./pages/business/BusinessAccounts";
 import BusinessDashboardPage from "./pages/business/BusinessDashboard";
 import BusinessTransactions from "./pages/business/BusinessTransactions";
+import BusinessPlanning from "./pages/business/BusinessPlanning";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="dashboard" element={<BusinessDashboardPage />} />
             <Route path="accounts" element={<BusinessAccounts />} />
             <Route path="transactions" element={<BusinessTransactions />} />
+            <Route path="planning" element={<BusinessPlanning />} />
           </Route>
 
           {/* 404 Not Found */}

@@ -73,6 +73,9 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
               <Button asChild variant="ghost">
                 <Link to="/business/transactions">Transactions</Link>
               </Button>
+              <Button asChild variant="ghost">
+                <Link to="/business/planning">Planning</Link>
+              </Button>
             </>
           ) : transactions.length > 0 && (
             <>
@@ -116,6 +119,9 @@ const AppNavbar: React.FC<AppNavbarProps> = ({ mode = 'personal' }) => {
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/business/transactions">Transactions</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/business/planning">Planning</Link>
                     </DropdownMenuItem>
                   </>
                 ) : (

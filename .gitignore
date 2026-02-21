@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Financial data — never commit
+# Users bring their own files to the browser; nothing sensitive belongs in the repo.
+# data/queries/ is excluded from this rule — those SQL files are safe to commit.
+data/[0-9]*/
+
+# Data exploration directory — local only
+# Contains actual financial CSVs, processed transaction JSON, salary data, and PII.
+# Leading slash anchors this to the repo root so it does not match src/context/.
+/context/

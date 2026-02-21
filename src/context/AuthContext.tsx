@@ -64,6 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setIsAuthenticated(false);
     setUser(null);
+    // Clear any stale planning data that may have been written by an older version
+    localStorage.removeItem('kcl-planning-v1');
   };
 
   return (
