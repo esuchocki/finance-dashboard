@@ -135,7 +135,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Top Programs by Revenue</CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -175,7 +175,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Expense Categories</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
@@ -439,7 +439,7 @@ const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">Revenue by Stream</CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
@@ -473,7 +473,7 @@ const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
           </TableBody>
         </Table>
         {omnisBilledTotal > 0 && (
-          <div className="mx-4 mb-3 mt-2 rounded border border-muted px-3 py-2 text-xs space-y-1">
+          <div className="mt-2 rounded border border-muted px-3 py-2 text-xs space-y-1">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Omnis billed (GL 4xxx charges)</span>
               <span className="font-medium">
@@ -511,8 +511,8 @@ const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metric
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">Monthly Overview</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 p-0">
-        <p className="text-xs text-muted-foreground px-4 pt-3 pb-1">
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground pb-1">
           MJ% = share of revenue recognized via Omnis Manual Journal batch postings (period-closing).
           High values are normal for months when many programs close. Amber = &gt;80%.
         </p>
@@ -596,11 +596,10 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
       <CardHeader className="pb-2">
         <CardTitle className="text-sm">Programs by Category</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 p-0">
+      <CardContent className="space-y-3">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Category</TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Number of programs in this category with dates within the year.">Count</Tip>
@@ -640,9 +639,6 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setExpandedCategory(isExpanded ? null : cat.categoryCode)}
                   >
-                    <TableCell className="text-xs py-2 text-muted-foreground">
-                      {isExpanded ? '▼' : '▶'}
-                    </TableCell>
                     <TableCell className="py-2">
                       <p className="text-xs font-medium">{cat.label}</p>
                       <p className="text-xs text-muted-foreground">{cat.categoryCode}</p>
@@ -670,7 +666,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={8} className="p-0 bg-muted/20">
+                      <TableCell colSpan={7} className="p-0 bg-muted/20">
                         <div className="px-4 py-2">
                           {catPrograms.length === 0 ? (
                             <p className="text-xs text-muted-foreground py-1">No revenue data for this category.</p>
@@ -718,7 +714,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
 
         {/* CABN revenue discrepancy note */}
         {cabnOmnisBilled > 0 && (
-          <div className="mx-4 mb-3 rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-1">
+          <div className="rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs space-y-1">
             <p className="font-medium text-amber-800 dark:text-amber-300">CABN revenue note</p>
             <p className="text-amber-700 dark:text-amber-400">
               Omnis program_revenue.sql filters to GL 4xxx charges — cabin retreat revenue here ({fmtCurrency(cabnOmnisBilled)}) reflects only those GL codes.
@@ -993,7 +989,6 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Program</TableHead>
               <TableHead className="text-xs text-center">Cat</TableHead>
               <TableHead className="text-xs text-right">
@@ -1026,7 +1021,6 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setExpandedProgram(isExpanded ? null : rowKey)}
                   >
-                    <TableCell className="text-xs py-1 text-muted-foreground">{isExpanded ? '▼' : '▶'}</TableCell>
                     <TableCell className="text-xs py-1 max-w-44 truncate" title={p.name}>{p.name}</TableCell>
                     <TableCell className="text-xs py-1 text-center text-muted-foreground">{p.categoryCode}</TableCell>
                     <TableCell className="text-xs text-right py-1">{fmtCurrency(p.revenue)}</TableCell>
@@ -1041,7 +1035,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={9} className="p-0 bg-muted/20">
+                      <TableCell colSpan={8} className="p-0 bg-muted/20">
                         <div className="px-4 py-2 space-y-1">
                           <p className="text-xs font-medium text-muted-foreground">
                             {p.name} — {p.startDate} to {p.endDate} — {p.durationDays} days — {p.registrations} registrations
@@ -1575,12 +1569,10 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Days computed from arrival/departure dates (exclusive of departure day).
-          Click a row to expand the name list.
         </p>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Track</TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Count of unique individuals in this track from residentialRoster.csv.">People</Tip>
@@ -1603,7 +1595,6 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setExpandedTrack(isExpanded ? null : key)}
                   >
-                    <TableCell className="text-xs py-2 text-muted-foreground">{isExpanded ? '▼' : '▶'}</TableCell>
                     <TableCell className="py-2">
                       <p className="text-xs font-medium">{label}</p>
                       <p className="text-xs text-muted-foreground">{subLabel}</p>
@@ -1616,7 +1607,7 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={5} className="p-0 bg-muted/20">
+                      <TableCell colSpan={4} className="p-0 bg-muted/20">
                         <div className="px-4 py-2">
                           {people.length === 0 ? (
                             <p className="text-xs text-muted-foreground py-1">No roster data available.</p>

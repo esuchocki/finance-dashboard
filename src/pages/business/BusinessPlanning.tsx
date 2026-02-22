@@ -91,7 +91,7 @@ const BusinessPlanning: React.FC = () => {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Planning</h1>
           <p className="text-muted-foreground mt-2">
-            Load annual data sources to compute break-even metrics and program pricing.
+            Compute break-even metrics and program pricing
           </p>
         </div>
 
@@ -120,12 +120,14 @@ const BusinessPlanning: React.FC = () => {
       </div>
 
       <Tabs defaultValue="sources">
-        <TabsList>
-          <TabsTrigger value="sources">Data Sources</TabsTrigger>
-          <TabsTrigger value="results" disabled={!requiredLoaded}>
-            Results {isReady(activeYear) ? '' : '(load required sources)'}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex justify-center">
+          <TabsList>
+            <TabsTrigger value="sources">Data Sources</TabsTrigger>
+            <TabsTrigger value="results" disabled={!requiredLoaded}>
+              Results
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* ── Data Sources tab ──────────────────────────────────────────────── */}
         <TabsContent value="sources" className="mt-4 space-y-4">
