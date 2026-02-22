@@ -215,9 +215,15 @@ export interface KclMonthlyRow {
 
 // Residential occupancy derived from the roster and revenue
 export interface KclOccupancy {
-  monthlyResidents: Record<number, number>; // people present per month (roster-based)
+  /** People present per month, split by track, computed from arrival/departure dates.
+   *  A person counts in a month if their stay overlaps any day of that month. */
+  monthlyByTrack: Record<number, { staff: number; volunteers: number; residency: number }>;
+  /** All tracks combined per month (sum of monthlyByTrack). */
+  monthlyResidents: Record<number, number>;
+  avgMonthlyByTrack: { staff: number; volunteers: number; residency: number };
   avgMonthlyResidents: number;
-  totalResidentDays: number;                // sum of daysInYear across all roster entries
+  /** Total person-days across all tracks, computed from arrival/departure dates (exclusive of departure day, matching SQL DATEDIFF). */
+  totalResidentDays: number;
   impliedResidents: number;                 // residency revenue / ($1,750 × 12)
 }
 

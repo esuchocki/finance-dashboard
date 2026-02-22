@@ -115,6 +115,35 @@ const CC_BENCHMARK_RATE = 0.025;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Days a roster entry spends within the target calendar year, computed directly
+ * from arrival/departure dates.  Mirrors SQL DATEDIFF semantics (exclusive of
+ * departure day, i.e. number of nights).
+ */
+function clampedDays(arrival: string, departure: string, year: number): number {
+  const yr = String(year);
+  const a = arrival < `${yr}-01-01` ? `${yr}-01-01` : arrival;
+  const d = departure > `${yr}-12-31` ? `${yr}-12-31` : departure;
+  if (!a || !d || a >= d) return 0;
+  return Math.round(
+    (new Date(d + 'T00:00:00Z').getTime() - new Date(a + 'T00:00:00Z').getTime()) / 86400000
+  );
+}
+
+/**
+ * Classify a roster entry into one of three on-site tracks based on program name.
+ * The three programs in the residential roster query are:
+ *   "2025 KCL Residential Staff"     → 'staff'
+ *   "2025 KCL Residential Volunteer" → 'volunteer'
+ *   "2025 Residency Program"         → 'residency'
+ */
+function rosterTrack(programName: string): 'staff' | 'volunteer' | 'residency' {
+  const lower = programName.toLowerCase();
+  if (lower.includes('volunteer')) return 'volunteer';
+  if (lower.includes('residency program')) return 'residency';
+  return 'staff';
+}
+
 function txnYear(t: GlTransaction): number {
   return parseInt(t.date.substring(0, 4), 10);
 }
@@ -166,7 +195,7 @@ function computeUtilityBaseline(txns: GlTransaction[], year: number): {
     if (txnYear(t) !== year) continue;
     if (!['6270', '6250'].includes(t.accountCode)) continue;
     const m = txnMonth(t);
-    if (m >= 1 && m <= 12) monthly[m] += t.debit;
+    if (m >= 1 && m <= 12) monthly[m] += t.debit - t.credit;
   }
 
   const annualTotal = Object.values(monthly).reduce((a, b) => a + b, 0);
@@ -217,7 +246,7 @@ function computeCcFeeRate(txns: GlTransaction[], year: number): { rate: number; 
   const yearTxns = txns.filter(t => txnYear(t) === year);
   const total = yearTxns
     .filter(t => t.accountCode === '61001')
-    .reduce((s, t) => s + t.debit, 0);
+    .reduce((s, t) => s + t.debit - t.credit, 0);
   const revenue = yearTxns
     .filter(t => (t.accountCode.startsWith('3') || t.accountCode.startsWith('4')) && t.accountCode !== '3000')
     .reduce((s, t) => s + t.credit - t.debit, 0);
@@ -243,7 +272,7 @@ function computeExpenseCategories(
   for (const t of yearTxns) {
     for (const [key, cat] of Object.entries(GL_CATEGORIES)) {
       if (cat.glAccounts.includes(t.accountCode)) {
-        totals[key] += t.debit;
+        totals[key] += t.debit - t.credit;
       }
     }
   }
@@ -494,9 +523,9 @@ function computeMonthlyData(txns: GlTransaction[], year: number): KclMonthlyRow[
         rows[m].revenueManualJournal += rev;
       }
     }
-    // Expense debits — only GL codes tracked in our categories
-    if (t.debit > 0 && ALL_EXPENSE_CODES.has(code)) {
-      rows[m].expenses += t.debit;
+    // Expense net (debit - credit) — credits represent refunds/adjustments that reduce the expense
+    if (ALL_EXPENSE_CODES.has(code)) {
+      rows[m].expenses += t.debit - t.credit;
     }
   }
   return Array.from({ length: 12 }, (_, i) => rows[i + 1]);
@@ -512,8 +541,15 @@ function computeOccupancy(
   const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   const lastDay = [0, 31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const yr = String(year);
+
   const monthlyResidents: Record<number, number> = {};
-  for (let m = 1; m <= 12; m++) monthlyResidents[m] = 0;
+  const monthlyByTrack: Record<number, { staff: number; volunteers: number; residency: number }> = {};
+  for (let m = 1; m <= 12; m++) {
+    monthlyResidents[m] = 0;
+    monthlyByTrack[m] = { staff: 0, volunteers: 0, residency: 0 };
+  }
+
+  let totalResidentDays = 0;
 
   for (const r of roster) {
     if (!r.arrivalDate || !r.departureDate) continue;
@@ -521,21 +557,38 @@ function computeOccupancy(
     const start = r.arrivalDate < `${yr}-01-01` ? `${yr}-01-01` : r.arrivalDate;
     const end   = r.departureDate > `${yr}-12-31` ? `${yr}-12-31` : r.departureDate;
     if (start > end) continue;
+
+    const track = rosterTrack(r.programName);
+    totalResidentDays += clampedDays(r.arrivalDate, r.departureDate, year);
+
     for (let m = 1; m <= 12; m++) {
-      const mStr     = String(m).padStart(2, '0');
-      const mStart   = `${yr}-${mStr}-01`;
-      const mEnd     = `${yr}-${mStr}-${String(lastDay[m]).padStart(2, '0')}`;
-      if (start <= mEnd && end >= mStart) monthlyResidents[m]++;
+      const mStr   = String(m).padStart(2, '0');
+      const mStart = `${yr}-${mStr}-01`;
+      const mEnd   = `${yr}-${mStr}-${String(lastDay[m]).padStart(2, '0')}`;
+      // end > mStart (strict): departure on the first of a month means the person
+      // left that morning and is not counted as a resident for that month.
+      // This matches SQL DATEDIFF semantics where the departure day is exclusive.
+      if (start <= mEnd && end > mStart) {
+        monthlyResidents[m]++;
+        if (track === 'volunteer')  monthlyByTrack[m].volunteers++;
+        else if (track === 'residency') monthlyByTrack[m].residency++;
+        else monthlyByTrack[m].staff++;
+      }
     }
   }
 
   const avgMonthlyResidents = Object.values(monthlyResidents).reduce((a, b) => a + b, 0) / 12;
-  const totalResidentDays   = roster.reduce((s, r) => s + r.daysInYear, 0);
-  const impliedResidents    = residencyRevenue > 0
+  const avgMonthlyByTrack = {
+    staff:      Object.values(monthlyByTrack).reduce((a, b) => a + b.staff, 0) / 12,
+    volunteers: Object.values(monthlyByTrack).reduce((a, b) => a + b.volunteers, 0) / 12,
+    residency:  Object.values(monthlyByTrack).reduce((a, b) => a + b.residency, 0) / 12,
+  };
+
+  const impliedResidents = residencyRevenue > 0
     ? Math.round(residencyRevenue / (RESIDENT_MONTHLY_RATE * 12))
     : 0;
 
-  return { monthlyResidents, avgMonthlyResidents, totalResidentDays, impliedResidents };
+  return { monthlyByTrack, monthlyResidents, avgMonthlyByTrack, avgMonthlyResidents, totalResidentDays, impliedResidents };
 }
 
 // ─── Break-even scenario ──────────────────────────────────────────────────────
@@ -700,7 +753,7 @@ function computeProgramPnL(
   for (const t of glTransactions) {
     if (txnYear(t) !== year || t.accountCode !== '5200') continue;
     const m = txnMonth(t);
-    if (m >= 1 && m <= 12) foodMonthly[m] += t.debit;
+    if (m >= 1 && m <= 12) foodMonthly[m] += t.debit - t.credit;
   }
   const foodTotal = Object.values(foodMonthly).reduce((a, b) => a + b, 0);
 
@@ -728,7 +781,7 @@ function computeProgramPnL(
   // (utility fixed stays in overhead; it's shared infrastructure regardless of programs)
   const teacherTotal  = glTransactions
     .filter(t => txnYear(t) === year && ['5250', '5300', '5350'].includes(t.accountCode))
-    .reduce((s, t) => s + t.debit, 0);
+    .reduce((s, t) => s + t.debit - t.credit, 0);
   const utilityTotal = Object.values(utilityMonthly).reduce((a, b) => a + b, 0);
   const utilityVar   = Math.max(0, utilityTotal - utilityFixed);
   const overheadPool = totalExpenses - foodTotal - teacherTotal - ccFeeTotal - utilityVar;
@@ -738,7 +791,7 @@ function computeProgramPnL(
   // Visiting teachers are specific to retreat programs, not year-long residency or self-guided cabins.
   const teacherTxns = glTransactions
     .filter(t => txnYear(t) === year && ['5250', '5300', '5350'].includes(t.accountCode))
-    .map(t => ({ date: t.date, debit: t.debit, claimed: false }));
+    .map(t => ({ date: t.date, amount: t.debit - t.credit, claimed: false }));
 
   const teacherCostById: Record<string, number> = {};
   const regPrograms = [...programRevenue]
@@ -755,7 +808,7 @@ function computeProgramPnL(
     let cost = 0;
     for (const t of teacherTxns) {
       if (!t.claimed && t.date >= winStart && t.date <= winEnd) {
-        cost += t.debit;
+        cost += t.amount;
         t.claimed = true;
       }
     }
@@ -929,22 +982,24 @@ function computeArMetrics(arEntries: ArEntry[]): KclArMetrics {
 
 // ─── Volunteer / residential population breakdown ─────────────────────────────
 
-function computeVolunteerMetrics(roster: ResidentialRosterEntry[]): KclVolunteerMetrics {
+function computeVolunteerMetrics(roster: ResidentialRosterEntry[], year: number): KclVolunteerMetrics {
   let volunteerCount = 0, volunteerDays = 0;
   let staffCount = 0, staffDays = 0;
   let residencyCount = 0, residencyDays = 0;
 
   for (const r of roster) {
-    const prog = r.programName.toLowerCase();
-    if (prog.includes('volunteer')) {
+    // Compute days directly from arrival/departure dates (not the SQL-precomputed column)
+    const days = clampedDays(r.arrivalDate, r.departureDate, year);
+    const track = rosterTrack(r.programName);
+    if (track === 'volunteer') {
       volunteerCount++;
-      volunteerDays += r.daysInYear;
-    } else if (prog.includes('residency program')) {
+      volunteerDays += days;
+    } else if (track === 'residency') {
       residencyCount++;
-      residencyDays += r.daysInYear;
+      residencyDays += days;
     } else {
       staffCount++;
-      staffDays += r.daysInYear;
+      staffDays += days;
     }
   }
 
@@ -1114,7 +1169,7 @@ export function computeKclMetrics(
 
   // Volunteer / residential population breakdown
   const volunteerMetrics = residentialRoster.length > 0
-    ? computeVolunteerMetrics(residentialRoster)
+    ? computeVolunteerMetrics(residentialRoster, year)
     : null;
 
   // Trial balance summary

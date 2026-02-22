@@ -490,69 +490,95 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
   const { occupancy, availableRooms } = metrics;
   if (!occupancy) return null;
 
+  const tracks: Array<{ key: 'staff' | 'volunteers' | 'residency'; label: string; avg: number }> = [
+    { key: 'staff',      label: 'Staff',      avg: occupancy.avgMonthlyByTrack.staff },
+    { key: 'volunteers', label: 'Volunteers',  avg: occupancy.avgMonthlyByTrack.volunteers },
+    { key: 'residency',  label: 'Residency',   avg: occupancy.avgMonthlyByTrack.residency },
+  ];
+
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Residential Occupancy</CardTitle>
+        <CardTitle className="text-sm">Residential Population — By Track</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Days and monthly counts computed from actual arrival/departure dates in Omnis (not the SQL-precomputed column).
+          A person counts in a month if their stay overlaps any day of that month.
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <SummaryCard
-            label="Avg Residents/Month"
-            value={occupancy.avgMonthlyResidents.toFixed(1)}
-            sub="from roster"
+            label="Avg Staff/Month"
+            value={occupancy.avgMonthlyByTrack.staff.toFixed(1)}
+            sub="residential employees"
+          />
+          <SummaryCard
+            label="Avg Volunteers/Month"
+            value={occupancy.avgMonthlyByTrack.volunteers.toFixed(1)}
+            sub="room & board, no pay"
+          />
+          <SummaryCard
+            label="Avg Residency/Month"
+            value={occupancy.avgMonthlyByTrack.residency.toFixed(1)}
+            sub="paying program residents"
           />
           <SummaryCard
             label="Implied Residents"
             value={String(occupancy.impliedResidents)}
             sub="residency rev / $21K"
           />
-          <SummaryCard
-            label="Total Resident-Days"
-            value={occupancy.totalResidentDays.toLocaleString()}
-            sub="sum of daysInYear"
-          />
-          <SummaryCard
-            label="Available Rooms"
-            value={String(availableRooms)}
-            sub="non-staff rooms"
-          />
         </div>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="text-xs w-10">Mo.</TableHead>
+              <TableHead className="text-xs w-16">Track</TableHead>
               {Array.from({ length: 12 }, (_, i) => (
                 <TableHead key={i} className="text-xs text-center px-1">{MONTH_NAMES[i + 1]}</TableHead>
               ))}
+              <TableHead className="text-xs text-right">Avg</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell className="text-xs py-1.5 font-medium">Residents</TableCell>
-              {Array.from({ length: 12 }, (_, i) => {
-                const count = occupancy.monthlyResidents[i + 1] ?? 0;
-                return (
-                  <TableCell key={i} className="text-xs text-center px-1 py-1.5">
-                    {count > 0 ? count : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-            <TableRow>
-              <TableCell className="text-xs py-1.5 text-muted-foreground">Occ%</TableCell>
+            {tracks.map(({ key, label, avg }) => (
+              <TableRow key={key}>
+                <TableCell className="text-xs py-1.5 font-medium">{label}</TableCell>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const count = occupancy.monthlyByTrack[i + 1]?.[key] ?? 0;
+                  return (
+                    <TableCell key={i} className="text-xs text-center px-1 py-1.5">
+                      {count > 0 ? count : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                  );
+                })}
+                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{avg.toFixed(1)}</TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="border-t font-medium">
+              <TableCell className="text-xs py-1.5">Total</TableCell>
               {Array.from({ length: 12 }, (_, i) => {
                 const count = occupancy.monthlyResidents[i + 1] ?? 0;
                 const pct = availableRooms > 0 ? count / availableRooms : 0;
                 return (
-                  <TableCell key={i} className="text-xs text-center px-1 py-1.5 text-muted-foreground">
-                    {count > 0 ? fmtPct(pct, 0) : '—'}
+                  <TableCell key={i} className="text-xs text-center px-1 py-1.5">
+                    {count > 0 ? (
+                      <div>
+                        <div>{count}</div>
+                        <div className="text-muted-foreground">{fmtPct(pct, 0)}</div>
+                      </div>
+                    ) : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                 );
               })}
+              <TableCell className="text-xs text-right py-1.5 text-muted-foreground">
+                {occupancy.avgMonthlyResidents.toFixed(1)}
+              </TableCell>
             </TableRow>
           </TableBody>
         </Table>
+        <p className="text-xs text-muted-foreground">
+          Occ% = total on-site / {availableRooms} available (non-staff) rooms.
+          Total on-site person-days (all tracks): <strong>{occupancy.totalResidentDays.toLocaleString()}</strong>.
+        </p>
       </CardContent>
     </Card>
   );
@@ -1070,12 +1096,16 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
         <CardTitle className="text-sm">Residential Population Breakdown</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Days computed from arrival/departure dates (exclusive of departure day).
+          People and days match the Residential Population card above.
+        </p>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs">Track</TableHead>
               <TableHead className="text-xs text-right">People</TableHead>
-              <TableHead className="text-xs text-right">Resident-Days</TableHead>
+              <TableHead className="text-xs text-right">Person-Days</TableHead>
               <TableHead className="text-xs text-right">Avg Days</TableHead>
             </TableRow>
           </TableHeader>
