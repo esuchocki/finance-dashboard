@@ -247,6 +247,16 @@ export interface KclProgramCosts {
   overheadAlloc: number;     // proportional share of all remaining fixed costs
 }
 
+// One participant record within a program (joined from AR + room bookings)
+export interface KclParticipantDetail {
+  participantName: string;
+  totalCharged: number;
+  totalPaid: number;
+  outstanding: number;
+  arrivalDate: string;    // from room booking if available, else program start
+  departureDate: string;  // from room booking if available, else program end
+}
+
 // Full per-program contribution margin record
 export interface KclProgramPnL {
   programId: string;
@@ -262,6 +272,7 @@ export interface KclProgramPnL {
   totalCosts: number;
   contributionMargin: number;
   marginPct: number;          // contributionMargin / revenue (0 if revenue = 0)
+  participants?: KclParticipantDetail[];
 }
 
 // Revenue and participation by program category (REG / CABN / IHR)
@@ -275,6 +286,14 @@ export interface KclProgramCategory {
   totalDurationDays: number;     // sum of program duration days (strict-year programs only)
 }
 
+// One person from the residential roster
+export interface KclRosterPerson {
+  name: string;
+  arrivalDate: string;
+  departureDate: string;
+  days: number;
+}
+
 // Residential population breakdown by track (staff / volunteer / residency participant)
 export interface KclVolunteerMetrics {
   volunteerCount: number;
@@ -285,6 +304,11 @@ export interface KclVolunteerMetrics {
   residencyDays: number;
   estimatedLaborValue: number;   // volunteerDays × laborValuePerDay
   laborValuePerDay: number;      // assumed daily equivalent (e.g. $150)
+  rosterByTrack?: {
+    staff: KclRosterPerson[];
+    volunteers: KclRosterPerson[];
+    residency: KclRosterPerson[];
+  };
 }
 
 // Key balance sheet line items from the Xero trial balance
@@ -416,10 +440,11 @@ export interface KclComputedMetrics {
   costPerDay: number;
 
   // Capacity
-  totalRooms: number;
-  staffRooms: number;
-  availableRooms: number;
-  cabinRoomCount: number;        // rooms with roomType === 'Tent Cabin'
+  totalRooms: number;            // private rooms only (Premium, Standard, Double, Accessibility)
+  staffRooms: number;            // staff-occupied private rooms
+  availableRooms: number;        // totalRooms - staffRooms
+  dormBeds: number;              // dorm-style beds (not private rooms)
+  cabinRoomCount: number;        // tent cabins
   opportunityCostAnnual: number;
   avgStaffRoomRate: number;
   revpar: number;                // residency+room revenue / (availableRooms × 365)

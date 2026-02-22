@@ -53,6 +53,8 @@ import type {
   KclDiscountSummary,
   KclRecurringDonorSummary,
   KclRoomTypeOccupancy,
+  KclRosterPerson,
+  KclParticipantDetail,
   Season,
 } from './kclTypes';
 import { MONTH_NAMES } from './kclTypes';
@@ -334,18 +336,27 @@ function computeParticipantDays(programs: ProgramEntry[], year: number): {
 
 // ─── Room capacity & opportunity cost ────────────────────────────────────────
 
+// Residential staff and residents only occupy private room types.
+// Dorm beds, tent cabins, shrine floors, and campground are not "rooms" for
+// capacity or REVPAR purposes.
+const PRIVATE_ROOM_TYPES = new Set(['premium', 'standard', 'double', 'accessibility']);
+
 function computeCapacity(rooms: RoomEntry[]): {
   totalRooms: number;
   staffRooms: number;
   availableRooms: number;
+  dormBeds: number;
   cabinRoomCount: number;
   opportunityCostAnnual: number;
   avgStaffRoomRate: number;
 } {
-  const totalRooms = rooms.length;
-  const staffOccupied = rooms.filter(r => r.occupiedByStaff && r.occupiedByStaff.trim() !== '');
+  const privateRooms = rooms.filter(r => PRIVATE_ROOM_TYPES.has(r.roomType.toLowerCase()));
+  const totalRooms = privateRooms.length;
+  const staffOccupied = privateRooms.filter(r => r.occupiedByStaff && r.occupiedByStaff.trim() !== '');
   const staffRooms = staffOccupied.length;
-  const cabinRoomCount = rooms.filter(r => r.roomType.toLowerCase().includes('tent cabin')).length;
+
+  const dormBeds = rooms.filter(r => r.roomType.toLowerCase() === 'dorm').length;
+  const cabinRoomCount = rooms.filter(r => r.roomType.toLowerCase() === 'tent cabin').length;
 
   const staffRates = staffOccupied
     .map(r => r.priceSingle)
@@ -362,6 +373,7 @@ function computeCapacity(rooms: RoomEntry[]): {
     totalRooms,
     staffRooms,
     availableRooms: totalRooms - staffRooms,
+    dormBeds,
     cabinRoomCount,
     opportunityCostAnnual,
     avgStaffRoomRate,
@@ -733,6 +745,8 @@ function computeProgramPnL(
   totalParticipantDays: number,
   totalExpenses: number,
   utilityFixed: number,
+  arEntries: ArEntry[],
+  roomBookings: RoomBookingEntry[],
 ): KclProgramPnL[] {
 
   // ── 1. Participant-days by programId from catalog ─────────────────────────
@@ -815,7 +829,28 @@ function computeProgramPnL(
     teacherCostById[key] = cost;
   }
 
-  // ── 6. Build per-program records ──────────────────────────────────────────
+  // ── 6. Participant lookup: AR joined to room bookings via registrationId ──
+  const bookingByRegId: Record<string, RoomBookingEntry> = {};
+  for (const b of roomBookings) {
+    if (b.registrationId) bookingByRegId[b.registrationId] = b;
+  }
+  // Group AR entries by program name (AR has no programId)
+  const arByProgramName: Record<string, KclParticipantDetail[]> = {};
+  for (const ar of arEntries) {
+    const key = ar.programName;
+    if (!arByProgramName[key]) arByProgramName[key] = [];
+    const booking = bookingByRegId[ar.registrationId];
+    arByProgramName[key].push({
+      participantName: ar.participantName,
+      totalCharged: ar.totalCharged,
+      totalPaid: ar.totalPaid,
+      outstanding: ar.outstanding,
+      arrivalDate: booking?.arrivalDate ?? ar.startDate,
+      departureDate: booking?.departureDate ?? ar.endDate,
+    });
+  }
+
+  // ── 7. Build per-program records ──────────────────────────────────────────
   const results: KclProgramPnL[] = [];
   for (const r of programRevenue) {
     if (r.totalRevenue <= 0 && r.registrations === 0) continue;
@@ -838,6 +873,9 @@ function computeProgramPnL(
     const totalCosts         = teacherCost + foodCost + ccFees + utilityMarginal + overheadAlloc;
     const contributionMargin = r.totalRevenue - totalCosts;
 
+    const participants = (arByProgramName[r.programName] ?? [])
+      .sort((a, b) => a.participantName.localeCompare(b.participantName));
+
     results.push({
       programId:          r.programId,
       name:               r.programName,
@@ -852,6 +890,7 @@ function computeProgramPnL(
       totalCosts,
       contributionMargin,
       marginPct: r.totalRevenue > 0 ? contributionMargin / r.totalRevenue : 0,
+      participants,
     });
   }
 
@@ -987,20 +1026,38 @@ function computeVolunteerMetrics(roster: ResidentialRosterEntry[], year: number)
   let staffCount = 0, staffDays = 0;
   let residencyCount = 0, residencyDays = 0;
 
+  const rosterByTrack: {
+    staff: KclRosterPerson[];
+    volunteers: KclRosterPerson[];
+    residency: KclRosterPerson[];
+  } = { staff: [], volunteers: [], residency: [] };
+
   for (const r of roster) {
-    // Compute days directly from arrival/departure dates (not the SQL-precomputed column)
     const days = clampedDays(r.arrivalDate, r.departureDate, year);
     const track = rosterTrack(r.programName);
+    const person: KclRosterPerson = {
+      name: `${r.firstName} ${r.lastName}`.trim(),
+      arrivalDate: r.arrivalDate,
+      departureDate: r.departureDate,
+      days,
+    };
     if (track === 'volunteer') {
       volunteerCount++;
       volunteerDays += days;
+      rosterByTrack.volunteers.push(person);
     } else if (track === 'residency') {
       residencyCount++;
       residencyDays += days;
+      rosterByTrack.residency.push(person);
     } else {
       staffCount++;
       staffDays += days;
+      rosterByTrack.staff.push(person);
     }
+  }
+
+  for (const track of ['staff', 'volunteers', 'residency'] as const) {
+    rosterByTrack[track].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   return {
@@ -1012,6 +1069,7 @@ function computeVolunteerMetrics(roster: ResidentialRosterEntry[], year: number)
     residencyDays,
     estimatedLaborValue: volunteerDays * VOLUNTEER_VALUE_PER_DAY,
     laborValuePerDay: VOLUNTEER_VALUE_PER_DAY,
+    rosterByTrack,
   };
 }
 
@@ -1149,7 +1207,7 @@ export function computeKclMetrics(
   const xeroPayrollActual = expenseCategories['payroll']?.total ?? 0;
 
   // Capacity
-  const { totalRooms, staffRooms, availableRooms, cabinRoomCount, opportunityCostAnnual, avgStaffRoomRate } =
+  const { totalRooms, staffRooms, availableRooms, dormBeds, cabinRoomCount, opportunityCostAnnual, avgStaffRoomRate } =
     computeCapacity(roomInventory);
 
   // Payroll cross-reference
@@ -1236,6 +1294,8 @@ export function computeKclMetrics(
     participantDays,
     totalExpenses,
     fixedAnnual,          // utilityFixed = baselineSpend × 12
+    arEntries,
+    roomBookings,
   );
 
   // Data gaps
@@ -1275,6 +1335,7 @@ export function computeKclMetrics(
     totalRooms,
     staffRooms,
     availableRooms,
+    dormBeds,
     cabinRoomCount,
     opportunityCostAnnual,
     avgStaffRoomRate,

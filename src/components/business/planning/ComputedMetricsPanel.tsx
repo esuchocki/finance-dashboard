@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -291,27 +291,34 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
       {/* Capacity & opportunity cost */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <SummaryCard
-          label="Total Rooms"
+          label="Private Rooms"
           value={String(metrics.totalRooms)}
-          hint="Total room count from roomInventory.csv across all room types."
+          sub="Premium, Standard, Double, Accessibility"
+          hint="Count of private rooms (Premium, Standard, Double, Accessibility) in roomInventory.csv. Dorm beds, tent cabins, and shrine/campground spaces are not counted here."
         />
         <SummaryCard
           label="Staff Rooms"
           value={String(metrics.staffRooms)}
-          sub="removed from guest inventory"
-          hint="Rooms classified as staff quarters in roomInventory.csv. Excluded from the guest-accessible pool."
+          sub="of private rooms, occupied by staff"
+          hint="Private rooms with a name in the 'Occupied by Staff' column. Residential staff and residents use private rooms only."
         />
         <SummaryCard
           label="Available Rooms"
           value={String(metrics.availableRooms)}
-          sub="guest-accessible"
-          hint="Total Rooms minus Staff Rooms. The pool of rooms that can be offered to guests or program participants."
+          sub="private rooms, guest-accessible"
+          hint="Private Rooms minus Staff Rooms. The pool of private rooms available to guests and program participants."
+        />
+        <SummaryCard
+          label="Dorm Beds"
+          value={String(metrics.dormBeds)}
+          sub="shared dorm spaces (not private rooms)"
+          hint="Count of individual dorm bed entries in roomInventory.csv (Room Type = 'Dorm'). These are shared spaces, not private rooms, and are not included in the room counts above."
         />
         <SummaryCard
           label="Opportunity Cost"
           value={fmtCurrency(metrics.opportunityCostAnnual)}
           sub={
-            <Tip hint="Average nightly rack rate of available guest rooms, used as a proxy for staff room value.">
+            <Tip hint="Average nightly rack rate of staff-occupied private rooms, used as a proxy for staff room value.">
               {fmtCurrency(metrics.avgStaffRoomRate)}/night avg
             </Tip>
           }
@@ -321,7 +328,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
           label="REVPAR"
           value={fmtCurrency(metrics.revpar)}
           sub="room+program rev / avail rooms / 365"
-          hint="(Program Revenue + Residency Revenue) ÷ availableRooms ÷ 365. Revenue per available room per night. Note: includes program tuition, which is non-standard for hospitality REVPAR — interpret as a blended occupancy efficiency metric."
+          hint="(Program Revenue + Residency Revenue) ÷ availableRooms ÷ 365. Revenue per available private room per night. Note: includes program tuition, which is non-standard for hospitality REVPAR — interpret as a blended occupancy efficiency metric."
         />
       </div>
 
@@ -582,6 +589,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
   const cabnCat = metrics.programCategories.find(c => c.categoryCode === 'CABN');
   const cabnOmnisBilled = cabnCat?.totalRevenue ?? 0;
   const otherIncome = metrics.revenueStreams.other;
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   return (
     <Card>
@@ -592,6 +600,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Category</TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Number of programs in this category with dates within the year.">Count</Tip>
@@ -616,41 +625,92 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
           <TableBody>
             {metrics.programCategories.map(cat => {
               const isCabn = cat.categoryCode === 'CABN';
-              // Cabin utilization: total program duration / (num cabins × summer days)
               const utilizationDenom = isCabn && metrics.cabinRoomCount > 0
                 ? metrics.cabinRoomCount * CABIN_SUMMER_DAYS
                 : 0;
               const utilizationPct = utilizationDenom > 0
                 ? cat.totalDurationDays / utilizationDenom
                 : null;
+              const isExpanded = expandedCategory === cat.categoryCode;
+              const catPrograms = metrics.programPnL.filter(p => p.categoryCode === cat.categoryCode);
 
               return (
-                <TableRow key={cat.categoryCode}>
-                  <TableCell className="py-2">
-                    <p className="text-xs font-medium">{cat.label}</p>
-                    <p className="text-xs text-muted-foreground">{cat.categoryCode}</p>
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-2">{cat.count}</TableCell>
-                  <TableCell className="text-xs text-right py-2">
-                    {cat.participantDays > 0 ? cat.participantDays.toLocaleString() : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-2">
-                    {cat.totalDurationDays > 0 ? cat.totalDurationDays.toLocaleString() : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-2">
-                    {utilizationPct !== null
-                      ? <span className={utilizationPct < 0.5 ? 'text-amber-600' : 'text-emerald-600'}>
-                          <Tip hint={`CABN total program duration days ÷ (${metrics.cabinRoomCount} cabins × ${CABIN_SUMMER_DAYS} summer days). Amber if < 50%.`}>
-                            {fmtPct(utilizationPct, 0)}
-                          </Tip>
-                        </span>
-                      : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-2">{fmtCurrency(cat.totalRevenue)}</TableCell>
-                  <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                    {cat.avgRevenuePerProgram > 0 ? fmtCurrency(cat.avgRevenuePerProgram) : <span>—</span>}
-                  </TableCell>
-                </TableRow>
+                <React.Fragment key={cat.categoryCode}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setExpandedCategory(isExpanded ? null : cat.categoryCode)}
+                  >
+                    <TableCell className="text-xs py-2 text-muted-foreground">
+                      {isExpanded ? '▼' : '▶'}
+                    </TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs font-medium">{cat.label}</p>
+                      <p className="text-xs text-muted-foreground">{cat.categoryCode}</p>
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2">{cat.count}</TableCell>
+                    <TableCell className="text-xs text-right py-2">
+                      {cat.participantDays > 0 ? cat.participantDays.toLocaleString() : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2">
+                      {cat.totalDurationDays > 0 ? cat.totalDurationDays.toLocaleString() : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2">
+                      {utilizationPct !== null
+                        ? <span className={utilizationPct < 0.5 ? 'text-amber-600' : 'text-emerald-600'}>
+                            <Tip hint={`CABN total program duration days ÷ (${metrics.cabinRoomCount} cabins × ${CABIN_SUMMER_DAYS} summer days). Amber if < 50%.`}>
+                              {fmtPct(utilizationPct, 0)}
+                            </Tip>
+                          </span>
+                        : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2">{fmtCurrency(cat.totalRevenue)}</TableCell>
+                    <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                      {cat.avgRevenuePerProgram > 0 ? fmtCurrency(cat.avgRevenuePerProgram) : <span>—</span>}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="p-0 bg-muted/20">
+                        <div className="px-4 py-2">
+                          {catPrograms.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-1">No revenue data for this category.</p>
+                          ) : (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Program</TableHead>
+                                  <TableHead className="text-xs text-right">Dates</TableHead>
+                                  <TableHead className="text-xs text-right">Part-Days</TableHead>
+                                  <TableHead className="text-xs text-right">Revenue</TableHead>
+                                  <TableHead className="text-xs text-right">Margin</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {catPrograms
+                                  .sort((a, b) => (a.startDate ?? '').localeCompare(b.startDate ?? ''))
+                                  .map((p, i) => (
+                                    <TableRow key={i}>
+                                      <TableCell className="text-xs py-1 max-w-56 truncate" title={p.name}>{p.name}</TableCell>
+                                      <TableCell className="text-xs text-right py-1 text-muted-foreground whitespace-nowrap">
+                                        {p.startDate} – {p.endDate}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-right py-1 text-muted-foreground">
+                                        {p.participantDays > 0 ? p.participantDays.toLocaleString() : '—'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-right py-1">{fmtCurrency(p.revenue)}</TableCell>
+                                      <TableCell className={`text-xs text-right py-1 ${p.contributionMargin >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                        {p.revenue > 0 ? fmtPct(p.marginPct, 0) : '—'}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               );
             })}
           </TableBody>
@@ -765,7 +825,7 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
                       <div>
                         <div>{count}</div>
                         <div className="text-muted-foreground">
-                          <Tip hint="Total on-site persons this month ÷ availableRooms (non-staff guest rooms). All three tracks combined.">
+                          <Tip hint="Total on-site persons this month ÷ availableRooms (non-staff private rooms). All three tracks combined.">
                             {fmtPct(pct, 0)}
                           </Tip>
                         </div>
@@ -781,7 +841,7 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
           </TableBody>
         </Table>
         <p className="text-xs text-muted-foreground">
-          Occ% = total on-site / {availableRooms} available (non-staff) rooms.
+          Occ% = total on-site / {availableRooms} available private (non-staff) rooms.
           Total on-site person-days (all tracks):{' '}
           <strong>
             <Tip hint="Σ clampedDays(arrival, departure, year) for all roster entries across all tracks. Each person contributes min(departure, Dec 31) − max(arrival, Jan 1) days; departure day is excluded.">
@@ -905,6 +965,7 @@ const BreakEvenCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
 
 const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
   const { programPnL } = metrics;
+  const [expandedProgram, setExpandedProgram] = useState<string | null>(null);
 
   const totals = programPnL.reduce(
     (acc, p) => ({
@@ -932,6 +993,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Program</TableHead>
               <TableHead className="text-xs text-center">Cat</TableHead>
               <TableHead className="text-xs text-right">
@@ -955,25 +1017,87 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
             {programPnL.map((p, i) => {
               const direct = p.costs.teacherCost + p.costs.foodCost + p.costs.ccFees + p.costs.utilityMarginal;
               const pos    = p.contributionMargin >= 0;
+              const rowKey = p.programId || String(i);
+              const isExpanded = expandedProgram === rowKey;
+              const participants = p.participants ?? [];
               return (
-                <TableRow key={i}>
-                  <TableCell className="text-xs py-1 max-w-44 truncate" title={p.name}>{p.name}</TableCell>
-                  <TableCell className="text-xs py-1 text-center text-muted-foreground">{p.categoryCode}</TableCell>
-                  <TableCell className="text-xs text-right py-1">{fmtCurrency(p.revenue)}</TableCell>
-                  <TableCell className="text-xs text-right py-1 text-muted-foreground">{fmtCurrency(direct)}</TableCell>
-                  <TableCell className="text-xs text-right py-1 text-muted-foreground">{fmtCurrency(p.costs.overheadAlloc)}</TableCell>
-                  <TableCell className={`text-xs text-right py-1 font-medium ${pos ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {fmtCurrency(p.contributionMargin)}
-                  </TableCell>
-                  <TableCell className={`text-xs text-right py-1 ${pos ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {p.revenue > 0 ? fmtPct(p.marginPct, 0) : '—'}
-                  </TableCell>
-                </TableRow>
+                <React.Fragment key={i}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setExpandedProgram(isExpanded ? null : rowKey)}
+                  >
+                    <TableCell className="text-xs py-1 text-muted-foreground">{isExpanded ? '▼' : '▶'}</TableCell>
+                    <TableCell className="text-xs py-1 max-w-44 truncate" title={p.name}>{p.name}</TableCell>
+                    <TableCell className="text-xs py-1 text-center text-muted-foreground">{p.categoryCode}</TableCell>
+                    <TableCell className="text-xs text-right py-1">{fmtCurrency(p.revenue)}</TableCell>
+                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{fmtCurrency(direct)}</TableCell>
+                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{fmtCurrency(p.costs.overheadAlloc)}</TableCell>
+                    <TableCell className={`text-xs text-right py-1 font-medium ${pos ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {fmtCurrency(p.contributionMargin)}
+                    </TableCell>
+                    <TableCell className={`text-xs text-right py-1 ${pos ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {p.revenue > 0 ? fmtPct(p.marginPct, 0) : '—'}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="p-0 bg-muted/20">
+                        <div className="px-4 py-2 space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            {p.name} — {p.startDate} to {p.endDate} — {p.durationDays} days — {p.registrations} registrations
+                          </p>
+                          {participants.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-1">
+                              No participant records found. Load the Outstanding AR file to see participants.
+                            </p>
+                          ) : (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Participant</TableHead>
+                                  <TableHead className="text-xs text-right">Charged</TableHead>
+                                  <TableHead className="text-xs text-right">Paid</TableHead>
+                                  <TableHead className="text-xs text-right">Outstanding</TableHead>
+                                  <TableHead className="text-xs text-right">Arrival</TableHead>
+                                  <TableHead className="text-xs text-right">Departure</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {participants.map((pt, j) => (
+                                  <TableRow key={j}>
+                                    <TableCell className="text-xs py-1 font-medium">{pt.participantName}</TableCell>
+                                    <TableCell className="text-xs text-right py-1">{fmtCurrency(pt.totalCharged)}</TableCell>
+                                    <TableCell className="text-xs text-right py-1 text-emerald-600">{fmtCurrency(pt.totalPaid)}</TableCell>
+                                    <TableCell className={`text-xs text-right py-1 ${pt.outstanding > 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+                                      {pt.outstanding > 0 ? fmtCurrency(pt.outstanding) : '—'}
+                                    </TableCell>
+                                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{pt.arrivalDate}</TableCell>
+                                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{pt.departureDate}</TableCell>
+                                  </TableRow>
+                                ))}
+                                <TableRow className="border-t font-medium">
+                                  <TableCell className="text-xs py-1">Total ({participants.length})</TableCell>
+                                  <TableCell className="text-xs text-right py-1">{fmtCurrency(participants.reduce((s, pt) => s + pt.totalCharged, 0))}</TableCell>
+                                  <TableCell className="text-xs text-right py-1 text-emerald-600">{fmtCurrency(participants.reduce((s, pt) => s + pt.totalPaid, 0))}</TableCell>
+                                  <TableCell className="text-xs text-right py-1 text-red-600">
+                                    {fmtCurrency(participants.reduce((s, pt) => s + pt.outstanding, 0))}
+                                  </TableCell>
+                                  <TableCell colSpan={2} />
+                                </TableRow>
+                              </TableBody>
+                            </Table>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               );
             })}
 
             {/* Cost breakdown rows for totals */}
             <TableRow className="border-t-2">
+              <TableCell />
               <TableCell className="text-xs font-semibold py-2" colSpan={2}>
                 Total ({programPnL.length} programs)
               </TableCell>
@@ -1429,6 +1553,19 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
 
   const totalResidents = vm.staffCount + vm.volunteerCount + vm.residencyCount;
   const totalDays = vm.staffDays + vm.volunteerDays + vm.residencyDays;
+  const [expandedTrack, setExpandedTrack] = useState<'staff' | 'volunteers' | 'residency' | null>(null);
+
+  const trackRows: Array<{
+    key: 'staff' | 'volunteers' | 'residency';
+    label: string;
+    subLabel: string;
+    count: number;
+    days: number;
+  }> = [
+    { key: 'staff',      label: 'Residential Staff',        subLabel: 'salaried employees living on-site', count: vm.staffCount,     days: vm.staffDays },
+    { key: 'volunteers', label: 'Volunteers',               subLabel: 'uncosted labor — room & board',     count: vm.volunteerCount, days: vm.volunteerDays },
+    { key: 'residency',  label: 'Residency Participants',   subLabel: 'paying program residents',          count: vm.residencyCount, days: vm.residencyDays },
+  ];
 
   return (
     <Card>
@@ -1438,11 +1575,12 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Days computed from arrival/departure dates (exclusive of departure day).
-          People and days match the Residential Population card above.
+          Click a row to expand the name list.
         </p>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="text-xs w-4"></TableHead>
               <TableHead className="text-xs">Track</TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Count of unique individuals in this track from residentialRoster.csv.">People</Tip>
@@ -1456,40 +1594,63 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow>
-              <TableCell className="py-2">
-                <p className="text-xs font-medium">Residential Staff</p>
-                <p className="text-xs text-muted-foreground">salaried employees living on-site</p>
-              </TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.staffCount}</TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.staffDays.toLocaleString()}</TableCell>
-              <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                {vm.staffCount > 0 ? Math.round(vm.staffDays / vm.staffCount) : '—'}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-2">
-                <p className="text-xs font-medium">Volunteers</p>
-                <p className="text-xs text-muted-foreground">uncosted labor — room & board provided</p>
-              </TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.volunteerCount}</TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.volunteerDays.toLocaleString()}</TableCell>
-              <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                {vm.volunteerCount > 0 ? Math.round(vm.volunteerDays / vm.volunteerCount) : '—'}
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="py-2">
-                <p className="text-xs font-medium">Residency Participants</p>
-                <p className="text-xs text-muted-foreground">paying program residents</p>
-              </TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.residencyCount}</TableCell>
-              <TableCell className="text-xs text-right py-2">{vm.residencyDays.toLocaleString()}</TableCell>
-              <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                {vm.residencyCount > 0 ? Math.round(vm.residencyDays / vm.residencyCount) : '—'}
-              </TableCell>
-            </TableRow>
+            {trackRows.map(({ key, label, subLabel, count, days }) => {
+              const isExpanded = expandedTrack === key;
+              const people = vm.rosterByTrack?.[key] ?? [];
+              return (
+                <React.Fragment key={key}>
+                  <TableRow
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => setExpandedTrack(isExpanded ? null : key)}
+                  >
+                    <TableCell className="text-xs py-2 text-muted-foreground">{isExpanded ? '▼' : '▶'}</TableCell>
+                    <TableCell className="py-2">
+                      <p className="text-xs font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{subLabel}</p>
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2">{count}</TableCell>
+                    <TableCell className="text-xs text-right py-2">{days.toLocaleString()}</TableCell>
+                    <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                      {count > 0 ? Math.round(days / count) : '—'}
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="p-0 bg-muted/20">
+                        <div className="px-4 py-2">
+                          {people.length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-1">No roster data available.</p>
+                          ) : (
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Name</TableHead>
+                                  <TableHead className="text-xs text-right">Arrival</TableHead>
+                                  <TableHead className="text-xs text-right">Departure</TableHead>
+                                  <TableHead className="text-xs text-right">Days</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {people.map((person, i) => (
+                                  <TableRow key={i}>
+                                    <TableCell className="text-xs py-1 font-medium">{person.name}</TableCell>
+                                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{person.arrivalDate}</TableCell>
+                                    <TableCell className="text-xs text-right py-1 text-muted-foreground">{person.departureDate}</TableCell>
+                                    <TableCell className="text-xs text-right py-1">{person.days}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
             <TableRow className="border-t-2">
+              <TableCell />
               <TableCell className="text-xs font-semibold py-2">Total</TableCell>
               <TableCell className="text-xs font-semibold text-right py-2">{totalResidents}</TableCell>
               <TableCell className="text-xs font-semibold text-right py-2">{totalDays.toLocaleString()}</TableCell>
