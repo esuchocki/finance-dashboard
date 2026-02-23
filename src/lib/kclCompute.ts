@@ -6,7 +6,7 @@
  *
  * GL code reference (from requirements.md and data_loader.py):
  *   Revenue : 3xxx, 4xxx credits (excl. 3000 retained earnings)
- *   CC fees : 61001 debits
+ *   CC fees : 6100_1 debits (Xero account code uses underscore, not concatenated digits)
  *   Utilities: 6270 (heating/electric), 6250 (phone/internet)
  *   Food    : 5200
  *   Payroll : 6105, 6110, 6114, 6116
@@ -35,6 +35,7 @@ import type {
   ProgramTransactionEntry,
   RecurringDonorEntry,
   RoomBookingEntry,
+  ProgramBillingEntry,
   KclComputedMetrics,
   KclExpenseCategory,
   KclProgramSummary,
@@ -52,6 +53,7 @@ import type {
   KclArMetrics,
   KclDiscountSummary,
   KclRecurringDonorSummary,
+  KclProgramBillingSummary,
   KclRoomTypeOccupancy,
   KclRosterPerson,
   KclParticipantDetail,
@@ -70,11 +72,15 @@ const GL_CATEGORIES: Record<string, {
   utilities:          { name: 'Utilities',                glAccounts: ['6270', '6250'],                                 type: 'semi_variable' },
   payroll:            { name: 'Payroll & Contract Labour',glAccounts: ['6105', '6110', '6114', '6116'],                 type: 'overhead' },
   teachers:           { name: 'Teacher Compensation',     glAccounts: ['5250', '5300', '5350'],                         type: 'program_specific' },
-  scholarships:       { name: 'Scholarships & Credits',   glAccounts: ['COGS - SCH', 'COGS - PC'],                      type: 'program_specific' },
+  // Xero uses text account codes 'COGS - SCH' and 'COGS - PC' (not numeric).
+  // These ARE the exact Account Code values that appear in the GL export.
+  scholarships:       { name: 'Scholarships & Credits',   glAccounts: ['COGS - SCH', 'COGS - PC'],                     type: 'program_specific' },
   repairs:            { name: 'Repairs & Maintenance',    glAccounts: ['6210'],                                         type: 'overhead' },
   insurance:          { name: 'Insurance',                glAccounts: ['6150'],                                         type: 'overhead' },
   facilities:         { name: 'Facilities',               glAccounts: ['6190', '6200'],                                 type: 'overhead' },
-  payment_processing: { name: 'Payment Processing',       glAccounts: ['5400', '6100', '61001'],                        type: 'overhead' },
+  // Credit Card Fees: Xero account code is '6100_1' (with underscore), NOT '61001'.
+  // Bank Fees is '6100'. Payment Processing Costs is '5400'.
+  payment_processing: { name: 'Payment Processing',       glAccounts: ['5400', '6100', '6100_1'],                      type: 'overhead' },
   admin:              { name: 'Office & Admin',           glAccounts: ['6240', '6120', '6170', '6160', '6180', '6260', '6230'], type: 'overhead' },
   housekeeping:       { name: 'Housekeeping & Supplies',  glAccounts: ['6280'],                                         type: 'overhead' },
   marketing:          { name: 'Marketing & Advertising',  glAccounts: ['5100'],                                         type: 'overhead' },
@@ -219,7 +225,10 @@ function computeUtilityBaseline(txns: GlTransaction[], year: number): {
 
 // ─── Seasonal utility ─────────────────────────────────────────────────────────
 
-function computeSeasonalUtility(monthly: Record<number, number>): {
+function computeSeasonalUtility(
+  monthly: Record<number, number>,
+  baselineMonthlySpend: number,
+): {
   seasonalUtility: Record<Season, number>;
   seasonalMultipliers: Record<Season, number>;
 } {
@@ -231,12 +240,13 @@ function computeSeasonalUtility(monthly: Record<number, number>): {
     }
   }
 
-  const annualTotal = Object.values(seasonalUtility).reduce((a, b) => a + b, 0);
-  const quarterlyAvg = annualTotal / 4 || 1;
-
+  // Multiplier = avg monthly spend in this season ÷ baseline monthly spend (lowest month).
+  // A multiplier of 3× means this season's avg month costs 3× the quietest month.
+  const divisor = baselineMonthlySpend > 0 ? baselineMonthlySpend : 1;
   const seasonalMultipliers: Record<Season, number> = { winter: 0, spring: 0, summer: 0, fall: 0 };
   for (const season of Object.keys(seasonalUtility) as Season[]) {
-    seasonalMultipliers[season] = parseFloat((seasonalUtility[season] / quarterlyAvg).toFixed(4));
+    const avgMonthly = seasonalUtility[season] / 3; // 3 months per season
+    seasonalMultipliers[season] = parseFloat((avgMonthly / divisor).toFixed(4));
   }
 
   return { seasonalUtility, seasonalMultipliers };
@@ -247,7 +257,7 @@ function computeSeasonalUtility(monthly: Record<number, number>): {
 function computeCcFeeRate(txns: GlTransaction[], year: number): { rate: number; total: number } {
   const yearTxns = txns.filter(t => txnYear(t) === year);
   const total = yearTxns
-    .filter(t => t.accountCode === '61001')
+    .filter(t => t.accountCode === '6100_1')
     .reduce((s, t) => s + t.debit - t.credit, 0);
   const revenue = yearTxns
     .filter(t => (t.accountCode.startsWith('3') || t.accountCode.startsWith('4')) && t.accountCode !== '3000')
@@ -279,7 +289,7 @@ function computeExpenseCategories(
     }
   }
 
-  const { seasonalMultipliers } = computeSeasonalUtility(utilityMonthly);
+  const { seasonalMultipliers } = computeSeasonalUtility(utilityMonthly, utilityFixed / 12);
 
   const categories: Record<string, KclExpenseCategory> = {};
   for (const [key, def] of Object.entries(GL_CATEGORIES)) {
@@ -531,7 +541,7 @@ function computeMonthlyData(txns: GlTransaction[], year: number): KclMonthlyRow[
         rows[m].revenueTotal     += rev;
         addedToTotal = true;
       }
-      if (addedToTotal && t.sourceName === 'Manual Journal') {
+      if (addedToTotal && t.sourceName?.toLowerCase().includes('manual journal')) {
         rows[m].revenueManualJournal += rev;
       }
     }
@@ -834,13 +844,17 @@ function computeProgramPnL(
   for (const b of roomBookings) {
     if (b.registrationId) bookingByRegId[b.registrationId] = b;
   }
-  // Group AR entries by program name (AR has no programId)
-  const arByProgramName: Record<string, KclParticipantDetail[]> = {};
+  // Normalize program names for matching — different Omnis exports can have
+  // subtle whitespace or casing differences for the same program.
+  const normName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // Group AR entries by normalized program name (AR has no programId)
+  const arByNormName: Record<string, KclParticipantDetail[]> = {};
   for (const ar of arEntries) {
-    const key = ar.programName;
-    if (!arByProgramName[key]) arByProgramName[key] = [];
+    const key = normName(ar.programName);
+    if (!arByNormName[key]) arByNormName[key] = [];
     const booking = bookingByRegId[ar.registrationId];
-    arByProgramName[key].push({
+    arByNormName[key].push({
       participantName: ar.participantName,
       totalCharged: ar.totalCharged,
       totalPaid: ar.totalPaid,
@@ -873,7 +887,7 @@ function computeProgramPnL(
     const totalCosts         = teacherCost + foodCost + ccFees + utilityMarginal + overheadAlloc;
     const contributionMargin = r.totalRevenue - totalCosts;
 
-    const participants = (arByProgramName[r.programName] ?? [])
+    const participants = (arByNormName[normName(r.programName)] ?? [])
       .sort((a, b) => a.participantName.localeCompare(b.participantName));
 
     results.push({
@@ -1075,12 +1089,13 @@ function computeVolunteerMetrics(roster: ResidentialRosterEntry[], year: number)
 
 // ─── Discount summary ─────────────────────────────────────────────────────────
 
-function computeDiscountSummary(txns: ProgramTransactionEntry[]): KclDiscountSummary {
+function computeDiscountSummary(txns: ProgramTransactionEntry[], year: number): KclDiscountSummary {
   const cats: Record<string, { totalAmount: number; totalDiscount: number }> = {};
   let totalAmount = 0;
   let totalDiscount = 0;
 
   for (const t of txns) {
+    if (!strictYearFilter(t.startDate, t.endDate, year)) continue;
     totalAmount += t.totalAmount;
     totalDiscount += t.totalDiscount;
     const code = t.categoryCode || 'OTHER';
@@ -1158,6 +1173,31 @@ function computeRoomTypeOccupancy(bookings: RoomBookingEntry[]): KclRoomTypeOccu
   };
 }
 
+// ─── Program billing summary ──────────────────────────────────────────────────
+
+function computeProgramBillingSummary(billing: ProgramBillingEntry[]): KclProgramBillingSummary {
+  const personCount = billing.length;
+  const totalCharged = billing.reduce((s, e) => s + e.totalCharged2025, 0);
+  const totalRegs    = billing.reduce((s, e) => s + e.registrations2025, 0);
+
+  const topBilled = [...billing]
+    .sort((a, b) => b.totalCharged2025 - a.totalCharged2025)
+    .slice(0, 10)
+    .map(e => ({
+      participantName: e.participantName,
+      registrations: e.registrations2025,
+      totalCharged: e.totalCharged2025,
+    }));
+
+  return {
+    personCount,
+    totalCharged,
+    avgChargePerPerson: personCount > 0 ? totalCharged / personCount : 0,
+    avgRegistrationsPerPerson: personCount > 0 ? totalRegs / personCount : 0,
+    topBilled,
+  };
+}
+
 // ─── Main entry point ─────────────────────────────────────────────────────────
 
 export function computeKclMetrics(
@@ -1174,7 +1214,13 @@ export function computeKclMetrics(
   programTransactions: ProgramTransactionEntry[],
   recurringDonors: RecurringDonorEntry[],
   roomBookings: RoomBookingEntry[],
+  allRegistrations: ArEntry[],
+  programBilling: ProgramBillingEntry[],
 ): KclComputedMetrics {
+
+  // Prefer allRegistrations over outstandingAr for participant data.
+  // allRegistrations includes fully-paid participants; outstandingAr is unpaid-only.
+  const participantEntries = allRegistrations.length > 0 ? allRegistrations : arEntries;
 
   // Revenue
   const totalRevenue = computeRevenue(glTransactions, year);
@@ -1190,7 +1236,7 @@ export function computeKclMetrics(
   // Utilities
   const { fixedAnnual, variableAnnual, baselineMonth, baselineSpend, annualTotal: utilityTotal, monthly: utilityMonthly } =
     computeUtilityBaseline(glTransactions, year);
-  const { seasonalUtility, seasonalMultipliers } = computeSeasonalUtility(utilityMonthly);
+  const { seasonalUtility, seasonalMultipliers } = computeSeasonalUtility(utilityMonthly, baselineSpend);
 
   // CC fees
   const { rate: ccFeeRate, total: ccFeeTotal } = computeCcFeeRate(glTransactions, year);
@@ -1240,19 +1286,24 @@ export function computeKclMetrics(
     ? computeDonationBreakdown(donations)
     : null;
 
-  // Accounts receivable health
-  const arMetrics = arEntries.length > 0
-    ? computeArMetrics(arEntries)
+  // Accounts receivable health — use allRegistrations if available for accurate totals
+  const arMetrics = participantEntries.length > 0
+    ? computeArMetrics(participantEntries)
     : null;
 
   // Discount summary from program transactions
   const discountSummary = programTransactions.length > 0
-    ? computeDiscountSummary(programTransactions)
+    ? computeDiscountSummary(programTransactions, year)
     : null;
 
-  // Recurring donor base
+  // Recurring donor base (cash received)
   const recurringDonorSummary = recurringDonors.length > 0
     ? computeRecurringDonorSummary(recurringDonors)
+    : null;
+
+  // Program billing summary (charges billed)
+  const programBillingSummary = programBilling.length > 0
+    ? computeProgramBillingSummary(programBilling)
     : null;
 
   // Room type occupancy
@@ -1294,7 +1345,7 @@ export function computeKclMetrics(
     participantDays,
     totalExpenses,
     fixedAnnual,          // utilityFixed = baselineSpend × 12
-    arEntries,
+    participantEntries,
     roomBookings,
   );
 
@@ -1355,6 +1406,7 @@ export function computeKclMetrics(
     arMetrics,
     discountSummary,
     recurringDonorSummary,
+    programBillingSummary,
     roomTypeOccupancy,
     breakEven,
     programCategories,

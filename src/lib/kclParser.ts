@@ -19,6 +19,7 @@ import type {
   ProgramTransactionEntry,
   RecurringDonorEntry,
   RoomBookingEntry,
+  ProgramBillingEntry,
 } from './kclTypes';
 
 // ─── Core CSV utility ─────────────────────────────────────────────────────────
@@ -542,16 +543,17 @@ export function parseRecurringDonors(content: string): RecurringDonorEntry[] {
     k.toLowerCase().startsWith('total_paid')
   ) ?? 'total_paid';
 
+  const nullStr = (v: string) => (v === 'NULL' || v === '') ? '' : v;
   const results: RecurringDonorEntry[] = [];
 
   for (const row of rows) {
-    const donorName = col(row, ['donor_name', 'DONOR_NAME', 'Name']);
+    const donorName = nullStr(col(row, ['donor_name', 'DONOR_NAME', 'Name']));
     if (!donorName) continue;
 
     results.push({
       personId: col(row, ['PERSON_ID', 'person_id', 'ID']),
       donorName,
-      email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email']),
+      email: nullStr(col(row, ['EMAIL_ADDRESS', 'email_address', 'Email'])),
       activeEnrollments: int(col(row, ['num_active_enrollments', 'NUM_ACTIVE_ENROLLMENTS', 'Enrollments'])),
       paymentsMade: int(row[paymentsCol] ?? '0'),
       totalPaid: num(row[paidCol] ?? '0'),
@@ -592,6 +594,82 @@ export function parseRoomBookings(content: string): RoomBookingEntry[] {
       arrivalDate: arrivalRaw ? arrivalRaw.substring(0, 10) : '',
       departureDate: departureRaw ? departureRaw.substring(0, 10) : '',
       nights: int(col(row, ['nights', 'NIGHTS', 'Nights'])),
+    });
+  }
+
+  return results;
+}
+
+// ─── All Program Registrations (KCLdb export) ─────────────────────────────────
+
+/**
+ * Parses the all-registrations CSV (all active registrations, paid and unpaid).
+ *
+ * Expected columns: REGISTRATION_ID, participant_name, EMAIL_ADDRESS,
+ *   PROGRAM_NAME, START_DATE, END_DATE, ARRIVAL_DATE, DEPARTURE_DATE,
+ *   total_charged, total_paid, outstanding
+ *
+ * Same ArEntry type as parseOutstandingAr — ARRIVAL_DATE and DEPARTURE_DATE
+ * are present in the file but not stored (ArEntry does not include them).
+ */
+export function parseAllRegistrations(content: string): ArEntry[] {
+  const rows = parseCSVText(content);
+  const results: ArEntry[] = [];
+
+  for (const row of rows) {
+    const participantName = col(row, ['participant_name', 'PARTICIPANT_NAME', 'Participant', 'name']);
+    if (!participantName) continue;
+
+    results.push({
+      registrationId: col(row, ['REGISTRATION_ID', 'registration_id', 'ID']),
+      participantName,
+      email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email']),
+      programName: col(row, ['PROGRAM_NAME', 'program_name', 'Program']),
+      startDate: col(row, ['START_DATE', 'start_date', 'Start']).substring(0, 10),
+      endDate: col(row, ['END_DATE', 'end_date', 'End']).substring(0, 10),
+      totalCharged: num(col(row, ['total_charged', 'TOTAL_CHARGED', 'Charged'])),
+      totalPaid: num(col(row, ['total_paid', 'TOTAL_PAID', 'Paid'])),
+      outstanding: num(col(row, ['outstanding', 'OUTSTANDING', 'Balance'])),
+    });
+  }
+
+  return results;
+}
+
+// ─── Program Billing (KCLdb export) ───────────────────────────────────────────
+
+/**
+ * Parses the program-billing CSV (per-person charges billed via transactions table).
+ *
+ * Expected columns: PERSON_ID, participant_name, EMAIL_ADDRESS,
+ *   registrations_2025, charge_lines_2025, total_charged_2025
+ *
+ * Column names are year-generic at parse time: the year suffix is detected
+ * dynamically so this parser works for any year's export.
+ */
+export function parseProgramBilling(content: string): ProgramBillingEntry[] {
+  const rows = parseCSVText(content);
+  if (rows.length === 0) return [];
+
+  // Detect year-specific column names
+  const sampleRow = rows[0];
+  const regsCol    = Object.keys(sampleRow).find(k => k.toLowerCase().startsWith('registrations')) ?? 'registrations_2025';
+  const linesCol   = Object.keys(sampleRow).find(k => k.toLowerCase().startsWith('charge_lines'))  ?? 'charge_lines_2025';
+  const chargedCol = Object.keys(sampleRow).find(k => k.toLowerCase().startsWith('total_charged')) ?? 'total_charged_2025';
+
+  const results: ProgramBillingEntry[] = [];
+
+  for (const row of rows) {
+    const participantName = col(row, ['participant_name', 'PARTICIPANT_NAME', 'Name']);
+    if (!participantName) continue;
+
+    results.push({
+      personId:         col(row, ['PERSON_ID', 'person_id', 'ID']),
+      participantName,
+      email:            col(row, ['EMAIL_ADDRESS', 'email_address', 'Email']),
+      registrations2025: int(row[regsCol]    ?? '0'),
+      chargeLines2025:   int(row[linesCol]   ?? '0'),
+      totalCharged2025:  num(row[chargedCol] ?? '0'),
     });
   }
 

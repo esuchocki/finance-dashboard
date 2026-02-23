@@ -19,7 +19,9 @@ export type KclDataSourceKey =
   | 'outstandingAr'
   | 'programTransactions'
   | 'recurringDonors'
-  | 'roomBookings';
+  | 'roomBookings'
+  | 'allRegistrations'
+  | 'programBilling';
 
 export type KclLoadStatus = 'missing' | 'loaded' | 'error';
 
@@ -149,6 +151,15 @@ export interface RecurringDonorEntry {
   activeEnrollments: number;
   paymentsMade: number;
   totalPaid: number;
+}
+
+export interface ProgramBillingEntry {
+  personId: string;
+  participantName: string;
+  email: string;
+  registrations2025: number;
+  chargeLines2025: number;
+  totalCharged2025: number;
 }
 
 export interface RoomBookingEntry {
@@ -391,6 +402,19 @@ export interface KclRecurringDonorSummary {
   }>;
 }
 
+// Program billing summary — charges billed (complement to KclRecurringDonorSummary)
+export interface KclProgramBillingSummary {
+  personCount: number;
+  totalCharged: number;
+  avgChargePerPerson: number;
+  avgRegistrationsPerPerson: number;
+  topBilled: Array<{
+    participantName: string;
+    registrations: number;
+    totalCharged: number;
+  }>;
+}
+
 // Room-type occupancy from booking records
 export interface KclRoomTypeOccupancy {
   totalNights: number;
@@ -481,8 +505,11 @@ export interface KclComputedMetrics {
   // Discount analysis from Omnis program transactions (null if not loaded)
   discountSummary: KclDiscountSummary | null;
 
-  // Recurring donor base analysis (null if not loaded)
+  // Recurring donor base analysis — cash received (null if not loaded)
   recurringDonorSummary: KclRecurringDonorSummary | null;
+
+  // Program billing summary — charges billed (null if not loaded)
+  programBillingSummary: KclProgramBillingSummary | null;
 
   // Room-type occupancy from booking records (null if not loaded)
   roomTypeOccupancy: KclRoomTypeOccupancy | null;
@@ -527,6 +554,8 @@ export interface KclAnnualDataset {
     programTransactions: ProgramTransactionEntry[];
     recurringDonors: RecurringDonorEntry[];
     roomBookings: RoomBookingEntry[];
+    allRegistrations: ArEntry[];
+    programBilling: ProgramBillingEntry[];
   };
   computed: KclComputedMetrics | null;
 }
@@ -586,16 +615,16 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     description: 'Accommodation pricing, capacity, and staff occupancy',
     fileType: 'CSV',
     required: true,
-    origin: 'Internal spreadsheet (kcl_accommodations.csv) — update annually',
+    origin: 'Internal spreadsheet (data/2025/room_inventory.csv) — update annually',
     expectedColumns: ['Room Number', 'Room Type', 'Price for Single Occupancy', 'Occupied by Staff'],
-    zipPatterns: ['accommodation', 'room_inventory', 'room inventory'],
+    zipPatterns: ['room_inventory', 'room inventory', 'accommodation', 'kcl_accommodations'],
   },
   staffSalaries: {
     label: 'Staff Salaries',
     description: 'Employee salary records for payroll analysis and gap reconciliation',
     fileType: 'CSV',
     required: false,
-    origin: 'HR records (salaries.csv) — update annually',
+    origin: 'HR records (data/2025/salaries.csv) — update annually',
     expectedColumns: ['Employee', 'Department', 'Annual Salary'],
     zipPatterns: ['salaries', 'salary'],
   },
@@ -613,34 +642,34 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     description: 'Omnis donation records — fund-level breakdown (Kubera, Saddharma, scholarships), pledge vs. paid, one-time vs. monthly split',
     fileType: 'CSV',
     required: false,
-    origin: 'KCLdb MySQL: context/omnis/kcl_db/results/donations.csv',
+    origin: 'KCLdb MySQL: data/queries/recurring_donors.sql → data/2025/donations.csv',
     expectedColumns: ['DONATION_ID', 'donor_name', 'fund_name', 'pledged_amount', 'amount_paid'],
     zipPatterns: ['donations'],
   },
   outstandingAr: {
     label: 'Outstanding AR',
-    description: 'Accounts receivable from Omnis — outstanding balances by participant, collection rate, top debtors',
+    description: 'Accounts receivable from Omnis — only participants with unpaid balances. Fully-paid participants are not in this export. Load All Registrations instead for the complete participant list.',
     fileType: 'CSV',
     required: false,
-    origin: 'KCLdb MySQL: context/omnis/kcl_db/results/outstanding-accounts-receivable.csv',
+    origin: 'KCLdb MySQL: data/queries/outstanding_ar.sql → data/2025/outstanding_ar.csv',
     expectedColumns: ['participant_name', 'PROGRAM_NAME', 'total_charged', 'total_paid', 'outstanding'],
-    zipPatterns: ['outstanding', 'receivable'],
+    zipPatterns: ['outstanding_ar', 'outstanding-ar', 'outstanding', 'receivable'],
   },
   programTransactions: {
     label: 'Program Transactions',
     description: 'Omnis transaction detail by program and GL account — includes discount amounts that reduce effective revenue',
     fileType: 'CSV',
     required: false,
-    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/all-2025-program-transactions.csv',
+    origin: 'KCLdb MySQL: data/queries/program_transactions.sql → data/2025/program_transactions.csv',
     expectedColumns: ['PROGRAM_ID', 'PROGRAM_NAME', 'GL_ACCOUNT', 'TRANS_TYPE', 'total_amount', 'total_discount'],
-    zipPatterns: ['program-transactions', 'program_transactions', 'all-2025-program'],
+    zipPatterns: ['program_transactions', 'program-transactions'],
   },
   recurringDonors: {
     label: 'Recurring Donors',
-    description: 'Active recurring donor base — count, payment frequency, and amounts for the year',
+    description: 'Cash received per person in the year — anchors on payment date, includes program participants and direct donors. Pair with Program Billing for the full picture.',
     fileType: 'CSV',
     required: false,
-    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/recurring-donors.csv',
+    origin: 'KCLdb MySQL: data/queries/recurring_donors.sql → data/2025/recurring_donors.csv',
     expectedColumns: ['PERSON_ID', 'donor_name', 'num_active_enrollments', 'payments_made_2025', 'total_paid_2025'],
     zipPatterns: ['recurring-donors', 'recurring_donors'],
   },
@@ -649,9 +678,27 @@ export const KCL_SOURCE_META: Record<KclDataSourceKey, KclDataSourceMeta> = {
     description: 'Individual room booking records — occupancy by room type, average stay length',
     fileType: 'CSV',
     required: false,
-    origin: 'KCLdb MySQL: context/data/omnis/kcl_db/results/room-bookings.csv',
+    origin: 'KCLdb MySQL: data/queries/room_bookings.sql → data/2025/room_bookings.csv',
     expectedColumns: ['ROOM_NO', 'ROOM_TYPE_DESC', 'PROGRAM_ID', 'nights'],
     zipPatterns: ['room-bookings', 'room_bookings'],
+  },
+  allRegistrations: {
+    label: 'All Registrations',
+    description: 'All active program registrations with charged/paid/outstanding amounts — includes fully-paid participants. Preferred over Outstanding AR for per-program participant lists.',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: data/queries/all_program_registrations.sql → data/2025/all_registrations.csv',
+    expectedColumns: ['REGISTRATION_ID', 'participant_name', 'PROGRAM_NAME', 'total_charged', 'total_paid', 'outstanding'],
+    zipPatterns: ['all_program_registrations', 'all-program-registrations', 'all_registrations'],
+  },
+  programBilling: {
+    label: 'Program Billing',
+    description: 'Per-person charges billed for strict-year programs — includes everyone who registered regardless of payment status. Complement to Recurring Donors (cash received).',
+    fileType: 'CSV',
+    required: false,
+    origin: 'KCLdb MySQL: data/queries/program_billing.sql → data/2025/program_billing.csv',
+    expectedColumns: ['PERSON_ID', 'participant_name', 'registrations_2025', 'charge_lines_2025', 'total_charged_2025'],
+    zipPatterns: ['program_billing', 'program-billing'],
   },
 };
 
@@ -689,6 +736,8 @@ export const ALL_SOURCES: KclDataSourceKey[] = [
   'programTransactions',
   'recurringDonors',
   'roomBookings',
+  'allRegistrations',
+  'programBilling',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -717,6 +766,8 @@ export function emptyDataset(year: number): KclAnnualDataset {
       programTransactions: { ...emptyStatus },
       recurringDonors: { ...emptyStatus },
       roomBookings: { ...emptyStatus },
+      allRegistrations: { ...emptyStatus },
+      programBilling: { ...emptyStatus },
     },
     data: {
       glTransactions: [],
@@ -731,6 +782,8 @@ export function emptyDataset(year: number): KclAnnualDataset {
       programTransactions: [],
       recurringDonors: [],
       roomBookings: [],
+      allRegistrations: [],
+      programBilling: [],
     },
     computed: null,
   };

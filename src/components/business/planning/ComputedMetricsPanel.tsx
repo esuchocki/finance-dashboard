@@ -392,9 +392,14 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
         <DonationBreakdownCard metrics={metrics} />
       )}
 
-      {/* Recurring donor base */}
+      {/* Recurring donor base (cash received) */}
       {metrics.recurringDonorSummary && (
         <RecurringDonorCard metrics={metrics} />
+      )}
+
+      {/* Program billing (charges billed) */}
+      {metrics.programBillingSummary && (
+        <ProgramBillingCard metrics={metrics} />
       )}
 
       {/* Accounts receivable health */}
@@ -1042,7 +1047,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
                           </p>
                           {participants.length === 0 ? (
                             <p className="text-xs text-muted-foreground py-1">
-                              No participant records found. Load the Outstanding AR file to see participants.
+                              No participant records for this program. Load All Registrations for the complete list, or Outstanding AR for unpaid balances only.
                             </p>
                           ) : (
                             <Table>
@@ -1801,6 +1806,71 @@ const RecurringDonorCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
                   <TableCell className="text-xs py-1.5 font-medium">{d.donorName}</TableCell>
                   <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{d.payments}</TableCell>
                   <TableCell className="text-xs text-right py-1.5">{fmtCurrency(d.totalPaid)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+// ─── Program Billing Card ──────────────────────────────────────────────────────
+
+const ProgramBillingCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
+  const pb = metrics.programBillingSummary;
+  if (!pb) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">Program Billing</CardTitle>
+        <CardDescription className="text-xs">
+          Charges billed via Omnis — includes all registered participants regardless of payment status.
+          Pair with Recurring Donors (cash received) for the full billing-to-cash picture.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <SummaryCard
+            label="Unique Participants"
+            value={pb.personCount.toLocaleString()}
+            hint="Count of distinct people charged for a strict-year program. Source: program_billing.csv."
+          />
+          <SummaryCard
+            label="Total Billed"
+            value={fmtCurrency(pb.totalCharged)}
+            sub="Omnis charges"
+            hint="Sum of total_charged_2025 across all participants. This is what Omnis billed, not what was received in cash."
+          />
+          <SummaryCard
+            label="Avg per Person"
+            value={fmtCurrency(pb.avgChargePerPerson)}
+            hint="Total Billed ÷ Unique Participants."
+          />
+          <SummaryCard
+            label="Avg Registrations"
+            value={pb.avgRegistrationsPerPerson.toFixed(1)}
+            sub="per person"
+            hint="Average number of program registrations per participant for the year."
+          />
+        </div>
+        {pb.topBilled.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-xs">Participant</TableHead>
+                <TableHead className="text-xs text-right">Registrations</TableHead>
+                <TableHead className="text-xs text-right">Total Billed</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pb.topBilled.map((e, i) => (
+                <TableRow key={i}>
+                  <TableCell className="text-xs py-1.5 font-medium">{e.participantName}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{e.registrations}</TableCell>
+                  <TableCell className="text-xs text-right py-1.5">{fmtCurrency(e.totalCharged)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

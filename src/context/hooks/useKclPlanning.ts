@@ -22,6 +22,8 @@ import {
   parseProgramTransactions,
   parseRecurringDonors,
   parseRoomBookings,
+  parseAllRegistrations,
+  parseProgramBilling,
 } from '@/lib/kclParser';
 import { computeKclMetrics } from '@/lib/kclCompute';
 
@@ -44,6 +46,8 @@ const PARSERS: Record<KclDataSourceKey, ParserFn> = {
   programTransactions: parseProgramTransactions,
   recurringDonors:     parseRecurringDonors,
   roomBookings:        parseRoomBookings,
+  allRegistrations:    parseAllRegistrations,
+  programBilling:      parseProgramBilling,
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -95,6 +99,8 @@ export function useKclPlanning(): UseKclPlanningResult {
         dataset.data.programTransactions,
         dataset.data.recurringDonors,
         dataset.data.roomBookings,
+        dataset.data.allRegistrations,
+        dataset.data.programBilling,
       );
       return { ...dataset, computed };
     } catch (err) {
