@@ -7,6 +7,8 @@ import { unzipSync } from 'fflate';
 import { useKclPlanning } from '@/context/hooks/useKclPlanning';
 import DataSourceUploader from '@/components/business/planning/DataSourceUploader';
 import ComputedMetricsPanel from '@/components/business/planning/ComputedMetricsPanel';
+import PlanningDataTab from '@/components/business/planning/PlanningDataTab';
+import PlanningExportTab from '@/components/business/planning/PlanningExportTab';
 import type { KclDataSourceKey } from '@/lib/kclTypes';
 import { ALL_SOURCES, REQUIRED_SOURCES, KCL_SOURCE_META, matchZipFilename } from '@/lib/kclTypes';
 
@@ -122,9 +124,15 @@ const BusinessPlanning: React.FC = () => {
       <Tabs defaultValue="sources">
         <div className="flex justify-center">
           <TabsList>
-            <TabsTrigger value="sources">Data Sources</TabsTrigger>
+            <TabsTrigger value="sources">Upload</TabsTrigger>
+            <TabsTrigger value="data" disabled={loadedCount === 0}>
+              Data
+            </TabsTrigger>
             <TabsTrigger value="results" disabled={!requiredLoaded}>
               Results
+            </TabsTrigger>
+            <TabsTrigger value="export" disabled={!requiredLoaded}>
+              Export
             </TabsTrigger>
           </TabsList>
         </div>
@@ -281,6 +289,11 @@ const BusinessPlanning: React.FC = () => {
           </div>
         </TabsContent>
 
+        {/* ── Data tab ──────────────────────────────────────────────────────── */}
+        <TabsContent value="data" className="mt-4">
+          <PlanningDataTab dataset={activeDataset} />
+        </TabsContent>
+
         {/* ── Results tab ───────────────────────────────────────────────────── */}
         <TabsContent value="results" className="mt-4">
           {activeDataset.computed ? (
@@ -290,6 +303,11 @@ const BusinessPlanning: React.FC = () => {
               Load all required data sources to compute metrics.
             </p>
           )}
+        </TabsContent>
+
+        {/* ── Export tab ────────────────────────────────────────────────────── */}
+        <TabsContent value="export" className="mt-4">
+          <PlanningExportTab dataset={activeDataset} />
         </TabsContent>
       </Tabs>
     </div>
