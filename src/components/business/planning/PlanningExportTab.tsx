@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import * as XLSX from 'xlsx';
+import { strToU8, zipSync } from 'fflate';
 import { Button } from '@/components/ui/button';
 import { Download, FileText } from 'lucide-react';
 import type { KclAnnualDataset, KclComputedMetrics, KclMonthlyRow } from '@/lib/kclTypes';
@@ -57,13 +57,125 @@ function downloadCsv(rows: CsvRows, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-function downloadXlsx(sheets: { name: string; rows: CsvRows }[], filename: string): void {
-  const wb = XLSX.utils.book_new();
-  for (const { name, rows } of sheets) {
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, name);
+// Minimal OOXML XLSX generator using fflate (already in project deps, no audit issues).
+// Generates a proper multi-sheet .xlsx file without any additional npm package.
+
+function escXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function colName(n: number): string {
+  let result = '';
+  let col = n + 1;
+  while (col > 0) {
+    const rem = (col - 1) % 26;
+    result = String.fromCharCode(65 + rem) + result;
+    col = Math.floor((col - 1) / 26);
   }
-  XLSX.writeFile(wb, filename);
+  return result;
+}
+
+function downloadXlsx(sheets: { name: string; rows: CsvRows }[], filename: string): void {
+  // Build shared strings table and worksheet XMLs in one pass
+  const stringsMap = new Map<string, number>();
+  const strings: string[] = [];
+  const getStr = (s: string): number => {
+    const existing = stringsMap.get(s);
+    if (existing !== undefined) return existing;
+    const idx = strings.length;
+    strings.push(s);
+    stringsMap.set(s, idx);
+    return idx;
+  };
+
+  const worksheetXmls: string[] = [];
+  for (const { rows } of sheets) {
+    const rowsXml: string[] = [];
+    for (let ri = 0; ri < rows.length; ri++) {
+      const cells: string[] = [];
+      for (let ci = 0; ci < rows[ri].length; ci++) {
+        const cell = rows[ri][ci];
+        if (cell === '' || cell == null) continue;
+        const addr = `${colName(ci)}${ri + 1}`;
+        if (typeof cell === 'number' && !isNaN(cell)) {
+          cells.push(`<c r="${addr}"><v>${cell}</v></c>`);
+        } else {
+          cells.push(`<c r="${addr}" t="s"><v>${getStr(String(cell))}</v></c>`);
+        }
+      }
+      if (cells.length > 0) rowsXml.push(`<row r="${ri + 1}">${cells.join('')}</row>`);
+    }
+    worksheetXmls.push(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+      `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+      `<sheetData>${rowsXml.join('')}</sheetData></worksheet>`,
+    );
+  }
+
+  const ns = 'http://schemas.openxmlformats.org/';
+  const pkg = `${ns}package/2006/`;
+  const odr = `${ns}officeDocument/2006/relationships/`;
+  const sml = `${ns}spreadsheetml/2006/main`;
+
+  const contentTypes =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Types xmlns="${pkg}content-types">` +
+    `<Default Extension="rels" ContentType="${pkg}relationships+xml"/>` +
+    `<Default Extension="xml" ContentType="application/xml"/>` +
+    `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>` +
+    sheets.map((_, i) =>
+      `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+    ).join('') +
+    `<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>` +
+    `</Types>`;
+
+  const rootRels =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="${pkg}relationships">` +
+    `<Relationship Id="rId1" Type="${odr}officeDocument" Target="xl/workbook.xml"/>` +
+    `</Relationships>`;
+
+  const workbook =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<workbook xmlns="${sml}" xmlns:r="${ns}officeDocument/2006/relationships">` +
+    `<sheets>` +
+    sheets.map((s, i) => `<sheet name="${escXml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') +
+    `</sheets></workbook>`;
+
+  const workbookRels =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<Relationships xmlns="${pkg}relationships">` +
+    sheets.map((_, i) =>
+      `<Relationship Id="rId${i + 1}" Type="${odr}worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+    ).join('') +
+    `<Relationship Id="rId${sheets.length + 1}" Type="${odr}sharedStrings" Target="sharedStrings.xml"/>` +
+    `</Relationships>`;
+
+  const sharedStrings =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<sst xmlns="${sml}" count="${strings.length}" uniqueCount="${strings.length}">` +
+    strings.map(s => `<si><t xml:space="preserve">${escXml(s)}</t></si>`).join('') +
+    `</sst>`;
+
+  const files: Record<string, Uint8Array> = {
+    '[Content_Types].xml':      strToU8(contentTypes),
+    '_rels/.rels':              strToU8(rootRels),
+    'xl/workbook.xml':          strToU8(workbook),
+    'xl/_rels/workbook.xml.rels': strToU8(workbookRels),
+    'xl/sharedStrings.xml':     strToU8(sharedStrings),
+  };
+  worksheetXmls.forEach((xml, i) => {
+    files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(xml);
+  });
+
+  const zipped = zipSync(files, { level: 0 });
+  const blob = new Blob([zipped], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function daysInMonth(year: number, month: number): number {
