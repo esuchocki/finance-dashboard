@@ -5,7 +5,9 @@
 --   7320  "2025 Residency Program"          (2025-01-01 to 2025-12-31)
 --
 -- Replace the program IDs and year literals when running for future years.
--- The days_in_year column is clamped to the calendar year (2025-01-01 / 2025-12-31).
+-- The days_in_year column is clamped to the calendar year (2025-01-01 / 2026-01-01).
+-- Upper bound is 2026-01-01 (exclusive), not 2025-12-31 (inclusive), so that a full-year
+-- resident (Jan 1 → Jan 1) gets DATEDIFF('2026-01-01','2025-01-01') = 365 nights, not 364.
 --
 -- Note: Staff/Volunteer programs span into 2026, so they are excluded from the
 -- strict-year program filter. Individual registration dates tell us exactly
@@ -20,7 +22,7 @@ SELECT
     reg.ARRIVAL_DATE,
     reg.DEPARTURE_DATE,
     DATEDIFF(
-        LEAST(reg.DEPARTURE_DATE, '2025-12-31'),
+        LEAST(reg.DEPARTURE_DATE, '2026-01-01'),
         GREATEST(reg.ARRIVAL_DATE, '2025-01-01')
     ) AS days_in_year,
     reg.KCL_RESIDENT,

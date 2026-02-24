@@ -206,7 +206,7 @@ export interface KclProgramSummary {
 export interface KclRevenueStreams {
   programs: number;              // GL 4300, 4310, 4510
   residency: number;             // GL 4500, 4520
-  donationsUnrestricted: number; // GL 4000, 4050
+  donationsUnrestricted: number; // GL 4000, 4050, 4150
   donationsRestricted: number;   // GL 4200
   campaigns: number;             // GL 3xxx excl 3000
   other: number;                 // remaining 4xxx not in named streams
@@ -235,18 +235,25 @@ export interface KclOccupancy {
   avgMonthlyResidents: number;
   /** Total person-days across all tracks, computed from arrival/departure dates (exclusive of departure day, matching SQL DATEDIFF). */
   totalResidentDays: number;
-  impliedResidents: number;                 // residency revenue / ($1,750 × 12)
+  impliedResidents: number;   // residency revenue / ($1,750 × 12) = full-year FTE (not headcount)
 }
 
 // Three-lever break-even analysis
 export interface KclBreakEven {
   deficit: number;
-  avgProgramRevenue: number;
-  residencyRevenuePerResident: number;  // $21,000/year at $1,750/month
-  totalDonationRevenue: number;
+  avgProgramRevenue: number;             // avg gross revenue per program (context only)
+  avgContributionMargin: number;         // avg (revenue − direct − overhead) per program (context only)
+  avgDirectContributionMargin: number;   // avg (revenue − direct costs only, no overhead) — used for programsNeeded
+  programsWithRevenueCount: number;      // programs with totalRevenue > 0 — denominator for all averages
+  residencyRevenuePerResident: number;   // $21,000/year at $1,750/month (gross)
+  residencyNetPerResident: number;       // gross minus est. annual marginal food cost — used as residentsNeeded denominator
+  totalDonationRevenue: number;          // unrestricted + restricted donations (GL 4000/4050/4150/4200) — for display
+  unrestrictedDonationRevenue: number;   // unrestricted only (GL 4000/4050/4150) — denominator for donationIncreasePct
+  totalCampaignRevenue: number;          // GL 3xxx — capital/campaign funds, shown separately
   residentsNeeded: number;
-  programsNeeded: number;
-  donationIncreasePct: number;          // fraction (0.35 = 35%)
+  programsNeeded: number;                // deficit ÷ avgDirectContributionMargin when > 0, else 0
+  donationIncreasePct: number;           // deficit as fraction of donations base (GL 4xxx donations only)
+  campaignIncreasePct: number;           // deficit as fraction of campaign funds base (GL 3xxx)
 }
 
 // Per-program cost components used in contribution margin analysis
@@ -254,6 +261,7 @@ export interface KclProgramCosts {
   teacherCost: number;       // GL 5250/5300/5350 — first-claim window attribution (REG only)
   foodCost: number;          // marginal food rate × participant-days (0 for CABN self-catering)
   ccFees: number;            // cc_rate × program revenue
+  scholarshipCost: number;   // COGS-SCH/COGS-PC — scholarship rate × program revenue
   utilityMarginal: number;   // above-baseline utility for program's dates
   overheadAlloc: number;     // proportional share of all remaining fixed costs
 }
@@ -445,8 +453,9 @@ export interface KclComputedMetrics {
   utilityTotal: number;
   utilityFixed: number;
   utilityVariable: number;
-  utilityBaselineMonth: number;   // 1–12
-  utilityBaselineSpend: number;
+  utilityBaselineMonth: number;   // 1–12 (single lowest month, for display reference)
+  utilityBaselineSpend: number;   // spend in the single lowest month
+  utilityBaselinePerDay: number;  // avg daily rate of 3 lowest months (used in computation)
   seasonalUtility: Record<Season, number>;
   seasonalMultipliers: Record<Season, number>;
 

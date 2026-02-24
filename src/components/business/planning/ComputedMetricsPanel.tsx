@@ -86,7 +86,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
           label={deficitLabel}
           value={fmtCurrency(Math.abs(deficit))}
           valueClass={deficitColor}
-          hint="Total Revenue minus Total Expenses. Positive = deficit (costs exceed income). Negative = surplus."
+          hint="Total Expenses minus Total Revenue. Positive = deficit (costs exceed income). Negative = surplus. Cash-basis: non-cash items like depreciation (GL 6130) are excluded from Total Expenses, so the true accrual deficit is larger if depreciation is material."
         />
         <SummaryCard
           label="Cost Per Day"
@@ -242,24 +242,30 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
         </CardHeader>
         <CardContent className="space-y-2 text-xs">
           <p className="text-muted-foreground">
-            Baseline month:{' '}
+            GL 6270 (heating/electric) and GL 6250 (phone/internet) are combined here.
+            Phone/internet is essentially fixed year-round, so seasonal multipliers reflect heating variation more than total utility variation.
+            The fixed/variable split absorbs GL 6250 into the baseline, which slightly understates true heating variability.
+          </p>
+          <p className="text-muted-foreground">
+            Baseline:{' '}
             <strong>
-              <Tip hint="The calendar month with the lowest total spend on GL 6270 (electricity) + GL 6250 (propane/heating). Treated as 100% fixed — the irreducible minimum the organization pays regardless of occupancy.">
-                {fmtMonth(metrics.utilityBaselineMonth)}
+              <Tip hint="Average daily rate of the 3 lowest-spend months (GL 6270 + GL 6250). Using 3 months rather than the single lowest is more robust to billing timing anomalies — the same approach used for the food baseline. Fixed annual = baselinePerDay × 365.">
+                {fmtCurrency(metrics.utilityBaselinePerDay)}/day
               </Tip>
             </strong>{' '}
-            (
-            <Tip hint="Actual GL 6270 + 6250 spend in the baseline (lowest) month.">
+            avg of 3 lowest months (lowest single month:{' '}
+            <Tip hint="The calendar month with the single lowest GL 6270 + GL 6250 spend. Shown for reference; the computation uses the 3-month average daily rate.">
+              {fmtMonth(metrics.utilityBaselineMonth)},{' '}
               {fmtCurrency(metrics.utilityBaselineSpend)}
             </Tip>
-            /month minimum)
+            )
           </p>
           <div className="grid grid-cols-3 gap-2">
             <SummaryCard
               label="Fixed"
               value={fmtCurrency(metrics.utilityFixed)}
               sub={fmtPct(metrics.utilityFixed / (metrics.utilityTotal || 1))}
-              hint="Baseline monthly spend × 12. The portion of utility cost that exists regardless of program activity."
+              hint="Avg daily rate of 3 lowest months × 365. The portion of utility cost that exists regardless of program activity."
             />
             <SummaryCard
               label="Variable"
@@ -278,7 +284,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
               <div key={s} className="rounded border px-2 py-1.5 text-center">
                 <p className="capitalize text-xs font-medium">{s}</p>
                 <p className="text-xs text-muted-foreground">
-                  <Tip hint="Average monthly utility spend in this season ÷ baseline monthly spend. Shows relative cost compared to the quietest month. Winter = Dec/Jan/Feb; Spring = Mar/Apr/May; Summer = Jun/Jul/Aug; Fall = Sep/Oct/Nov.">
+                  <Tip hint="Average monthly utility spend in this season ÷ baseline monthly spend (baselinePerDay × 365 ÷ 12). Shows relative cost compared to the baseline level. 1.0× = baseline. Winter = Dec/Jan/Feb; Spring = Mar/Apr/May; Summer = Jun/Jul/Aug; Fall = Sep/Oct/Nov.">
                     {metrics.seasonalMultipliers[s].toFixed(2)}x
                   </Tip>
                 </p>
@@ -306,7 +312,7 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
           label="Available Rooms"
           value={String(metrics.availableRooms)}
           sub="private rooms, guest-accessible"
-          hint="Private Rooms minus Staff Rooms. The pool of private rooms available to guests and program participants."
+          hint="Private Rooms minus Staff Rooms. The pool of private rooms available to guests. Verify that all on-site occupants — including year-round volunteers — are marked as 'Occupied by Staff' in the room inventory CSV. Un-marked volunteer rooms inflate this count and REVPAR."
         />
         <SummaryCard
           label="Dorm Beds"
@@ -322,13 +328,13 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
               {fmtCurrency(metrics.avgStaffRoomRate)}/night avg
             </Tip>
           }
-          hint="Staff Rooms × avgStaffRoomRate × 365. The annual revenue foregone by housing residential staff on-site rather than booking those rooms."
+          hint="Staff Rooms × avgStaffRoomRate × 365. Uses single-occupancy rack rates (priceSingle). Note: double rooms at shared occupancy (priceShared × 2) would yield higher revenue per night — single-occupancy is a conservative, not maximum, estimate. Actual foregone revenue would be lower still (typical retreat center occupancy ~60–80%)."
         />
         <SummaryCard
           label="REVPAR"
           value={fmtCurrency(metrics.revpar)}
           sub="room+program rev / avail rooms / 365"
-          hint="(Program Revenue + Residency Revenue) ÷ availableRooms ÷ 365. Revenue per available private room per night. Note: includes program tuition, which is non-standard for hospitality REVPAR — interpret as a blended occupancy efficiency metric."
+          hint="(Program Revenue + Residency Revenue) ÷ availableRooms ÷ 365. Revenue per available private room per night. Note: includes program tuition, which is non-standard for hospitality REVPAR — interpret as a blended occupancy efficiency metric. Also note: CABN (cabin retreat) revenue is included in the numerator but CABN participants stay in tent cabins, not the private rooms counted in the denominator — this inflates REVPAR proportionally to CABN share of program revenue. Also: residency participants who occupy long-term private rooms may be counted as 'staff rooms' in the room inventory, which would exclude their rooms from availableRooms while including their revenue in the numerator."
         />
       </div>
 
@@ -354,18 +360,18 @@ const ComputedMetricsPanel: React.FC<ComputedMetricsPanelProps> = ({ metrics }) 
             <SummaryCard
               label="Gap"
               value={fmtCurrency(Math.abs(metrics.payrollGap))}
-              sub="partial-year employees"
-              hint="|CSV Annualized − Xero Actual|. Positive gap = partial-year employees or positions not yet filled for the full year."
+              sub={metrics.payrollGap >= 0 ? 'CSV > Xero (partial-year staff)' : 'Xero > CSV (benefits not in CSV)'}
+              hint="|CSV Annualized − Xero Actual|. Xero includes GL 6110 (employer payroll taxes ~7.65%), GL 6114 (health insurance), and GL 6116 (retirement contributions) — these add 20–30% above base salary and are NOT included in the salaries.csv annual_salary column. A negative gap (Xero > CSV) is expected and primarily reflects this structural difference. A positive gap (CSV > Xero) suggests partial-year staff, unfilled positions, or salaries.csv not fully up to date."
             />
             <div className="rounded border px-3 py-2 space-y-1">
               <p className="text-xs text-muted-foreground">Staff type</p>
               <p className="text-xs">
-                <Tip hint="From staffSalaries.csv classification. Residential = on-site housing provided; non-residential = commutes.">
+                <Tip hint="Staff whose last name appears in the residential roster (residential_roster.csv). Classification is by last-name cross-reference, not a field in salaries.csv.">
                   {metrics.residentialStaffCount} residential
                 </Tip>
               </p>
               <p className="text-xs">
-                <Tip hint="From staffSalaries.csv classification. Residential = on-site housing provided; non-residential = commutes.">
+                <Tip hint="Staff in salaries.csv whose last name does not match any entry in the residential roster. Includes commuters and any staff not captured in the roster export.">
                   {metrics.nonResidentialStaffCount} non-residential
                 </Tip>
               </p>
@@ -433,7 +439,7 @@ const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
   const rows = [
     { label: 'Regular Programs',     sub: 'GL 4300, 4310, 4510', value: revenueStreams.programs,              hint: 'GL 4300 + 4310 + 4510 credit entries. Program tuition and retreat registrations.' },
     { label: 'Residency',            sub: 'GL 4500, 4520',        value: revenueStreams.residency,             hint: 'GL 4500 + 4520 credit entries. Annual residency program tuition.' },
-    { label: 'Donations (unrestr.)', sub: 'GL 4000, 4050',        value: revenueStreams.donationsUnrestricted, hint: 'GL 4000 + 4050 credit entries. Unrestricted general donations.' },
+    { label: 'Donations (unrestr.)', sub: 'GL 4000, 4050, 4150',  value: revenueStreams.donationsUnrestricted, hint: 'GL 4000 + 4050 + 4150 credit entries. Unrestricted general donations.' },
     { label: 'Donations (restr.)',   sub: 'GL 4200',              value: revenueStreams.donationsRestricted,   hint: 'GL 4200 credit entries. Restricted-purpose donations.' },
     { label: 'Campaign Funds',       sub: 'GL 3xxx',              value: revenueStreams.campaigns,             hint: 'GL 3xxx credit entries. Designated campaign fund credits.' },
     { label: 'Other Income',         sub: 'remaining GL 4xxx',    value: revenueStreams.other,                 hint: 'Remaining GL 4xxx not matched by the named streams above.' },
@@ -532,7 +538,7 @@ const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metric
                 <Tip hint="GL 4500 + 4520 credit entries for this calendar month.">Residency</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
-                <Tip hint="GL 4000 + 4050 + 4200 + 3xxx credit entries for this calendar month.">Donations</Tip>
+                <Tip hint="GL 4000 + 4050 + 4150 + 4200 (donations) + 3xxx (campaigns) credit entries for this calendar month.">Donations & Campaigns</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Sum of all GL 4xxx and 3xxx credit entries for this month.">Total Rev</Tip>
@@ -570,7 +576,7 @@ const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metric
                   <TableCell className="text-xs text-right py-1.5 font-medium">{fmtCurrency(row.revenueTotal)}</TableCell>
                   <TableCell className="text-xs text-right py-1.5">{fmtCurrency(row.expenses)}</TableCell>
                   <TableCell className={`text-xs text-right py-1.5 font-medium ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {net >= 0 ? '+' : ''}{fmtCurrency(net)}
+                    {net > 0 ? '+' : ''}{fmtCurrency(net)}
                   </TableCell>
                   <TableCell className={`text-xs text-right py-1.5 ${mjAnomaly ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
                     {row.revenueTotal > 0 ? fmtPct(mjPct, 0) : '—'}
@@ -587,8 +593,8 @@ const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metric
 
 // ─── Program Categories Card ──────────────────────────────────────────────────
 
-// Tent cabins are summer-only: Jun (30) + Jul (31) + Aug (31) = 92 days
-const CABIN_SUMMER_DAYS = 92;
+// Tent cabins operate year-round
+const CABIN_ANNUAL_DAYS = 365;
 
 const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
   const cabnCat = metrics.programCategories.find(c => c.categoryCode === 'CABN');
@@ -616,7 +622,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
                 <Tip hint="Σ(end_date − start_date) for all programs in this category.">Duration Days</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
-                <Tip hint="CABN only: total program duration days ÷ (cabin count × 92 summer days). Summer = Jun + Jul + Aug = 92 days. Amber if < 50%.">Utilization</Tip>
+                <Tip hint="CABN only: participant-days ÷ (cabin count × 365 days). Actual occupancy rate — retreatant-nights filled vs. total capacity. Amber if < 50%.">Utilization</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Sum of amount_charged from program_revenue.csv for this category (GL 4xxx codes only).">Revenue</Tip>
@@ -630,10 +636,10 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
             {metrics.programCategories.map(cat => {
               const isCabn = cat.categoryCode === 'CABN';
               const utilizationDenom = isCabn && metrics.cabinRoomCount > 0
-                ? metrics.cabinRoomCount * CABIN_SUMMER_DAYS
+                ? metrics.cabinRoomCount * CABIN_ANNUAL_DAYS
                 : 0;
               const utilizationPct = utilizationDenom > 0
-                ? cat.totalDurationDays / utilizationDenom
+                ? cat.participantDays / utilizationDenom
                 : null;
               const isExpanded = expandedCategory === cat.categoryCode;
               const catPrograms = metrics.programPnL.filter(p => p.categoryCode === cat.categoryCode);
@@ -658,7 +664,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
                     <TableCell className="text-xs text-right py-2">
                       {utilizationPct !== null
                         ? <span className={utilizationPct < 0.5 ? 'text-amber-600' : 'text-emerald-600'}>
-                            <Tip hint={`CABN total program duration days ÷ (${metrics.cabinRoomCount} cabins × ${CABIN_SUMMER_DAYS} summer days). Amber if < 50%.`}>
+                            <Tip hint={`CABN participant-days ÷ (${metrics.cabinRoomCount} cabins × ${CABIN_ANNUAL_DAYS} days). Actual occupancy rate. Amber if < 50%.`}>
                               {fmtPct(utilizationPct, 0)}
                             </Tip>
                           </span>
@@ -729,7 +735,7 @@ const ProgramCategoriesCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
               )}
             </p>
             <p className="text-amber-700 dark:text-amber-400">
-              Utilization = total CABN program duration days / ({metrics.cabinRoomCount} cabins &times; {CABIN_SUMMER_DAYS} summer days). Summer-only (Jun–Aug).
+              Utilization = CABN participant-days / ({metrics.cabinRoomCount} cabins &times; {CABIN_ANNUAL_DAYS} days). Actual cabin occupancy rate — retreatant-nights filled relative to total cabin capacity.
             </p>
           </div>
         )}
@@ -780,10 +786,10 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
             hint="Count of residency participants (program name contains 'residency program') present in at least one day of each month, averaged across 12 months."
           />
           <SummaryCard
-            label="Implied Residents"
+            label="Residency FTE"
             value={String(occupancy.impliedResidents)}
-            sub="residency rev / $21K"
-            hint="Residency GL revenue (4500 + 4520) ÷ $21,000 (= $1,750/month × 12 assumed annual rate). Cross-check only — not a primary figure."
+            sub="rev ÷ $21K/yr (FTE)"
+            hint="Residency GL revenue (4500 + 4520) ÷ $21,000 (= $1,750/month × 12). Result is full-time equivalents — not headcount: 3 residents each staying 6 months = 1.5 FTE. Cross-check only — not a primary figure."
           />
         </div>
         <Table>
@@ -819,19 +825,9 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
               <TableCell className="text-xs py-1.5">Total</TableCell>
               {Array.from({ length: 12 }, (_, i) => {
                 const count = occupancy.monthlyResidents[i + 1] ?? 0;
-                const pct = availableRooms > 0 ? count / availableRooms : 0;
                 return (
                   <TableCell key={i} className="text-xs text-center px-1 py-1.5">
-                    {count > 0 ? (
-                      <div>
-                        <div>{count}</div>
-                        <div className="text-muted-foreground">
-                          <Tip hint="Total on-site persons this month ÷ availableRooms (non-staff private rooms). All three tracks combined.">
-                            {fmtPct(pct, 0)}
-                          </Tip>
-                        </div>
-                      </div>
-                    ) : <span className="text-muted-foreground">—</span>}
+                    {count > 0 ? count : <span className="text-muted-foreground">—</span>}
                   </TableCell>
                 );
               })}
@@ -842,10 +838,10 @@ const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
           </TableBody>
         </Table>
         <p className="text-xs text-muted-foreground">
-          Occ% = total on-site / {availableRooms} available private (non-staff) rooms.
+          Available private (non-staff) rooms: {availableRooms}.
           Total on-site person-days (all tracks):{' '}
           <strong>
-            <Tip hint="Σ clampedDays(arrival, departure, year) for all roster entries across all tracks. Each person contributes min(departure, Dec 31) − max(arrival, Jan 1) days; departure day is excluded.">
+            <Tip hint="Σ clampedDays(arrival, departure, year) for all roster entries across all tracks. Each person contributes min(departure, Jan 1 of next year) − max(arrival, Jan 1) days; departure day is excluded.">
               {occupancy.totalResidentDays.toLocaleString()}
             </Tip>
           </strong>.
@@ -870,7 +866,7 @@ const BreakEvenCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">Current {isDeficit ? 'deficit' : 'surplus'}:</span>
           <span className={`text-sm font-semibold ${isDeficit ? 'text-red-600' : 'text-emerald-600'}`}>
-            <Tip hint="Total Revenue minus Total Expenses — same figure as the financial summary.">
+            <Tip hint="Total Expenses minus Total Revenue — same figure as the financial summary.">
               {fmtCurrency(Math.abs(breakEven.deficit))}
             </Tip>
           </span>
@@ -893,20 +889,17 @@ const BreakEvenCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
                   <p className="text-xs text-muted-foreground">GL 4500 + 4520</p>
                 </TableCell>
                 <TableCell className="text-xs text-right py-2 font-semibold">
-                  <Tip hint="Deficit ÷ residencyRevenuePerResident, rounded up. Based on this year's average annual revenue per occupant in the residency program.">
+                  <Tip hint={`Deficit ÷ net residency contribution (${fmtCurrency(breakEven.residencyNetPerResident)}/yr), rounded up. Net = $21K gross minus est. annual marginal food cost (food marginal rate × 365 days). Also constrained by available private rooms. Using gross $21K alone would show +${Math.ceil(Math.max(breakEven.deficit, 0) / breakEven.residencyRevenuePerResident)}.`}>
                     +{breakEven.residentsNeeded}
                   </Tip>
                 </TableCell>
                 <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                  <Tip hint="Residency GL revenue (4500 + 4520) ÷ implied resident count (residency revenue ÷ $21,000 assumed rate).">
-                    {fmtCurrency(breakEven.residencyRevenuePerResident)}
-                  </Tip>/yr
+                  <Tip hint={`Gross: ${fmtCurrency(breakEven.residencyRevenuePerResident)}/yr ($1,750/mo × 12). Est. marginal food: ${fmtCurrency(breakEven.residencyRevenuePerResident - breakEven.residencyNetPerResident)}/yr (food marginal rate × 365). Net contribution used for residentsNeeded: ${fmtCurrency(breakEven.residencyNetPerResident)}/yr.`}>
+                    {fmtCurrency(breakEven.residencyNetPerResident)}
+                  </Tip>/yr net est.
                 </TableCell>
                 <TableCell className="text-xs py-2 text-muted-foreground">
-                  at{' '}
-                  <Tip hint="residencyRevenuePerResident ÷ 12.">
-                    ${(breakEven.residencyRevenuePerResident / 12).toLocaleString()}/mo avg
-                  </Tip>
+                  ({fmtCurrency(breakEven.residencyRevenuePerResident)} gross, verify pricing)
                 </TableCell>
               </TableRow>
               <TableRow>
@@ -914,40 +907,75 @@ const BreakEvenCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
                   <p className="text-xs font-medium">Add Programs</p>
                   <p className="text-xs text-muted-foreground">GL 4300, 4310, 4510</p>
                 </TableCell>
-                <TableCell className="text-xs text-right py-2 font-semibold">
-                  <Tip hint="Deficit ÷ avgProgramRevenue, rounded up.">
-                    +{breakEven.programsNeeded}
-                  </Tip>
-                </TableCell>
-                <TableCell className="text-xs text-right py-2 text-muted-foreground">
-                  <Tip hint="Program revenue (GL 4300+4310+4510) ÷ number of programs with participant-days > 0.">
-                    {fmtCurrency(breakEven.avgProgramRevenue)}
-                  </Tip>/program
-                </TableCell>
+                {breakEven.avgDirectContributionMargin > 0 ? (
+                  <>
+                    <TableCell className="text-xs text-right py-2 font-semibold">
+                      <Tip hint="Deficit ÷ avg direct contribution margin, rounded up. Uses revenue minus direct variable costs (teacher, food, CC fees, utility marginal) — overhead is excluded because it is fixed. Note: average is across all program categories (REG, IHR, CABN). Actionable capacity is typically additional REG visiting-teacher retreats, which generally carry higher direct margins than IHR or CABN — so this figure may overstate programs needed if planning to add REG programs specifically.">
+                        +{breakEven.programsNeeded}
+                      </Tip>
+                    </TableCell>
+                    <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                      <Tip hint={`Avg direct contribution per program = revenue − teacher − food − CC fees − scholarships − utility marginal (no overhead deduction). Overhead is fixed and already included in the deficit. Avg gross revenue is ${fmtCurrency(breakEven.avgProgramRevenue)}/program; fully-loaded avg margin is ${fmtCurrency(breakEven.avgContributionMargin)}/program. Source: program_revenue.csv + PnL computation.`}>
+                        {fmtCurrency(breakEven.avgDirectContributionMargin)}
+                      </Tip>/program direct margin
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell className="text-xs text-right py-2 text-muted-foreground">—</TableCell>
+                    <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                      <Tip hint="Average direct contribution margin is zero or negative — adding programs at current pricing and direct cost structure does not reduce the deficit.">
+                        avg margin ≤ 0
+                      </Tip>
+                    </TableCell>
+                  </>
+                )}
                 <TableCell className="text-xs py-2 text-muted-foreground">
-                  avg of {metrics.programCount} programs this year
+                  avg of {breakEven.programsWithRevenueCount} programs (all categories)
                 </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="py-2">
                   <p className="text-xs font-medium">Increase Donations</p>
-                  <p className="text-xs text-muted-foreground">GL 3xxx, 4000, 4050, 4200</p>
+                  <p className="text-xs text-muted-foreground">GL 4000, 4050, 4150</p>
                 </TableCell>
                 <TableCell className="text-xs text-right py-2 font-semibold">
-                  <Tip hint="Deficit ÷ total donation revenue (GL 3xxx + 4000 + 4050 + 4200), expressed as a percentage increase needed.">
+                  <Tip hint="Deficit ÷ unrestricted donation revenue (GL 4000 + 4050 + 4150), as a percentage increase. Uses unrestricted only — restricted donations (GL 4200) are designated for specific purposes and cannot be redirected to cover an operating deficit. Excludes GL 3xxx campaign funds — those are tracked separately below.">
                     +{fmtPct(breakEven.donationIncreasePct, 1)}
                   </Tip>
                 </TableCell>
                 <TableCell className="text-xs text-right py-2 text-muted-foreground">
                   on{' '}
-                  <Tip hint="Campaigns (GL 3xxx) + unrestricted donations (GL 4000, 4050) + restricted donations (GL 4200).">
-                    {fmtCurrency(breakEven.totalDonationRevenue)}
+                  <Tip hint={`Unrestricted donations only (GL 4000, 4050, 4150) = ${fmtCurrency(breakEven.unrestrictedDonationRevenue)}. Restricted donations (GL 4200) add ${fmtCurrency(breakEven.totalDonationRevenue - breakEven.unrestrictedDonationRevenue)} but are excluded from this lever — they cannot fund general operations.`}>
+                    {fmtCurrency(breakEven.unrestrictedDonationRevenue)}
                   </Tip>
                 </TableCell>
                 <TableCell className="text-xs py-2 text-muted-foreground">
-                  current donation base
+                  unrestricted donation base
                 </TableCell>
               </TableRow>
+              {breakEven.totalCampaignRevenue > 0 && (
+                <TableRow>
+                  <TableCell className="py-2">
+                    <p className="text-xs font-medium">Campaign Funds</p>
+                    <p className="text-xs text-muted-foreground">GL 3xxx</p>
+                  </TableCell>
+                  <TableCell className="text-xs text-right py-2 font-semibold">
+                    <Tip hint="Deficit as a % of GL 3xxx campaign fund revenue. Shown for reference only — campaign funds are typically capital-restricted and cannot substitute for operating income.">
+                      +{fmtPct(breakEven.campaignIncreasePct, 1)}
+                    </Tip>
+                  </TableCell>
+                  <TableCell className="text-xs text-right py-2 text-muted-foreground">
+                    on{' '}
+                    <Tip hint="GL 3xxx credit entries. Capital and restricted campaign fund flows — typically not available for operating deficit coverage.">
+                      {fmtCurrency(breakEven.totalCampaignRevenue)}
+                    </Tip>
+                  </TableCell>
+                  <TableCell className="text-xs py-2 text-muted-foreground">
+                    reference only — restricted
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         )}
@@ -971,7 +999,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
   const totals = programPnL.reduce(
     (acc, p) => ({
       revenue: acc.revenue + p.revenue,
-      direct:  acc.direct  + p.costs.teacherCost + p.costs.foodCost + p.costs.ccFees + p.costs.utilityMarginal,
+      direct:  acc.direct  + p.costs.teacherCost + p.costs.foodCost + p.costs.ccFees + p.costs.scholarshipCost + p.costs.utilityMarginal,
       overhead: acc.overhead + p.costs.overheadAlloc,
       margin:  acc.margin  + p.contributionMargin,
     }),
@@ -987,8 +1015,12 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
 
         {/* Methodology note */}
         <div className="rounded border border-muted px-3 py-2 text-xs text-muted-foreground space-y-1">
-          <p><strong>Direct costs</strong> — teacher compensation (GL 5250/5300/5350, first-claim by date window), marginal kitchen food (GL 5200 above staff baseline × participant-days), CC fees (rate × revenue), marginal utility (above-baseline GL 6270/6250 for program dates).</p>
-          <p><strong>Overhead</strong> — proportional share of payroll, insurance, repairs, facilities, admin, and fixed utility allocated by participant-days. Cabin retreats (CABN) carry no food cost — self-catering. Teacher costs not attributed to CABN or IHR programs.</p>
+          <p><strong>Direct costs</strong> — teacher compensation (GL 5250/5300/5350, first-claim by date window ±7/+3 days), marginal kitchen food (GL 5200 above baseline × participant-days), CC fees (rate × program revenue), scholarships (COGS-SCH/COGS-PC, rate × program revenue), marginal utility (above-baseline GL 6270/6250 for program dates). Teacher window caveat: payments made more than 7 days before a program (e.g. advance contracts signed months prior) fall into overhead rather than the program's direct cost.</p>
+          <p><strong>Overhead</strong> — payroll, insurance, repairs, facilities, admin, fixed utility, and staff-baseline food, allocated proportionally by participant-days. The food baseline (avg of 3 lowest-spend months × 365) stays in overhead alongside fixed utility — both are always-on costs independent of program load. Cabin retreats (CABN) carry no food cost — self-catering. Teacher costs not attributed to CABN or IHR programs.</p>
+          <p><strong>Scholarship attribution note</strong> — Scholarship/credit costs (COGS-SCH, COGS-PC) are attributed as a revenue-proportional rate across all programs rather than to specific programs, because the GL export does not link COGS entries to individual program IDs. This is a proxy; the actual distribution of scholarships by program may differ.</p>
+          <p><strong>IHR food caveat</strong> — IHR includes both year-round residency participants (whose food is largely in the overhead baseline) and short-stay solitary retreatants (who do cause marginal kitchen cost). The marginal food rate is applied uniformly to all IHR participant-days, which may overstate food cost for year-round residency tracks.</p>
+          <p><strong>Overhead allocation note</strong> — The overhead rate uses all program-catalog participant-days as the denominator. Programs appearing in the catalog but excluded from this PnL (zero revenue and zero registrations) absorb some overhead in the rate but have no allocated row here. If such programs have significant participant-days, the sum of overhead shown below may be less than the actual overhead pool.</p>
+          <p><strong>Day-count conventions</strong> — Participant-days (from program_catalog.sql) use SQL DATEDIFF semantics: departure day is exclusive (number of nights). Utility marginal overlap uses inclusive day counts (both arrival and departure day), which may add 1 day of marginal utility per program. The difference is small relative to program-level utility spend.</p>
         </div>
 
         <Table>
@@ -1003,7 +1035,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
                 <Tip hint="teacherCost + foodCost + ccFees + utilityMarginal for this program.">Direct</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
-                <Tip hint="Proportional share of payroll, insurance, repairs, facilities, admin, and fixed utility. Allocated by participant-days: (program part-days ÷ total part-days) × overhead pool.">Overhead</Tip>
+                <Tip hint="Proportional share of payroll, insurance, repairs, facilities, admin, fixed utility, and staff-baseline food. Allocated by participant-days: (program part-days ÷ total part-days) × overhead pool.">Overhead</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Revenue minus Direct minus Overhead.">Margin</Tip>
@@ -1015,7 +1047,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
           </TableHeader>
           <TableBody>
             {programPnL.map((p, i) => {
-              const direct = p.costs.teacherCost + p.costs.foodCost + p.costs.ccFees + p.costs.utilityMarginal;
+              const direct = p.costs.teacherCost + p.costs.foodCost + p.costs.ccFees + p.costs.scholarshipCost + p.costs.utilityMarginal;
               const pos    = p.contributionMargin >= 0;
               const rowKey = p.programId || String(i);
               const isExpanded = expandedProgram === rowKey;
@@ -1040,7 +1072,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
                   </TableRow>
                   {isExpanded && (
                     <TableRow>
-                      <TableCell colSpan={8} className="p-0 bg-muted/20">
+                      <TableCell colSpan={7} className="p-0 bg-muted/20">
                         <div className="px-4 py-2 space-y-1">
                           <p className="text-xs font-medium text-muted-foreground">
                             {p.name} — {p.startDate} to {p.endDate} — {p.durationDays} days — {p.registrations} registrations
@@ -1096,7 +1128,6 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
 
             {/* Cost breakdown rows for totals */}
             <TableRow className="border-t-2">
-              <TableCell />
               <TableCell className="text-xs font-semibold py-2" colSpan={2}>
                 Total ({programPnL.length} programs)
               </TableCell>
@@ -1118,7 +1149,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
         {/* Cost component detail for the totals */}
         <div className="rounded border px-3 py-2 text-xs space-y-1">
           <p className="font-medium text-muted-foreground">Attributed cost components (all programs)</p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 pt-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
             <div>
               <p className="text-muted-foreground">Teacher</p>
               <p className="font-medium">
@@ -1130,7 +1161,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
             <div>
               <p className="text-muted-foreground">Food (marginal)</p>
               <p className="font-medium">
-                <Tip hint="Monthly GL 5200 spend above the staff-only baseline, prorated to program days. Formula: (monthlyFood − staffBaseline) × (programDays ÷ monthDays) × (1 − staffFoodFraction). CABN and IHR excluded (self-catering).">
+                <Tip hint="Above-baseline GL 5200 (food) spend allocated by participant-days. Baseline = average daily rate of the 3 lowest-spend months × 365. Marginal total ÷ non-CABN participant-days = per-day rate; multiplied by each program's participant-days. CABN excluded (self-catering).">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.foodCost, 0))}
                 </Tip>
               </p>
@@ -1138,15 +1169,23 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
             <div>
               <p className="text-muted-foreground">CC Fees</p>
               <p className="font-medium">
-                <Tip hint="ccFeeRate × each program's revenue. Effective processing rate applied uniformly.">
+                <Tip hint="ccFeeRate × each program's revenue. Effective processing rate applied uniformly across all programs.">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.ccFees, 0))}
+                </Tip>
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Scholarships</p>
+              <p className="font-medium">
+                <Tip hint="COGS-SCH + COGS-PC GL total attributed as a revenue-proportional rate × each program's revenue. Proxy attribution — the GL does not link scholarship credits to individual program IDs.">
+                  {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.scholarshipCost, 0))}
                 </Tip>
               </p>
             </div>
             <div>
               <p className="text-muted-foreground">Utility (marginal)</p>
               <p className="font-medium">
-                <Tip hint="Variable utility (above baseline) allocated to program date window. Formula: dailyVariableUtility × seasonalMultiplier × programDays.">
+                <Tip hint="Above-baseline utility cost for the program's date window. Per day: max(0, month_spend ÷ month_days − baseline_spend ÷ baseline_month_days) × overlap_days, summed across all months the program spans.">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.utilityMarginal, 0))}
                 </Tip>
               </p>
@@ -1154,7 +1193,7 @@ const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) 
             <div>
               <p className="text-muted-foreground">Overhead</p>
               <p className="font-medium">
-                <Tip hint="All non-direct costs (payroll, insurance, repairs, admin, fixed utility) × (program participant-days ÷ total participant-days).">
+                <Tip hint="All non-direct costs (payroll, insurance, repairs, admin, fixed utility, staff-baseline food) × (program participant-days ÷ total participant-days).">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.overheadAlloc, 0))}
                 </Tip>
               </p>
@@ -1333,12 +1372,12 @@ const DonationBreakdownCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
           <SummaryCard
             label="Total Pledged"
             value={fmtCurrency(db.totalPledged)}
-            hint="Sum of total_amount across all donation records in recurringDonors.csv."
+            hint="Sum of total_amount across all donation records in donations.csv."
           />
           <SummaryCard
             label="Total Paid"
             value={fmtCurrency(db.totalPaid)}
-            hint="Sum of total_paid across all donation records in recurringDonors.csv."
+            hint="Sum of total_paid across all donation records in donations.csv."
           />
           <SummaryCard
             label="Payment Rate"
@@ -1349,10 +1388,10 @@ const DonationBreakdownCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
           <div className="rounded border px-3 py-2 space-y-1">
             <p className="text-xs text-muted-foreground">Donor split</p>
             <p className="text-xs">
-              <Tip hint="Classified by pledge_type field in recurringDonors.csv.">{db.monthlyCount.toLocaleString()} monthly</Tip>
+              <Tip hint="Classified by pledge_type field in donations.csv.">{db.monthlyCount.toLocaleString()} monthly</Tip>
             </p>
             <p className="text-xs">
-              <Tip hint="Classified by pledge_type field in recurringDonors.csv.">{db.oneTimeCount.toLocaleString()} one-time</Tip>
+              <Tip hint="Classified by pledge_type field in donations.csv.">{db.oneTimeCount.toLocaleString()} one-time</Tip>
             </p>
           </div>
         </div>
@@ -1411,8 +1450,8 @@ const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
   const ar = metrics.arMetrics;
   if (!ar) return null;
 
-  const collectionColor = ar.collectionRate >= 0.7 ? 'text-emerald-600'
-    : ar.collectionRate >= 0.4 ? 'text-amber-600'
+  const collectionColor = ar.collectionRate >= 0.9 ? 'text-emerald-600'
+    : ar.collectionRate >= 0.7 ? 'text-amber-600'
     : 'text-red-600';
 
   return (
@@ -1420,9 +1459,9 @@ const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center gap-2">
           Accounts Receivable
-          {ar.collectionRate < 0.5 && (
+          {ar.collectionRate < 0.9 && (
             <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
-              low collection rate
+              {ar.collectionRate < 0.7 ? 'very low collection rate' : 'low collection rate'}
             </Badge>
           )}
         </CardTitle>
@@ -1433,26 +1472,31 @@ const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
             label="Total Outstanding"
             value={fmtCurrency(ar.totalOutstanding)}
             valueClass="text-red-600"
-            hint="Σ(total_amount − amount_paid) for participants with a positive balance. Source: programTransactions.csv."
+            hint="Sum of the outstanding field for all participant records. Source: all_registrations.csv (if loaded), otherwise outstanding_ar.csv."
           />
           <SummaryCard
             label="Total Charged"
             value={fmtCurrency(ar.totalCharged)}
-            hint="Sum of total_amount from programTransactions.csv."
+            hint="Sum of total_charged across all participant records. Source: all_registrations.csv (if loaded), otherwise outstanding_ar.csv."
           />
           <SummaryCard
             label="Total Paid"
             value={fmtCurrency(ar.totalPaid)}
-            hint="Sum of amount_paid from programTransactions.csv."
+            hint="Sum of total_paid across all participant records. Source: all_registrations.csv (if loaded), otherwise outstanding_ar.csv."
           />
           <SummaryCard
             label="Collection Rate"
             value={fmtPct(ar.collectionRate)}
             valueClass={collectionColor}
-            sub={<Tip hint="Count of participants where (total_amount − amount_paid) > 0.">{ar.debtorCount} participants with balance</Tip>}
-            hint="Total Paid ÷ Total Charged. Amber below 70%, red below 40%."
+            sub={<Tip hint="Count of participants where outstanding > 0.">{ar.debtorCount} participants with balance</Tip>}
+            hint="Total Paid ÷ Total Charged. Green ≥ 90%, amber 70–90%, red < 70%. Note: if All Registrations includes future programs or active payment-plan participants, unpaid balances for those programs inflate outstanding and depress this rate — the balance is not yet due, not delinquent."
           />
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Outstanding balances include registrations for future programs where payment is not yet due.
+          Review the top debtors list below to distinguish genuinely delinquent accounts from future-due balances.
+        </p>
 
         {ar.topDebtors.length > 0 && (
           <Table>
@@ -1485,7 +1529,10 @@ const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) =
 
 const CcFeeCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
   const { ccFeeRate, ccFeeTotal, ccFeeBenchmarkRate, ccFeeExcessRate, ccFeeAlert } = metrics;
-  const excessCost = ccFeeExcessRate * metrics.totalRevenue;
+  // ccFeeRate = ccFeeTotal / GL4xxxRevenue. Implied GL4xxxRevenue = ccFeeTotal / ccFeeRate.
+  // excessCost must use the same denominator as the rate (GL 4xxx, not total revenue including 3xxx).
+  const gl4Revenue = ccFeeRate > 0 ? ccFeeTotal / ccFeeRate : 0;
+  const excessCost = ccFeeExcessRate * gl4Revenue;
 
   return (
     <Card className={ccFeeAlert ? 'border-amber-300' : ''}>
@@ -1504,8 +1551,8 @@ const CcFeeCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
           <SummaryCard
             label="Effective Rate"
             value={fmtPct(ccFeeRate, 2)}
-            sub="GL 61001 / total revenue"
-            hint="GL 61001 total (debit − credit) ÷ Total Revenue. The blended percentage of revenue paid for payment processing."
+            sub="GL 6100_1 / GL 4xxx revenue"
+            hint="GL 6100_1 total (debit − credit) ÷ GL 4xxx revenue. GL 3xxx campaign/capital funds are excluded from the denominator — they are typically major-donor checks or wire transfers, not card transactions. Per-program attribution uses this rate × program revenue; CC fees on non-program card transactions stay in overhead."
           />
           <SummaryCard
             label="Industry Benchmark"
@@ -1522,8 +1569,8 @@ const CcFeeCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
           <SummaryCard
             label="Total Fees Paid"
             value={fmtCurrency(ccFeeTotal)}
-            sub="GL 61001 debits"
-            hint="Σ(debit − credit) for GL 61001 (merchant/payment processing fees) across the year."
+            sub="GL 6100_1 debits"
+            hint="Σ(debit − credit) for GL 6100_1 (merchant/payment processing fees) across the year."
           />
         </div>
         {ccFeeAlert && excessCost > 0 && (
@@ -1536,7 +1583,7 @@ const CcFeeCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
               </Tip>
             </strong>{' '}
             annually. Consider renegotiating processor rates
-            or reviewing the GL 61001 account for non-processing charges included in this total.
+            or reviewing the GL 6100_1 account for non-processing charges included in this total.
           </p>
         )}
       </CardContent>
@@ -1646,7 +1693,6 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
               );
             })}
             <TableRow className="border-t-2">
-              <TableCell />
               <TableCell className="text-xs font-semibold py-2">Total</TableCell>
               <TableCell className="text-xs font-semibold text-right py-2">{totalResidents}</TableCell>
               <TableCell className="text-xs font-semibold text-right py-2">{totalDays.toLocaleString()}</TableCell>
@@ -1662,7 +1708,7 @@ const VolunteerLaborCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
             <p className="font-medium text-muted-foreground">Volunteer labor estimate</p>
             <div className="flex justify-between pt-0.5">
               <span className="text-muted-foreground">
-                <Tip hint="Volunteer-days times the estimated daily labor value. Rate = Vermont general labor minimum wage equivalent (~$13.67/hr × 8 hrs = ~$109/day). This in-kind value is NOT included in any GL total.">
+                <Tip hint="Volunteer-days × $150/day estimated value (Vermont minimum wage × 8 hrs plus housing and food offset). This in-kind contribution is NOT included in any GL total.">
                   {vm.volunteerDays} volunteer-days × {fmtCurrency(vm.laborValuePerDay)}/day
                 </Tip>
               </span>
@@ -1770,13 +1816,13 @@ const RecurringDonorCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics
           <SummaryCard
             label="Active Donors"
             value={rd.donorCount.toLocaleString()}
-            hint="Count of unique donors in recurringDonors.csv."
+            hint="Count of unique donors in donations.csv."
           />
           <SummaryCard
             label="Total Paid"
             value={fmtCurrency(rd.totalPaid)}
             sub="year to date"
-            hint="Sum of payments received from recurring donors in the year. Source: recurringDonors.csv."
+            hint="Sum of payments received from recurring donors in the year. Source: donations.csv."
           />
           <SummaryCard
             label="Avg Payments"

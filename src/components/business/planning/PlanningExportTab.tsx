@@ -229,7 +229,9 @@ function monthlyResidentNights(
   for (const r of roster) {
     if (!r.arrivalDate || !r.departureDate) continue;
     const arrival   = r.arrivalDate   < `${yr}-01-01` ? `${yr}-01-01` : r.arrivalDate;
-    const departure = r.departureDate > `${yr}-12-31` ? `${yr}-12-31` : r.departureDate;
+    // Clamp to year+1-01-01 so December stays get the full 31 days.
+    // ${yr}-12-31 would make oEnd = min(Dec31, Jan1) = Dec31, losing the last night.
+    const departure = r.departureDate > `${year + 1}-01-01` ? `${year + 1}-01-01` : r.departureDate;
     if (arrival >= departure) continue;
     for (let m = 1; m <= 12; m++) {
       const mStr   = String(m).padStart(2, '0');
@@ -248,6 +250,21 @@ function monthlyResidentNights(
   return out;
 }
 
+/**
+ * Person-nights per month for residency-track participants only.
+ * Staff and volunteers are excluded because they live in staff rooms (already subtracted
+ * from availableRooms) and do not generate GL 4500/4520 residency revenue.
+ */
+function residencyParticipantNights(
+  roster: KclAnnualDataset['data']['residentialRoster'],
+  year: number,
+): Record<number, number> {
+  return monthlyResidentNights(
+    roster.filter(r => r.programName.toLowerCase().includes('residency program')),
+    year,
+  );
+}
+
 /** Build mdByMonth map for quick month-indexed access. */
 function indexByMonth(monthlyData: KclMonthlyRow[]): Record<number, KclMonthlyRow> {
   const out: Record<number, KclMonthlyRow> = {};
@@ -258,18 +275,30 @@ function indexByMonth(monthlyData: KclMonthlyRow[]): Record<number, KclMonthlyRo
 // ─── CSV builder: Monthly Summary ─────────────────────────────────────────────
 
 function buildMonthlySummary(metrics: KclComputedMetrics, dataset: KclAnnualDataset): CsvRows {
-  const { year, monthlyData, availableRooms, balanceSheet, occupancy } = metrics;
+  const { year, monthlyData, availableRooms, balanceSheet } = metrics;
   const txns = dataset.data.glTransactions;
   const mdByMonth = indexByMonth(monthlyData);
   const payroll = monthlyExpenseGL(txns, year, ['6105', '6110', '6114', '6116']);
 
+  // Person-nights per month from residency-track roster only.
+  // monthlyResidents[m] from KclOccupancy is headcount, not nights; use roster directly.
+  // Staff/volunteers excluded: they live in staff rooms (subtracted from availableRooms)
+  // and do not generate GL 4500/4520 residency revenue.
+  const rosterNights = dataset.data.residentialRoster.length > 0
+    ? residencyParticipantNights(dataset.data.residentialRoster, year)
+    : null;
+
   const avgMonthlyExpenses = metrics.totalExpenses / 12;
-  const cash = balanceSheet?.cashAndBanks ?? null;
+  // Exclude the Schwab investment account (GL 1005) from liquid cash — it's not immediately
+  // accessible operating cash. balanceSheet.cashAndBanks includes all GL 1000–1009.
+  const cash = balanceSheet != null
+    ? balanceSheet.cashAndBanks - balanceSheet.investmentAccount
+    : null;
 
   const rows: CsvRows = [[
     'Month', 'Total Revenue', 'Total Expenses', 'Net Operating Income',
     'Payroll % of Revenue', 'Occupancy %',
-    'Cash on Hand', 'Months of Cash',
+    'Liquid Cash on Hand', 'Months of Liquid Cash',
     'YTD Revenue', 'Target', 'Variance',
   ]];
 
@@ -278,8 +307,9 @@ function buildMonthlySummary(metrics: KclComputedMetrics, dataset: KclAnnualData
     const md  = mdByMonth[m];
     ytd += md.revenueTotal;
     const payrollPct = md.revenueTotal > 0 ? +((payroll[m] / md.revenueTotal) * 100).toFixed(2) : '';
-    const occPct = occupancy && availableRooms > 0
-      ? +((occupancy.monthlyResidents[m] / availableRooms) * 100).toFixed(2) : '';
+    const bedAvail = availableRooms * daysInMonth(year, m);
+    const occPct = rosterNights && bedAvail > 0
+      ? +((rosterNights[m] / bedAvail) * 100).toFixed(2) : '';
     const cashVal      = m === 12 && cash !== null ? +cash.toFixed(2) : '';
     const monthsCash   = m === 12 && cash !== null && avgMonthlyExpenses > 0
       ? +(cash / avgMonthlyExpenses).toFixed(2) : '';
@@ -316,15 +346,19 @@ function buildMonthlyPnL(metrics: KclComputedMetrics, dataset: KclAnnualDataset)
   const food        = monthlyExpenseGL(txns, year, ['5200']);
   const utilities   = monthlyExpenseGL(txns, year, ['6270', '6250']);
   const insurance   = monthlyExpenseGL(txns, year, ['6150']);
-  const maintenance = monthlyExpenseGL(txns, year, ['6210']);
+  // GL 6210 = Repairs & Maintenance; GL 6190/6200 = Facilities — both 'overhead' in kclCompute
+  const maintenance = monthlyExpenseGL(txns, year, ['6210', '6190', '6200']);
   const teachers    = monthlyExpenseGL(txns, year, ['5250', '5300', '5350']);
   const admin       = monthlyExpenseGL(txns, year, ['6240', '6120', '6170', '6160', '6180', '6260', '6230']);
 
-  // "Other" expenses = total expenses minus all named categories
+  // "Other" expenses = total expenses minus all named categories (scholarships, CC fees,
+  // housekeeping, marketing, development, organizational). Allow negatives — they represent
+  // net credits in untracked expense accounts and must not be clamped or the row totals
+  // (sum of named rows) will not equal the "Total Expenses" row.
   const otherExp: Record<number, number> = {};
   for (let m = 1; m <= 12; m++) {
     const tracked = payroll[m] + food[m] + utilities[m] + insurance[m] + maintenance[m] + teachers[m] + admin[m];
-    otherExp[m] = Math.max(0, +(mdByMonth[m].expenses - tracked).toFixed(2));
+    otherExp[m] = +(mdByMonth[m].expenses - tracked).toFixed(2);
   }
 
   // "Farm / Retail / Other" = everything in revenue not accounted for by named streams
@@ -375,9 +409,9 @@ function buildOccupancyMetrics(metrics: KclComputedMetrics, dataset: KclAnnualDa
   const { year, monthlyData, availableRooms } = metrics;
   const mdByMonth = indexByMonth(monthlyData);
 
-  // Person-nights per month from residential roster
+  // Person-nights from residency-track participants only (they generate GL 4500/4520 revenue)
   const rosterNights = dataset.data.residentialRoster.length > 0
-    ? monthlyResidentNights(dataset.data.residentialRoster, year)
+    ? residencyParticipantNights(dataset.data.residentialRoster, year)
     : null;
 
   // Average tuition per participant: group programRevenue by start month
@@ -385,11 +419,13 @@ function buildOccupancyMetrics(metrics: KclComputedMetrics, dataset: KclAnnualDa
   const regByMonth:  Record<number, number> = {};
   for (let m = 1; m <= 12; m++) { revByMonth[m] = 0; regByMonth[m] = 0; }
   for (const p of dataset.data.programRevenue) {
-    if (!p.startDate) continue;
+    // Strict-year filter: consistent with programCatalog (both start and end within year)
+    if (!p.startDate || !p.endDate) continue;
     if (parseInt(p.startDate.slice(0, 4), 10) !== year) continue;
+    if (parseInt(p.endDate.slice(0, 4), 10) !== year) continue;
     const pm = parseInt(p.startDate.slice(5, 7), 10);
     if (pm >= 1 && pm <= 12) {
-      revByMonth[pm] += p.totalRevenue;
+      revByMonth[pm] += p.tuitionRevenue;
       regByMonth[pm] += p.registrations;
     }
   }
@@ -405,8 +441,9 @@ function buildOccupancyMetrics(metrics: KclComputedMetrics, dataset: KclAnnualDa
     const bedSold    = rosterNights ? rosterNights[m] : '';
     const occPct     = typeof bedSold === 'number' && bedAvail > 0
       ? +((bedSold / bedAvail) * 100).toFixed(2) : '';
+    // Residency revenue only — using revenueTotal would inflate with donations/programs
     const revPerBed  = typeof bedSold === 'number' && bedSold > 0
-      ? +(md.revenueTotal / bedSold).toFixed(2) : '';
+      ? +(md.revenueResidency / bedSold).toFixed(2) : '';
     const avgTuition = regByMonth[m] > 0
       ? +(revByMonth[m] / regByMonth[m]).toFixed(2) : '';
 
@@ -435,7 +472,8 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
   const payroll     = monthlyExpenseGL(txns, year, ['6105', '6110', '6114', '6116']);
   const insurance   = monthlyExpenseGL(txns, year, ['6150']);
   const utilities   = monthlyExpenseGL(txns, year, ['6270', '6250']);
-  const maintenance = monthlyExpenseGL(txns, year, ['6210']);
+  // GL 6210 = Repairs; GL 6190/6200 = Facilities — all 'overhead' in kclCompute
+  const maintenance = monthlyExpenseGL(txns, year, ['6210', '6190', '6200']);
   const zeros       = Object.fromEntries(months.map(m => [m, 0]));
 
   // Monthly totals of tracked fixed costs
@@ -448,9 +486,9 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
   const bedAvail: Record<number, number> = {};
   for (let m = 1; m <= 12; m++) bedAvail[m] = availableRooms * daysInMonth(year, m);
 
-  // Person-nights sold from roster (for revenue per bed night)
+  // Person-nights from residency-track participants only (for revenue per bed night)
   const rosterNights = dataset.data.residentialRoster.length > 0
-    ? monthlyResidentNights(dataset.data.residentialRoster, year)
+    ? residencyParticipantNights(dataset.data.residentialRoster, year)
     : null;
 
   // Per-bed-night fixed cost and break-even occupancy
@@ -463,7 +501,8 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
     fixedPerBed[m] = avail > 0 ? +(fixedTotal[m] / avail).toFixed(2) : '';
 
     const sold = rosterNights ? rosterNights[m] : 0;
-    const rev  = mdByMonth[m].revenueTotal;
+    // Use residency revenue only — revenueTotal would be inflated by donations/programs
+    const rev  = mdByMonth[m].revenueResidency;
     const rPer = sold > 0 ? rev / sold : 0;
     avgRevPerBed[m] = sold > 0 ? +rPer.toFixed(2) : '';
 
@@ -490,7 +529,7 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
     rN('Essential Maintenance', maintenance),
     rN('Monthly Fixed Cost (Total)', fixedTotal),
     r ('Break Even Occupancy Estimate', breakEvenOcc),
-    r ('fixed cost',           fixedPerBed),
+    r ('Fixed Cost per Bed Night Available', fixedPerBed),
     r ('Average Revenue per Bed Night', avgRevPerBed),
   ];
 }
@@ -772,7 +811,7 @@ ${metrics.ccFeeAlert
   sections.push(
 `## Accommodation and Capacity
 
-Karme Choling's room inventory includes private rooms (Premium, Standard, Double, Accessibility), dorm-style beds, tent cabins, and other accommodation. REVPAR is calculated as (residency + program room revenue) divided by (available private rooms × 365 days).
+Karme Choling's room inventory includes private rooms (Premium, Standard, Double, Accessibility), dorm-style beds, tent cabins, and other accommodation. REVPAR is calculated as (residency revenue + total program revenue, GL 4300/4310/4510) divided by (available private rooms × 365 days).
 
 ${mdTable(
   ['Metric', 'Value'],
@@ -1189,6 +1228,7 @@ const PlanningExportTab: React.FC<PlanningExportTabProps> = ({ dataset }) => {
     downloadCsv(builder(), filename);
 
   const handleXlsx = () => {
+    if (!computed) return;
     downloadXlsx([
       { name: 'Monthly Summary',            rows: buildMonthlySummary(computed, dataset) },
       { name: 'Monthly P&L',                rows: buildMonthlyPnL(computed, dataset) },

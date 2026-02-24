@@ -129,9 +129,11 @@ const CC_BENCHMARK_RATE = 0.025;
  * departure day, i.e. number of nights).
  */
 function clampedDays(arrival: string, departure: string, year: number): number {
-  const yr = String(year);
-  const a = arrival < `${yr}-01-01` ? `${yr}-01-01` : arrival;
-  const d = departure > `${yr}-12-31` ? `${yr}-12-31` : departure;
+  const yr  = String(year);
+  const yrN = String(year + 1);
+  const a = arrival   < `${yr}-01-01`  ? `${yr}-01-01`  : arrival;
+  // Clamp to year+1-01-01 so a Dec 1→Jan 5 stay gets 31 nights, not 30.
+  const d = departure > `${yrN}-01-01` ? `${yrN}-01-01` : departure;
   if (!a || !d || a >= d) return 0;
   return Math.round(
     (new Date(d + 'T00:00:00Z').getTime() - new Date(a + 'T00:00:00Z').getTime()) / 86400000
@@ -193,6 +195,7 @@ function computeUtilityBaseline(txns: GlTransaction[], year: number): {
   variableAnnual: number;
   baselineMonth: number;
   baselineSpend: number;
+  baselinePerDay: number;
   annualTotal: number;
   monthly: Record<number, number>;
 } {
@@ -208,6 +211,7 @@ function computeUtilityBaseline(txns: GlTransaction[], year: number): {
 
   const annualTotal = Object.values(monthly).reduce((a, b) => a + b, 0);
 
+  // Single lowest month — kept for UI display reference only
   let baselineMonth = 1;
   let baselineSpend = Infinity;
   for (let m = 1; m <= 12; m++) {
@@ -217,10 +221,21 @@ function computeUtilityBaseline(txns: GlTransaction[], year: number): {
     }
   }
 
-  const fixedAnnual = baselineSpend * 12;
-  const variableAnnual = annualTotal - fixedAnnual;
+  // 3-month average daily rate — used for fixed/variable split and per-program attribution.
+  // Mirrors the food baseline approach: averaging 3 lowest months is more robust to billing
+  // timing anomalies than a single month.
+  const dailyByMonth = Array.from({ length: 12 }, (_, i) => {
+    const m   = i + 1;
+    const dim = dimOf(year, m);
+    return { m, daily: dim > 0 ? monthly[m] / dim : 0 };
+  });
+  const sorted3 = [...dailyByMonth].sort((a, b) => a.daily - b.daily).slice(0, 3);
+  const baselinePerDay = sorted3.reduce((s, x) => s + x.daily, 0) / 3;
 
-  return { fixedAnnual, variableAnnual, baselineMonth, baselineSpend, annualTotal, monthly };
+  const fixedAnnual    = Math.max(0, baselinePerDay * 365);
+  const variableAnnual = Math.max(0, annualTotal - fixedAnnual);
+
+  return { fixedAnnual, variableAnnual, baselineMonth, baselineSpend, baselinePerDay, annualTotal, monthly };
 }
 
 // ─── Seasonal utility ─────────────────────────────────────────────────────────
@@ -240,8 +255,9 @@ function computeSeasonalUtility(
     }
   }
 
-  // Multiplier = avg monthly spend in this season ÷ baseline monthly spend (lowest month).
-  // A multiplier of 3× means this season's avg month costs 3× the quietest month.
+  // Multiplier = avg monthly spend in this season ÷ baseline monthly spend (fixedAnnual / 12).
+  // A multiplier of 2× means this season's avg month costs 2× the baseline level.
+  // Baseline = avg daily rate of 3 lowest months × 365 / 12 — consistent with fixed/variable split.
   const divisor = baselineMonthlySpend > 0 ? baselineMonthlySpend : 1;
   const seasonalMultipliers: Record<Season, number> = { winter: 0, spring: 0, summer: 0, fall: 0 };
   for (const season of Object.keys(seasonalUtility) as Season[]) {
@@ -259,8 +275,11 @@ function computeCcFeeRate(txns: GlTransaction[], year: number): { rate: number; 
   const total = yearTxns
     .filter(t => t.accountCode === '6100_1')
     .reduce((s, t) => s + t.debit - t.credit, 0);
+  // Denominator: GL 4xxx only — GL 3xxx (campaign/capital funds) are typically major-donor
+  // checks or wire transfers and are not processed through the card payment system.
+  // Including 3xxx would deflate the effective rate and understate per-program CC costs.
   const revenue = yearTxns
-    .filter(t => (t.accountCode.startsWith('3') || t.accountCode.startsWith('4')) && t.accountCode !== '3000')
+    .filter(t => t.accountCode.startsWith('4'))
     .reduce((s, t) => s + t.credit - t.debit, 0);
   return { rate: revenue > 0 ? total / revenue : 0, total };
 }
@@ -619,28 +638,67 @@ function computeBreakEven(
   deficit: number,
   programRevenue: ProgramRevenueEntry[],
   revenueStreams: KclRevenueStreams,
+  programPnL: KclProgramPnL[],
+  foodMarginalRatePerDay: number,
 ): KclBreakEven {
-  const revenuePerResident = RESIDENT_MONTHLY_RATE * 12; // $21,000
+  const revenuePerResident = RESIDENT_MONTHLY_RATE * 12; // $21,000 gross
+
+  // Net residency contribution per resident per year:
+  // A new resident adds $21K in revenue but also marginal kitchen cost every day.
+  // foodMarginalRatePerDay × 365 approximates that annual food cost.
+  // Using net rather than gross gives a more accurate residentsNeeded count —
+  // dividing by gross (21K) underestimates residents needed by ~30–50% when
+  // food is a significant marginal cost per person-year.
+  const residencyNetPerResident = Math.max(1, revenuePerResident - foodMarginalRatePerDay * 365);
+
   const programsWithRevenue = programRevenue.filter(p => p.totalRevenue > 0);
   const totalProgramRevenue = programsWithRevenue.reduce((s, p) => s + p.totalRevenue, 0);
   const avgProgramRevenue   = programsWithRevenue.length > 0
     ? totalProgramRevenue / programsWithRevenue.length
     : 0;
 
+  // Use actual contribution margins from PnL when available.
+  // avgContributionMargin (full): revenue − direct − overhead (context only).
+  // avgDirectContributionMargin: revenue − direct only (used for programsNeeded).
+  //   Overhead is a fixed pool that does not change when one more program is added,
+  //   so the incremental closing effect of a new program is (revenue − direct costs).
+  const pnlWithRevenue = programPnL.filter(p => p.revenue > 0);
+  const avgContributionMargin = pnlWithRevenue.length > 0
+    ? pnlWithRevenue.reduce((s, p) => s + p.contributionMargin, 0) / pnlWithRevenue.length
+    : 0;
+  const avgDirectContributionMargin = pnlWithRevenue.length > 0
+    ? pnlWithRevenue.reduce(
+        (s, p) => s + p.revenue - p.costs.teacherCost - p.costs.foodCost - p.costs.ccFees - p.costs.scholarshipCost - p.costs.utilityMarginal,
+        0,
+      ) / pnlWithRevenue.length
+    : 0;
+
+  // Separate donations into restricted (GL 4200) and unrestricted (GL 4000/4050/4150).
+  // The "increase donations" lever uses only unrestricted donations as the denominator:
+  // restricted donations are designated for specific purposes and cannot be redirected
+  // to cover an operating deficit.
+  const unrestrictedDonationRevenue = revenueStreams.donationsUnrestricted;
   const totalDonationRevenue =
     revenueStreams.donationsUnrestricted +
-    revenueStreams.donationsRestricted +
-    revenueStreams.campaigns;
+    revenueStreams.donationsRestricted;
+  const totalCampaignRevenue = revenueStreams.campaigns;
 
   const d = Math.max(deficit, 0);
   return {
     deficit,
     avgProgramRevenue,
+    avgContributionMargin,
+    avgDirectContributionMargin,
+    programsWithRevenueCount: programsWithRevenue.length,
     residencyRevenuePerResident: revenuePerResident,
+    residencyNetPerResident,
     totalDonationRevenue,
-    residentsNeeded:     revenuePerResident > 0 ? Math.ceil(d / revenuePerResident) : 0,
-    programsNeeded:      avgProgramRevenue > 0   ? Math.ceil(d / avgProgramRevenue)  : 0,
-    donationIncreasePct: totalDonationRevenue > 0 ? d / totalDonationRevenue : 0,
+    unrestrictedDonationRevenue,
+    totalCampaignRevenue,
+    residentsNeeded:            residencyNetPerResident > 0              ? Math.ceil(d / residencyNetPerResident)        : 0,
+    programsNeeded:             avgDirectContributionMargin > 0         ? Math.ceil(d / avgDirectContributionMargin)    : 0,
+    donationIncreasePct:        unrestrictedDonationRevenue > 0         ? d / unrestrictedDonationRevenue               : 0,
+    campaignIncreasePct:        totalCampaignRevenue > 0                ? d / totalCampaignRevenue                      : 0,
   };
 }
 
@@ -657,7 +715,7 @@ function computeProgramCategories(
 
   for (const p of catalog) {
     if (!strictYearFilter(p.startDate, p.endDate, year)) continue;
-    const code = p.categoryCode || 'OTHER';
+    const code = (p.categoryCode ?? '').trim().toUpperCase() || 'OTHER';
     if (!cats[code]) cats[code] = { count: 0, partDays: 0, revenue: 0, revenueCount: 0, durationDays: 0 };
     cats[code].count++;
     cats[code].partDays += p.participantDays;
@@ -666,7 +724,8 @@ function computeProgramCategories(
     }
   }
   for (const r of revenue) {
-    const code = r.categoryCode || 'OTHER';
+    if (!strictYearFilter(r.startDate, r.endDate, year)) continue;
+    const code = (r.categoryCode ?? '').trim().toUpperCase() || 'OTHER';
     if (!cats[code]) cats[code] = { count: 0, partDays: 0, revenue: 0, revenueCount: 0, durationDays: 0 };
     cats[code].revenue += r.totalRevenue;
     if (r.totalRevenue > 0) cats[code].revenueCount++;
@@ -748,10 +807,8 @@ function computeProgramPnL(
   programCatalog: ProgramEntry[],
   glTransactions: GlTransaction[],
   ccFeeRate: number,
-  ccFeeTotal: number,
   utilityMonthly: Record<number, number>,
-  utilityBaselineSpend: number,
-  utilityBaselineMonth: number,
+  utilityBaselinePerDay: number,
   totalParticipantDays: number,
   totalExpenses: number,
   utilityFixed: number,
@@ -766,10 +823,7 @@ function computeProgramPnL(
     if (p.programId) pdByProgramId[p.programId] = (pdByProgramId[p.programId] ?? 0) + p.participantDays;
   }
 
-  // ── 2. Utility baseline per day ───────────────────────────────────────────
-  const utilityBaselinePerDay = dimOf(year, utilityBaselineMonth) > 0
-    ? utilityBaselineSpend / dimOf(year, utilityBaselineMonth)
-    : 0;
+  // ── 2. Utility baseline per day (passed in — avg of 3 lowest months) ─────
 
   // ── 3. Food marginal rate (GL 5200) ───────────────────────────────────────
   const foodMonthly: Record<number, number> = {};
@@ -794,32 +848,24 @@ function computeProgramPnL(
   const foodBaselinePerDay = baselineMonths.reduce((s, m) => s + foodDailyByMonth[m], 0) / 3;
   const foodMarginalTotal  = Math.max(0, foodTotal - foodBaselinePerDay * 365);
 
-  // Non-CABN participant-days for rate denominator
+  // Non-CABN participant-days for rate denominator.
+  // Normalize categoryCode against whitespace and case before comparing — the CSV
+  // column may carry trailing spaces or inconsistent capitalisation.
   const nonCabnPartDays = programCatalog
-    .filter(p => strictYearFilter(p.startDate, p.endDate, year) && p.categoryCode !== 'CABN')
+    .filter(p => strictYearFilter(p.startDate, p.endDate, year) && (p.categoryCode ?? '').trim().toUpperCase() !== 'CABN')
     .reduce((s, p) => s + p.participantDays, 0);
   const foodMarginalRate = nonCabnPartDays > 0 ? foodMarginalTotal / nonCabnPartDays : 0;
 
-  // ── 4. Overhead pool ──────────────────────────────────────────────────────
-  // Exclude from overhead: food, teacher direct, CC fees, utility variable
-  // (utility fixed stays in overhead; it's shared infrastructure regardless of programs)
-  const teacherTotal  = glTransactions
-    .filter(t => txnYear(t) === year && ['5250', '5300', '5350'].includes(t.accountCode))
-    .reduce((s, t) => s + t.debit - t.credit, 0);
-  const utilityTotal = Object.values(utilityMonthly).reduce((a, b) => a + b, 0);
-  const utilityVar   = Math.max(0, utilityTotal - utilityFixed);
-  const overheadPool = totalExpenses - foodTotal - teacherTotal - ccFeeTotal - utilityVar;
-  const overheadPerPartDay = totalParticipantDays > 0 ? overheadPool / totalParticipantDays : 0;
-
-  // ── 5. Teacher first-claim attribution (REG only, not CABN/IHR) ───────────
+  // ── 4. Teacher first-claim attribution (REG only, not CABN/IHR) ───────────
   // Visiting teachers are specific to retreat programs, not year-long residency or self-guided cabins.
+  // Must run before overhead pool so only *claimed* teacher cost is excluded from overhead.
   const teacherTxns = glTransactions
     .filter(t => txnYear(t) === year && ['5250', '5300', '5350'].includes(t.accountCode))
     .map(t => ({ date: t.date, amount: t.debit - t.credit, claimed: false }));
 
   const teacherCostById: Record<string, number> = {};
   const regPrograms = [...programRevenue]
-    .filter(r => r.categoryCode === 'REG')
+    .filter(r => (r.categoryCode ?? '').trim().toUpperCase() === 'REG' && strictYearFilter(r.startDate, r.endDate, year))
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   const yr = String(year);
@@ -838,6 +884,46 @@ function computeProgramPnL(
     }
     teacherCostById[key] = cost;
   }
+
+  // Unclaimed teacher payments (outside all REG program windows) fall back to overhead
+  // so total attributed costs always reconcile to totalExpenses.
+  const teacherClaimed = Object.values(teacherCostById).reduce((s, v) => s + v, 0);
+
+  // ── 5. Overhead pool ──────────────────────────────────────────────────────
+  // Directly attributed costs are removed from overhead and assigned per-program:
+  //   foodMarginalTotal  — program-driven food (mirrors how utilityVar is treated)
+  //   teacherClaimed     — only attributed teacher payments; unclaimed stay in overhead
+  //   ccFeesAttributed   — ccFeeRate × omnis program revenue only (NOT ccFeeTotal).
+  //                        CC fees on donation/residency card transactions stay in overhead.
+  //   schAttributed      — scholarship/credit costs (COGS-SCH, COGS-PC) attributed at
+  //                        schRate × program revenue. Scholarships are program-specific
+  //                        costs (not organisational overhead), so spreading by participant-
+  //                        days would dilute them into every program, including unrelated ones.
+  //   utilityVar         — above-baseline heating/electric, attributed via programUtilityMarginal
+  //
+  // Food BASELINE (foodTotal − foodMarginalTotal) stays in overhead, the same way
+  // utilityFixed does: it is an always-on cost that does not vary with program load.
+  const utilityTotal       = Object.values(utilityMonthly).reduce((a, b) => a + b, 0);
+  const utilityVar         = Math.max(0, utilityTotal - utilityFixed);
+  // Defensive year filter: programRevenue may contain multi-year entries if upstream
+  // caller did not pre-filter. Only include programs whose start AND end fall in `year`.
+  const omnisProgramTotal  = programRevenue
+    .filter(r => strictYearFilter(r.startDate, r.endDate, year))
+    .reduce((s, r) => s + r.totalRevenue, 0);
+  const ccFeesAttributed   = ccFeeRate * omnisProgramTotal;
+
+  // Scholarship rate: total COGS-SCH + COGS-PC ÷ omnis program revenue.
+  // Applying as a revenue-proportional rate (like CC fees) is a proxy — ideally each
+  // program's actual scholarship grants would be attributed directly, but the GL export
+  // does not tie COGS entries to individual programs.
+  const scholarshipTotal   = glTransactions
+    .filter(t => txnYear(t) === year && ['COGS - SCH', 'COGS - PC'].includes(t.accountCode))
+    .reduce((s, t) => s + t.debit - t.credit, 0);
+  const schRate            = omnisProgramTotal > 0 ? scholarshipTotal / omnisProgramTotal : 0;
+  const schAttributed      = schRate * omnisProgramTotal; // === scholarshipTotal when omnisProgramTotal > 0
+
+  const overheadPool = totalExpenses - foodMarginalTotal - teacherClaimed - ccFeesAttributed - schAttributed - utilityVar;
+  const overheadPerPartDay = totalParticipantDays > 0 ? overheadPool / totalParticipantDays : 0;
 
   // ── 6. Participant lookup: AR joined to room bookings via registrationId ──
   const bookingByRegId: Record<string, RoomBookingEntry> = {};
@@ -868,8 +954,10 @@ function computeProgramPnL(
   const results: KclProgramPnL[] = [];
   for (const r of programRevenue) {
     if (r.totalRevenue <= 0 && r.registrations === 0) continue;
+    if (!strictYearFilter(r.startDate, r.endDate, year)) continue;
 
     const key          = r.programId || r.programName;
+    const cat          = (r.categoryCode ?? '').trim().toUpperCase();
     const participantDays = pdByProgramId[r.programId ?? ''] ?? 0;
     const durationDays = r.startDate && r.endDate
       ? Math.max(1, daySpan(r.startDate, r.endDate))
@@ -877,14 +965,16 @@ function computeProgramPnL(
 
     const teacherCost    = teacherCostById[key] ?? 0;
     // Cabin retreats are self-catering — no main-kitchen food cost
-    const foodCost       = r.categoryCode === 'CABN' ? 0 : foodMarginalRate * participantDays;
+    const foodCost       = cat === 'CABN' ? 0 : foodMarginalRate * participantDays;
     const ccFees         = ccFeeRate * r.totalRevenue;
+    // Scholarship cost: revenue-proportional proxy for COGS-SCH / COGS-PC attribution
+    const scholarshipCost = schRate * r.totalRevenue;
     const utilityMarginal = r.startDate && r.endDate
       ? programUtilityMarginal(r.startDate, r.endDate, year, utilityMonthly, utilityBaselinePerDay)
       : 0;
     const overheadAlloc  = overheadPerPartDay * participantDays;
 
-    const totalCosts         = teacherCost + foodCost + ccFees + utilityMarginal + overheadAlloc;
+    const totalCosts         = teacherCost + foodCost + ccFees + scholarshipCost + utilityMarginal + overheadAlloc;
     const contributionMargin = r.totalRevenue - totalCosts;
 
     const participants = (arByNormName[normName(r.programName)] ?? [])
@@ -900,7 +990,7 @@ function computeProgramPnL(
       registrations:      r.registrations,
       participantDays,
       revenue:            r.totalRevenue,
-      costs: { teacherCost, foodCost, ccFees, utilityMarginal, overheadAlloc },
+      costs: { teacherCost, foodCost, ccFees, scholarshipCost, utilityMarginal, overheadAlloc },
       totalCosts,
       contributionMargin,
       marginPct: r.totalRevenue > 0 ? contributionMargin / r.totalRevenue : 0,
@@ -931,8 +1021,8 @@ function computeTrialBalanceSummary(entries: TrialBalanceEntry[]): KclTrialBalan
     } else if (cls === 'asset') {
       // Net: assets carry debit balances; accumulated depreciation carries credits
       totalAssets += e.debit - e.credit;
-      // Bank accounts: codes 1000–1009
-      if (/^100\d$/.test(code)) cashAndBanks += e.debit;
+      // Bank accounts: codes 1000–1009, excluding 1005 (investment account tracked separately)
+      if (/^100\d$/.test(code) && code !== '1005') cashAndBanks += e.debit;
       if (code === '1005') investmentAccount = e.debit;
     } else if (cls === 'liability') {
       totalLiabilities += e.credit;
@@ -941,7 +1031,7 @@ function computeTrialBalanceSummary(entries: TrialBalanceEntry[]): KclTrialBalan
       if (code === '2501') sbaLoan = e.credit;
     } else if (cls === 'equity') {
       totalEquity += e.credit - e.debit;
-      if (code === '3000') retainedEarnings = e.credit;
+      if (code === '3000') retainedEarnings = e.credit - e.debit;
     }
   }
 
@@ -1098,7 +1188,7 @@ function computeDiscountSummary(txns: ProgramTransactionEntry[], year: number): 
     if (!strictYearFilter(t.startDate, t.endDate, year)) continue;
     totalAmount += t.totalAmount;
     totalDiscount += t.totalDiscount;
-    const code = t.categoryCode || 'OTHER';
+    const code = (t.categoryCode ?? '').trim().toUpperCase() || 'OTHER';
     if (!cats[code]) cats[code] = { totalAmount: 0, totalDiscount: 0 };
     cats[code].totalAmount += t.totalAmount;
     cats[code].totalDiscount += t.totalDiscount;
@@ -1226,17 +1316,26 @@ export function computeKclMetrics(
   const totalRevenue = computeRevenue(glTransactions, year);
   const revenueStreams = computeRevenueStreams(glTransactions, year);
 
+  // Year-filtered program revenue — guards against multi-year CSVs or year-selector
+  // changes without re-uploading data. All downstream aggregates use this.
+  const yearProgramRevenue = programRevenue.filter(r => strictYearFilter(r.startDate, r.endDate, year));
+
   // Omnis billed total
-  const omnisBilledTotal = programRevenue.reduce((s, p) => s + p.totalRevenue, 0);
+  const omnisBilledTotal = yearProgramRevenue.reduce((s, p) => s + p.totalRevenue, 0);
 
   // Participation
   const { total: participantDays, count: programCount, seasonalDays, seasonalPrograms } =
     computeParticipantDays(programCatalog, year);
 
   // Utilities
-  const { fixedAnnual, variableAnnual, baselineMonth, baselineSpend, annualTotal: utilityTotal, monthly: utilityMonthly } =
-    computeUtilityBaseline(glTransactions, year);
-  const { seasonalUtility, seasonalMultipliers } = computeSeasonalUtility(utilityMonthly, baselineSpend);
+  const {
+    fixedAnnual, variableAnnual, baselineMonth, baselineSpend, baselinePerDay,
+    annualTotal: utilityTotal, monthly: utilityMonthly,
+  } = computeUtilityBaseline(glTransactions, year);
+  // Divisor = fixedAnnual / 12 (avg monthly baseline, 3-month average daily rate × 365/12).
+  // Consistent with how fixed/variable split is computed. Previously used single-lowest-month
+  // spend (baselineSpend), which was slightly lower and produced inflated multipliers.
+  const { seasonalUtility, seasonalMultipliers } = computeSeasonalUtility(utilityMonthly, fixedAnnual / 12);
 
   // CC fees
   const { rate: ccFeeRate, total: ccFeeTotal } = computeCcFeeRate(glTransactions, year);
@@ -1261,7 +1360,7 @@ export function computeKclMetrics(
     computePayroll(staffSalaries, residentialRoster, xeroPayrollActual);
 
   // Per-program
-  const topPrograms = buildTopPrograms(programRevenue);
+  const topPrograms = buildTopPrograms(yearProgramRevenue);
 
   // Monthly breakdown
   const monthlyData = computeMonthlyData(glTransactions, year);
@@ -1324,30 +1423,39 @@ export function computeKclMetrics(
   // Revenue recognition gap (donations + timing diffs explain this)
   const revenueGapAmount = totalRevenue - omnisBilledTotal;
 
-  // Break-even
-  const deficit = totalExpenses - totalRevenue;
-  const breakEven = computeBreakEven(deficit, programRevenue, revenueStreams);
-
-  // Program categories
-  const programCategories = computeProgramCategories(programCatalog, programRevenue, year);
-
-  // Per-program contribution margin
+  // Per-program contribution margin (computed before break-even so margins feed into it)
   const programPnL = computeProgramPnL(
     year,
-    programRevenue,
+    yearProgramRevenue,
     programCatalog,
     glTransactions,
     ccFeeRate,
-    ccFeeTotal,
     utilityMonthly,
-    baselineSpend,        // monthly minimum spend (not annualised)
-    baselineMonth,
+    baselinePerDay,       // avg daily rate of 3 lowest utility months
     participantDays,
     totalExpenses,
-    fixedAnnual,          // utilityFixed = baselineSpend × 12
+    fixedAnnual,          // utilityFixed = baselinePerDay × 365
     participantEntries,
     roomBookings,
   );
+
+  // Break-even (uses programPnL margins for the programs lever)
+  const deficit = totalExpenses - totalRevenue;
+
+  // Derive marginal food rate per participant-day from PnL for residency net contribution estimate.
+  // foodCost is only non-zero for non-CABN programs, so divide by their participant-days.
+  // This is exact: foodCost = foodMarginalRate × partDays for non-CABN, so the
+  // reverse gives back the same rate used in computeProgramPnL.
+  const pnlFoodTotal       = programPnL.reduce((s, p) => s + p.costs.foodCost, 0);
+  const pnlNonCabnPartDays = programPnL
+    .filter(p => (p.categoryCode ?? '').trim().toUpperCase() !== 'CABN')
+    .reduce((s, p) => s + p.participantDays, 0);
+  const foodMarginalRatePerDay = pnlNonCabnPartDays > 0 ? pnlFoodTotal / pnlNonCabnPartDays : 0;
+
+  const breakEven = computeBreakEven(deficit, yearProgramRevenue, revenueStreams, programPnL, foodMarginalRatePerDay);
+
+  // Program categories
+  const programCategories = computeProgramCategories(programCatalog, yearProgramRevenue, year);
 
   // Data gaps
   const dataGaps = identifyDataGaps(
@@ -1372,6 +1480,7 @@ export function computeKclMetrics(
     utilityVariable: variableAnnual,
     utilityBaselineMonth: baselineMonth,
     utilityBaselineSpend: baselineSpend,
+    utilityBaselinePerDay: baselinePerDay,
     seasonalUtility,
     seasonalMultipliers,
     ccFeeRate,
