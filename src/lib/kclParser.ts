@@ -216,6 +216,8 @@ export function parseProgramCatalog(content: string): ProgramEntry[] {
       endDate: endDate.substring(0, 10),
       categoryCode: col(row, ['PROG_CATEGORY_CODE', 'prog_category_code', 'Category Code', 'category']),
       participantDays: partDays,
+      totalRegistrations: int(col(row, ['total_registrations', 'TOTAL_REGISTRATIONS', 'total_reg'])),
+      activeRegistrations: int(col(row, ['active_registrations', 'ACTIVE_REGISTRATIONS', 'active_reg'])),
     });
   }
 
@@ -397,7 +399,10 @@ export function parseDonations(content: string): DonationEntry[] {
   const results: DonationEntry[] = [];
 
   const nullStr = (v: string) => (v === 'NULL' || v === '') ? '' : v;
-  const nullBool = (v: string) => v !== 'NULL' && v !== '' && v.toLowerCase() !== 'false' && v !== '0';
+  const nullDate = (v: string) => {
+    const s = nullStr(v);
+    return s ? s.substring(0, 10) : '';
+  };
 
   for (const row of rows) {
     const fundName = col(row, ['fund_name', 'FUND_NAME', 'Fund Name']);
@@ -414,10 +419,10 @@ export function parseDonations(content: string): DonationEntry[] {
       pledgedAmount: num(col(row, ['pledged_amount', 'PLEDGED_AMOUNT', 'Pledged'])),
       donationType: col(row, ['DONATION_TYPE', 'donation_type', 'Type']),
       paymentCat: col(row, ['PAYMENT_CAT', 'payment_cat', 'Payment Category']),
-      cancelled: nullBool(col(row, ['CANCELLED', 'cancelled'])),
-      paymentDate: nullStr(col(row, ['PAYMENT_DATE', 'payment_date', 'Date'])).substring(0, 10),
+      cancelledDate: nullDate(col(row, ['CANCELLED', 'cancelled'])),
+      paymentDate: nullDate(col(row, ['PAYMENT_DATE', 'payment_date', 'Date'])),
       paymentMethod: nullStr(col(row, ['payment_method', 'PAYMENT_METHOD', 'Method'])),
-      voidTransaction: nullBool(col(row, ['VOID_TRANSACTION', 'void_transaction', 'Void'])),
+      voidDate: nullDate(col(row, ['VOID_TRANSACTION', 'void_transaction', 'Void'])),
       amountPaid: paidStr ? num(paidStr) : 0,
     });
   }
@@ -472,6 +477,8 @@ export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
     const hourlyStr = col(row, ['Hourly Rate', 'hourly_rate', 'Hourly']);
     const hoursStr = col(row, ['Hours Per Month', 'hours_per_month', 'Hours/Month', 'Hours']);
 
+    const medicareStr = col(row, ['Medicare', 'medicare', 'MEDICARE']);
+    const oasdiStr    = col(row, ['OASDI', 'oasdi']);
     results.push({
       name,
       department: col(row, ['Department', 'department', 'Dept']),
@@ -479,6 +486,8 @@ export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
       annualSalary: annual,
       hourlyRate: hourlyStr ? num(hourlyStr) || null : null,
       hoursPerMonth: hoursStr ? int(hoursStr) || null : null,
+      medicareMonthly: medicareStr && medicareStr !== 'NULL' ? num(medicareStr) || null : null,
+      oasdiMonthly:    oasdiStr    && oasdiStr    !== 'NULL' ? num(oasdiStr)    || null : null,
     });
   }
 

@@ -1060,8 +1060,8 @@ function computeDonationBreakdown(donations: DonationEntry[]): KclDonationBreakd
   let monthlyCount = 0, oneTimeCount = 0, cancelledCount = 0, voidCount = 0;
 
   for (const d of donations) {
-    if (d.cancelled) { cancelledCount++; continue; }
-    if (d.voidTransaction) { voidCount++; continue; }
+    if (d.cancelledDate !== '') { cancelledCount++; continue; }
+    if (d.voidDate !== '') { voidCount++; continue; }
 
     const type = d.donationType.toUpperCase();
     if (type.includes('MONTHLY') || type.includes('RECURRING')) monthlyCount++;

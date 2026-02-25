@@ -46,6 +46,8 @@ export interface ProgramEntry {
   endDate: string;
   categoryCode: string;
   participantDays: number;
+  totalRegistrations: number;
+  activeRegistrations: number;
 }
 
 export interface ProgramRevenueEntry {
@@ -91,6 +93,8 @@ export interface StaffSalaryEntry {
   annualSalary: number;
   hourlyRate: number | null;
   hoursPerMonth: number | null;
+  medicareMonthly: number | null;  // monthly employer Medicare contribution
+  oasdiMonthly: number | null;     // monthly employer OASDI contribution
 }
 
 export interface TrialBalanceEntry {
@@ -111,10 +115,10 @@ export interface DonationEntry {
   pledgedAmount: number;
   donationType: string;    // 'ONE TIME' | 'MONTHLY' | etc.
   paymentCat: string;
-  cancelled: boolean;
+  cancelledDate: string;   // ISO YYYY-MM-DD or '' if not cancelled
   paymentDate: string;     // ISO YYYY-MM-DD or ''
   paymentMethod: string;
-  voidTransaction: boolean;
+  voidDate: string;        // ISO YYYY-MM-DD or '' if not voided
   amountPaid: number;
 }
 
