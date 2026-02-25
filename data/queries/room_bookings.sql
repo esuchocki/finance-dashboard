@@ -24,8 +24,10 @@ SELECT
         ELSE NULL
     END AS nights
 FROM room_booking rb
-JOIN room      r   ON r.ROOM_ID          = rb.ROOM_ID
-JOIN room_type rt  ON rt.ROOM_TYPE_CODE  = rb.ROOM_TYPE_CODE
-WHERE rb.INACTIVE  IS NULL
-  AND rb.PROGRAM_ID IN (7241, 7242, 7320)
+JOIN room      r    ON r.ROOM_ID         = rb.ROOM_ID
+JOIN room_type rt   ON rt.ROOM_TYPE_CODE = rb.ROOM_TYPE_CODE
+JOIN program   prog ON prog.PROGRAM_ID   = rb.PROGRAM_ID
+WHERE rb.INACTIVE IS NULL
+  AND YEAR(prog.START_DATE) = 2025
+  AND YEAR(prog.END_DATE)   = 2025
 ORDER BY rb.PROGRAM_ID, r.ROOM_NO;

@@ -297,7 +297,7 @@ function buildMonthlySummary(metrics: KclComputedMetrics, dataset: KclAnnualData
 
   const rows: CsvRows = [[
     'Month', 'Total Revenue', 'Total Expenses', 'Net Operating Income',
-    'Payroll % of Revenue', 'Occupancy %',
+    'Payroll % of Revenue', 'Residency Occupancy % (residency-track nights only)',
     'Liquid Cash on Hand', 'Months of Liquid Cash',
     'YTD Revenue', 'Target', 'Variance',
   ]];
@@ -361,13 +361,15 @@ function buildMonthlyPnL(metrics: KclComputedMetrics, dataset: KclAnnualDataset)
     otherExp[m] = +(mdByMonth[m].expenses - tracked).toFixed(2);
   }
 
-  // "Farm / Retail / Other" = everything in revenue not accounted for by named streams
+  // "Farm / Retail / Other" = everything in revenue not accounted for by named streams.
+  // Must subtract revenueCampaigns (GL 3xxx) separately — it is not in donUnrestricted/donRestricted
+  // but is in revenueTotal, so without this subtraction capital contributions end up here.
   const farmOther: Record<number, number> = {};
   for (let m = 1; m <= 12; m++) {
     const md = mdByMonth[m];
     farmOther[m] = +(
       md.revenueTotal - md.revenuePrograms - md.revenueResidency
-      - donUnrestricted[m] - donRestricted[m]
+      - donUnrestricted[m] - donRestricted[m] - md.revenueCampaigns
     ).toFixed(2);
   }
 
@@ -381,20 +383,18 @@ function buildMonthlyPnL(metrics: KclComputedMetrics, dataset: KclAnnualDataset)
     r('Revenue (Total)',          Object.fromEntries(months.map(m => [m, mdByMonth[m].revenueTotal]))),
     r('Tuition',                  Object.fromEntries(months.map(m => [m, mdByMonth[m].revenuePrograms]))),
     r('Room & Board',             Object.fromEntries(months.map(m => [m, mdByMonth[m].revenueResidency]))),
-    r('Housing Rent',             zeros),
     r('Donations - Unrestricted', donUnrestricted),
     r('Donations - Restricted',   donRestricted),
+    r('Campaigns / Capital',      Object.fromEntries(months.map(m => [m, mdByMonth[m].revenueCampaigns]))),
     r('Farm / Retail / Other',    farmOther),
     r('Expenses (Total)',         Object.fromEntries(months.map(m => [m, mdByMonth[m].expenses]))),
     r('Payroll',                  payroll),
     r('Food',                     food),
     r('Utilities',                utilities),
     r('Insurance',                insurance),
-    r('Property Taxes',           zeros),
+    r('Property Taxes (exempt — not tracked)',  zeros),
     r('Maintenance',              maintenance),
-    r('Debt Service',             zeros),
     r('Teachers',                 teachers),
-    r('Contractors',              zeros),
     r('Admin/Software',           admin),
     r('Other',                    otherExp),
     r('Total Revenue',            Object.fromEntries(months.map(m => [m, mdByMonth[m].revenueTotal]))),
@@ -426,13 +426,13 @@ function buildOccupancyMetrics(metrics: KclComputedMetrics, dataset: KclAnnualDa
     const pm = parseInt(p.startDate.slice(5, 7), 10);
     if (pm >= 1 && pm <= 12) {
       revByMonth[pm] += p.tuitionRevenue;
-      regByMonth[pm] += p.registrations;
+      regByMonth[pm] += p.participants;  // active registrations only (excludes cancelled)
     }
   }
 
   const rows: CsvRows = [[
-    'Month', 'Bed Nights Available', 'Bed Nights Sold', 'Occupancy Percentage',
-    'Total Revenue', 'Revenue per Bed Night', 'Average Tuition per Participant',
+    'Month', 'Bed Nights Available (private rooms)', 'Residency Bed Nights', 'Residency Occupancy %',
+    'Total Revenue', 'Residency Revenue per Residency Night', 'Average Tuition per Participant',
   ]];
 
   for (let m = 1; m <= 12; m++) {
@@ -474,7 +474,6 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
   const utilities   = monthlyExpenseGL(txns, year, ['6270', '6250']);
   // GL 6210 = Repairs; GL 6190/6200 = Facilities — all 'overhead' in kclCompute
   const maintenance = monthlyExpenseGL(txns, year, ['6210', '6190', '6200']);
-  const zeros       = Object.fromEntries(months.map(m => [m, 0]));
 
   // Monthly totals of tracked fixed costs
   const fixedTotal: Record<number, number> = {};
@@ -523,14 +522,14 @@ function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: KclAnnualD
     ['', ...months.map(m => MONTH_NAMES[m])],
     rN('Payroll Baseline', payroll),
     rN('Insurance',        insurance),
-    rN('Utilities (Avg)',  utilities),
+    rN('Utilities (actual monthly)',  utilities),
     r ('Property Tax',     Object.fromEntries(months.map(m => [m, '']))),
     r ('Debt Service',     Object.fromEntries(months.map(m => [m, '']))),
     rN('Essential Maintenance', maintenance),
     rN('Monthly Fixed Cost (Total)', fixedTotal),
-    r ('Break Even Occupancy Estimate', breakEvenOcc),
+    r ('Break-Even Residency Occupancy % (total fixed costs \u00f7 residency nightly rate)', breakEvenOcc),
     r ('Fixed Cost per Bed Night Available', fixedPerBed),
-    r ('Average Revenue per Bed Night', avgRevPerBed),
+    r ('Residency Revenue per Occupied Residency Night', avgRevPerBed),
   ];
 }
 
@@ -595,7 +594,9 @@ Karme Choling ran **${fmtN(metrics.programCount)} programs** in ${year} generati
   // ── 3. Revenue ─────────────────────────────────────────────────────────────
 
   const rs = metrics.revenueStreams;
-  const totalDonations = rs.donationsUnrestricted + rs.donationsRestricted + rs.campaigns;
+  // Operating donations only (unrestricted + restricted). Campaigns/capital (GL 3xxx) are
+  // capital contributions — not operating donations — and are tracked as a separate stream.
+  const totalDonations = rs.donationsUnrestricted + rs.donationsRestricted;
   const pctOfRev = (n: number) => fmtPct(metrics.totalRevenue > 0 ? n / metrics.totalRevenue : 0);
 
   sections.push(
@@ -616,7 +617,7 @@ ${mdTable(
   ]
 )}
 
-Donations total (unrestricted + restricted + campaigns): **${fmt$(totalDonations)}** (${pctOfRev(totalDonations)} of total revenue).
+Donations total (unrestricted + restricted): **${fmt$(totalDonations)}** (${pctOfRev(totalDonations)} of total revenue). Capital contributions (GL 3xxx): **${fmt$(rs.campaigns)}** (${pctOfRev(rs.campaigns)} of total revenue) — restricted for capital purposes, not included in donations total.
 
 ### Xero vs. Omnis Reconciliation
 
@@ -700,10 +701,10 @@ ${mdTable(
 
 ### Per-Program Contribution Margin
 
-Direct costs per program: teacher compensation (GL 5250/5300/5350 attributed by date window), marginal food cost (above-baseline GL 5200 × participant-days; zero for CABN), CC fees (effective rate × revenue), marginal utilities (above-baseline daily rate × program days). Overhead is the remaining fixed cost pool allocated proportionally by participant-days.
+Direct costs per program: teacher compensation (GL 5250/5300/5350 attributed by date window), marginal food cost (above-baseline GL 5200 × participant-days; zero for CABN), scholarships/credits (COGS-SCH/COGS-PC, revenue-proportional proxy), CC fees (effective rate × revenue), marginal utilities (above-baseline daily rate × program days). Overhead is the remaining fixed cost pool allocated proportionally by participant-days.
 
 ${mdTable(
-  ['Program', 'Cat', 'Days', 'P-Days', 'Revenue', 'Teacher', 'Food', 'CC Fees', 'Utilities', 'Overhead', 'Margin', 'Margin %'],
+  ['Program', 'Cat', 'Days', 'P-Days', 'Revenue', 'Teacher', 'Food', 'Scholarships', 'CC Fees', 'Utilities', 'Overhead', 'Margin', 'Margin %'],
   metrics.programPnL.map(p => [
     trunc(p.name, 38),
     p.categoryCode,
@@ -712,6 +713,7 @@ ${mdTable(
     fmt$(p.revenue),
     fmt$(p.costs.teacherCost),
     fmt$(p.costs.foodCost),
+    fmt$(p.costs.scholarshipCost),
     fmt$(p.costs.ccFees),
     fmt$(p.costs.utilityMarginal),
     fmt$(p.costs.overheadAlloc),
@@ -758,18 +760,18 @@ ${mdTable(
 )}
 
 ${Math.abs(metrics.payrollGap) > 1000
-  ? `The payroll gap of ${fmt$(Math.abs(metrics.payrollGap))} (${metrics.payrollGap > 0 ? 'CSV exceeds Xero' : 'Xero exceeds CSV'}) may reflect hourly and part-time staff absent from the salary CSV, mid-year hires, timing differences in payroll postings, or non-payroll compensation routed through Xero payroll accounts.`
+  ? `The payroll gap of ${fmt$(Math.abs(metrics.payrollGap))} (${metrics.payrollGap > 0 ? 'CSV exceeds Xero' : 'Xero exceeds CSV'}) primarily reflects employer benefits — GL 6110 (payroll taxes ~7.65%), GL 6114 (health insurance), and GL 6116 (retirement contributions) — which add 20–30% above base salary in Xero but are not included in the salary CSV annual_salary column. A Xero-exceeds-CSV gap is structurally expected for a fully-staffed organization.`
   : 'Payroll CSV and Xero figures are closely aligned.'}
 
 ### Utility Analysis
 
-Utilities (GL 6270 heating/electric, GL 6250 phone/internet) are split into a fixed baseline component (lowest monthly spend × 12) and a variable component driven by occupancy and season.
+Utilities (GL 6270 heating/electric, GL 6250 phone/internet) are split into a fixed baseline component (average daily rate of the 3 lowest-spend months × 365) and a variable component driven by occupancy and season.
 
 ${mdTable(
   ['Metric', 'Value'],
   [
     ['Annual Utility Total', fmt$(metrics.utilityTotal)],
-    ['Fixed Component (baseline × 12)', fmt$(metrics.utilityFixed)],
+    ['Fixed Component (3-month avg daily rate × 365)', fmt$(metrics.utilityFixed)],
     ['Variable Component', fmt$(metrics.utilityVariable)],
     ['Baseline Month (lowest spend)', `${mn(metrics.utilityBaselineMonth)} — ${fmt$(metrics.utilityBaselineSpend)}/month`],
     ['Variable as % of Total', fmtPct(metrics.utilityTotal > 0 ? metrics.utilityVariable / metrics.utilityTotal : 0)],
@@ -793,7 +795,7 @@ ${mdTable(
 ${mdTable(
   ['Metric', 'Value'],
   [
-    ['Effective CC Fee Rate (GL 6100_1 / total revenue)', fmtPct(metrics.ccFeeRate, 2)],
+    ['Effective CC Fee Rate (GL 6100_1 \u00f7 GL 4xxx revenue)', fmtPct(metrics.ccFeeRate, 2)],
     ['Total CC Fees Paid', fmt$(metrics.ccFeeTotal)],
     ['Industry Benchmark Rate', fmtPct(metrics.ccFeeBenchmarkRate, 1)],
     ['Excess Rate above Benchmark', fmtPct(metrics.ccFeeExcessRate, 2)],
@@ -827,7 +829,7 @@ ${mdTable(
   ]
 )}
 
-The opportunity cost of ${fmt$(metrics.opportunityCostAnnual)} represents the theoretical revenue forgone by allocating ${fmtN(metrics.staffRooms)} private rooms to residential staff rather than guest use at the average single-occupancy rate of ${fmt$2(metrics.avgStaffRoomRate)}/night.
+The opportunity cost of ${fmt$(metrics.opportunityCostAnnual)} represents the estimated revenue forgone by allocating ${fmtN(metrics.staffRooms)} private rooms to residential staff rather than guest use at single-occupancy rack rates (avg ${fmt$2(metrics.avgStaffRoomRate)}/night). This is a conservative estimate — double rooms at shared occupancy could yield more per night.
 
 ${metrics.roomTypeOccupancy
   ? `### Room Booking Occupancy
@@ -871,7 +873,7 @@ ${mdTable(
   ]
 )}
 
-**Implied residents from residency revenue:** ${fmtN(occ.impliedResidents)} (residency GL revenue / $21,000/year)
+**Implied full-year resident equivalents (from residency revenue):** ${fmtN(occ.impliedResidents)} (residency GL revenue ÷ $21,000/yr — full-year equivalents, not headcount)
 **Estimated volunteer labor value:** ${fmt$(vm.estimatedLaborValue)} (${fmtN(vm.volunteerDays)} volunteer-days × $${vm.laborValuePerDay}/day equivalent)
 **Average monthly resident headcount:** ${occ.avgMonthlyResidents.toFixed(1)}
 **Total resident-days across all tracks:** ${fmtN(occ.totalResidentDays)}
@@ -935,7 +937,7 @@ ${mdTable(
       donationSection.push(
 `### Recurring Donor Base (Cash Received from Omnis)
 
-This data anchors on payment date within the year, capturing both program participants and direct donors.
+These are donors enrolled in a recurring (monthly or scheduled) giving plan in Omnis. Anchored on payment date within the year.
 
 ${mdTable(
   ['Metric', 'Value'],
@@ -1125,8 +1127,8 @@ ${mdTable(
   [
     [isDeficit ? 'Deficit to Close' : 'Surplus', fmt$(netValue)],
     ['Avg Revenue per Program', fmt$(be.avgProgramRevenue)],
-    ['Annual Revenue per Full-Year Resident ($1,750/month)', fmt$(be.residencyRevenuePerResident)],
-    ['Total Donation Revenue (unrestricted + restricted + campaigns)', fmt$(be.totalDonationRevenue)],
+    ['Annual Revenue per Full-Year Resident ($1,750/month, gross)', fmt$(be.residencyRevenuePerResident)],
+    ['Total Donation Revenue (unrestricted + restricted, GL 4000–4200)', fmt$(be.totalDonationRevenue)],
   ]
 )}
 
@@ -1139,23 +1141,23 @@ ${mdTable(
     [
       'Additional full-year residential participants',
       `${fmtN(be.residentsNeeded)} residents`,
-      `${fmtN(be.residentsNeeded)} × ${fmt$(be.residencyRevenuePerResident)}/year`,
+      `${fmtN(be.residentsNeeded)} × ${fmt$(be.residencyNetPerResident)}/yr net est. (${fmt$(be.residencyRevenuePerResident)} gross − est. annual food cost)`,
     ],
     [
-      'Additional programs at average revenue',
+      'Additional programs at avg direct contribution margin',
       `${fmtN(be.programsNeeded)} programs`,
-      `${fmtN(be.programsNeeded)} × ${fmt$(be.avgProgramRevenue)} avg revenue`,
+      `${fmtN(be.programsNeeded)} × ${fmt$(be.avgDirectContributionMargin)} avg direct margin (revenue − teacher, food, CC, scholarship, utility)`,
     ],
     [
-      'Increase in existing donation base',
+      'Increase in existing donation base (unrestricted only)',
       fmtPct(be.donationIncreasePct),
-      `${fmtPct(be.donationIncreasePct)} increase on ${fmt$(be.totalDonationRevenue)}`,
+      `${fmtPct(be.donationIncreasePct)} increase on unrestricted base of ${fmt$(be.unrestrictedDonationRevenue)}`,
     ],
   ]
 )}
 
 These scenarios are independent — any proportional combination of the three levers reduces the requirement accordingly.`
-  : `The surplus of ${fmt$(netValue)} provides a buffer equivalent to ${fmtN(Math.floor(netValue / (be.residencyRevenuePerResident || 1)))} additional full-year residents' worth of revenue headroom.`}`
+  : `The surplus of ${fmt$(netValue)} provides a buffer equivalent to ${fmtN(Math.floor(netValue / (be.residencyNetPerResident || 1)))} additional full-year residents' worth of net contribution headroom (using ${fmt$(be.residencyNetPerResident)}/yr net est. per resident).`}`
   );
 
   // ── 13. Data Sources & Limitations ────────────────────────────────────────
@@ -1190,7 +1192,7 @@ ${metrics.dataGaps.length > 0
 
 - **Strict-year filter:** Programs are included only when both start and end dates fall within the calendar year ${year}. Programs spanning year boundaries are excluded.
 - **Revenue recognition:** Xero records cash received on the collection date. Omnis records charges when billed. The two systems diverge by timing, donations, and residency income.
-- **Contribution margin:** Teacher costs are attributed to REG programs via a first-claim date-window algorithm (program start −7 to end +3 days). Food costs are marginal above a 3-month baseline. Overhead is allocated proportionally by participant-days.
+- **Contribution margin:** Teacher costs are attributed to REG programs via a first-claim date-window algorithm (program start −7 to end +3 days). Food costs are marginal above a 3-month baseline. Scholarships/credits (COGS-SCH/COGS-PC) are allocated as a revenue-proportional proxy. Overhead is the remaining fixed cost pool allocated proportionally by participant-days.
 - **Occupancy:** Monthly headcounts count a person in a month if their stay overlaps any day of that month (exclusive of departure day, matching SQL DATEDIFF semantics).
 - **Volunteer labor value:** Estimated at $${metrics.volunteerMetrics?.laborValuePerDay ?? 150}/day (Vermont minimum wage equivalent × 8 hours plus housing/food offset).
 - **REVPAR:** Calculated as (residency + program revenue) / (available private rooms × 365). Only private room types are counted (Premium, Standard, Double, Accessibility).`

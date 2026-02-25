@@ -14,10 +14,10 @@ SELECT
     prog.PROG_CATEGORY_CODE,
     COUNT(reg.REGISTRATION_ID)                                         AS total_registrations,
     COUNT(CASE WHEN reg.CANCELLED IS NULL THEN 1 END)                  AS active_registrations,
-    SUM(CASE WHEN reg.CANCELLED IS NULL THEN DATEDIFF(
+    SUM(CASE WHEN reg.CANCELLED IS NULL THEN GREATEST(0, DATEDIFF(
         LEAST(reg.DEPARTURE_DATE,  prog.END_DATE),
         GREATEST(reg.ARRIVAL_DATE, prog.START_DATE)
-    ) ELSE 0 END)                                                      AS total_participant_days
+    )) ELSE 0 END)                                                     AS total_participant_days
 FROM program prog
 LEFT JOIN registration reg ON reg.PROGRAM_ID = prog.PROGRAM_ID
 WHERE YEAR(prog.START_DATE) = 2025
