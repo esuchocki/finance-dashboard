@@ -87,9 +87,13 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
 
   // Program Catalog: programs by category + participant days by category
   if (sourceKey === 'programCatalog') {
+    const isResidentialTracking = (r: Row) => {
+      const n = String(r.programName || '').toLowerCase();
+      return n.includes('residential staff') || n.includes('residential volunteer') || n.includes('residency program');
+    };
     const byCat: Record<string, { count: number; pDays: number }> = {};
     data.forEach(r => {
-      if (r.isResidential) return;
+      if (isResidentialTracking(r)) return;
       const k = String(r.categoryCode || 'Uncategorized');
       if (!byCat[k]) byCat[k] = { count: 0, pDays: 0 };
       byCat[k].count++;

@@ -7,9 +7,11 @@
 --   PROGRAM_ID, PROGRAM_NAME, START_DATE, END_DATE, PROG_CATEGORY_CODE,
 --   total_registrations, active_registrations, total_participant_days, is_residential
 --
--- is_residential: 1 if any registration has KCL_RESIDENT set (staff/volunteer/residency
---   tracking programs), 0 otherwise. Used to exclude non-revenue residential programs
---   from the overhead denominator and participant-day charts.
+-- is_residential: 1 for year-long residential tracking programs (Staff, Volunteer,
+--   Residency Program), 0 for all other programs. Identified by program name because
+--   KCL_RESIDENT is a person-level flag set on all registrations for long-term residents,
+--   including when they attend regular retreat programs — making it unsuitable for
+--   classifying programs.
 
 SELECT
     prog.PROGRAM_ID,
@@ -23,8 +25,10 @@ SELECT
         LEAST(reg.DEPARTURE_DATE,  prog.END_DATE),
         GREATEST(reg.ARRIVAL_DATE, prog.START_DATE)
     ), 0)) ELSE 0 END)                                                 AS total_participant_days,
-    COALESCE(MAX(CASE WHEN reg.KCL_RESIDENT IS NOT NULL THEN 1 ELSE 0 END), 0)
-                                                                       AS is_residential
+    CASE WHEN prog.PROGRAM_NAME LIKE '%Residential Staff%'
+              OR prog.PROGRAM_NAME LIKE '%Residential Volunteer%'
+              OR prog.PROGRAM_NAME LIKE '%Residency Program%'
+         THEN 1 ELSE 0 END                                             AS is_residential
 FROM program prog
 LEFT JOIN registration reg ON reg.PROGRAM_ID = prog.PROGRAM_ID
 WHERE YEAR(prog.START_DATE) = 2025
