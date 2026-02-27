@@ -26,8 +26,8 @@ export const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ 
     { label: 'Regular Programs',        sub: 'GL 4300, 4310, 4510',       value: revenueStreams.programs,              hint: 'GL 4300 + 4310 + 4510 credit entries. Program tuition and retreat registrations.' },
     ...(residencyResidentsBilled > 0
       ? [
-          { label: 'Residency — Long-term Residents', sub: 'Omnis: residency program billing', value: residencyResidentsBilled,    hint: 'Total revenue billed in Omnis for programs whose name contains "residency program". These are long-term tenants registered as program participants. Mirrors the Residency Participants track in the Residential Population Breakdown.' },
-          { label: 'Residency — Program Housing',     sub: 'GL 4500, 4520 minus residents',    value: residencyProgramHousing,     hint: 'GL 4500 + 4520 credit entries (Xero) minus the Omnis residency program billing. Represents housing charges collected through Xero for in-house retreat and other program participants.' },
+          { label: 'Residency', sub: 'Omnis: residency program billing', value: residencyResidentsBilled,    hint: 'Total revenue billed in Omnis for programs whose name contains "residency program". These are long-term tenants registered as program participants. Mirrors the Residency Participants track in the Residential Population Breakdown.' },
+          { label: 'Program Housing',     sub: 'GL 4500, 4520 minus residents',    value: residencyProgramHousing,     hint: 'GL 4500 + 4520 credit entries (Xero) minus the Omnis residency program billing. Represents housing charges collected through Xero for in-house retreat and other program participants.' },
         ]
       : [
           { label: 'Residency',          sub: 'GL 4500, 4520',             value: revenueStreams.residency,             hint: 'GL 4500 + 4520 credit entries. Annual residency program tuition. Load program_revenue.csv to split this into Long-term Residents vs Program Housing.' },

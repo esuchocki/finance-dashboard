@@ -85,26 +85,17 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Program Catalog: programs by category + participant days by month
+  // Program Catalog: programs by category + participant days by category
   if (sourceKey === 'programCatalog') {
     const byCat: Record<string, { count: number; pDays: number }> = {};
     data.forEach(r => {
       if (r.isResidential) return;
-      const k = String(r.categoryCode || 'Other');
+      const k = String(r.categoryCode || 'Uncategorized');
       if (!byCat[k]) byCat[k] = { count: 0, pDays: 0 };
       byCat[k].count++;
       byCat[k].pDays += Number(r.participantDays) || 0;
     });
     const catData = Object.entries(byCat).map(([name, v]) => ({ name, count: v.count, pDays: v.pDays }));
-
-    const byMonth: Record<number, number> = {};
-    for (let i = 1; i <= 12; i++) byMonth[i] = 0;
-    data.forEach(r => {
-      if (r.isResidential) return;
-      const d = new Date(String(r.startDate || '') + 'T00:00:00');
-      if (!isNaN(d.getTime())) byMonth[d.getMonth() + 1] += Number(r.participantDays) || 0;
-    });
-    const monthData = Object.entries(byMonth).map(([m, v]) => ({ month: MONTH_NAMES[+m], pDays: v }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -115,20 +106,22 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} width={36} />
               <Tooltip />
-              <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="count" name="Programs"       fill={C[0]} radius={[2,2,0,0]} />
-              <Bar dataKey="pDays" name="Participant Days" fill={C[1]} radius={[2,2,0,0]} />
+              <Bar dataKey="count" name="Programs" fill={C[0]} radius={[2,2,0,0]}>
+                {catData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Participant Days by Start Month">
+        <ChartCard title="Participant Days by Category">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={monthData} barCategoryGap="30%">
+            <BarChart data={catData} barCategoryGap="35%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tickFormatter={fmtN} tick={{ fontSize: 11 }} width={40} />
               <Tooltip formatter={(v: number) => fmtN(v)} />
-              <Bar dataKey="pDays" name="P-Days" fill={C[2]} radius={[2,2,0,0]} />
+              <Bar dataKey="pDays" name="P-Days" fill={C[1]} radius={[2,2,0,0]}>
+                {catData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>

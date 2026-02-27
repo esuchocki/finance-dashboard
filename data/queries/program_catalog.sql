@@ -19,10 +19,10 @@ SELECT
     prog.PROG_CATEGORY_CODE,
     COUNT(reg.REGISTRATION_ID)                                         AS total_registrations,
     COUNT(CASE WHEN reg.CANCELLED IS NULL THEN 1 END)                  AS active_registrations,
-    SUM(CASE WHEN reg.CANCELLED IS NULL THEN GREATEST(0, DATEDIFF(
+    SUM(CASE WHEN reg.CANCELLED IS NULL THEN GREATEST(0, COALESCE(DATEDIFF(
         LEAST(reg.DEPARTURE_DATE,  prog.END_DATE),
         GREATEST(reg.ARRIVAL_DATE, prog.START_DATE)
-    )) ELSE 0 END)                                                     AS total_participant_days,
+    ), 0)) ELSE 0 END)                                                 AS total_participant_days,
     COALESCE(MAX(CASE WHEN reg.KCL_RESIDENT IS NOT NULL THEN 1 ELSE 0 END), 0)
                                                                        AS is_residential
 FROM program prog
