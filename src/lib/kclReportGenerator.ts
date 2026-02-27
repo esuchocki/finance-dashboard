@@ -329,8 +329,7 @@ ${mdTable(
 )}
 
 The opportunity cost of ${fmt$(metrics.opportunityCostAnnual)} represents the estimated revenue forgone by allocating ${fmtN(metrics.staffRooms)} private rooms to residential staff rather than guest use at single-occupancy rack rates (avg ${fmt$2(metrics.avgStaffRoomRate)}/night). This is a conservative estimate — double rooms at shared occupancy could yield more per night.
-
-  );
+`  );
 
   // ── 7. Residential Population ──────────────────────────────────────────────
 
