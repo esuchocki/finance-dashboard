@@ -498,6 +498,7 @@ export interface KclComputedMetrics {
 
   // Revenue streams breakdown
   revenueStreams: KclRevenueStreams;
+  residencyIhrRevenue: number;  // IHR program revenue (Omnis) — subset of revenueStreams.residency
 
   // Monthly revenue and expenses (indices 0–11, month=1–12)
   monthlyData: KclMonthlyRow[];

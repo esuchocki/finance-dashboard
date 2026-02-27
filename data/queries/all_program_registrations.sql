@@ -1,5 +1,6 @@
--- All active registrations for strict-year programs (charged + paid summary).
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+-- All active registrations for year programs (charged + paid summary).
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year.
 -- Replace 2025 with the target year when running for future years.
 --
 -- Difference from outstanding_ar.sql:
@@ -42,6 +43,5 @@ LEFT JOIN (
     GROUP BY pd.REGISTRATION_ID
 ) paid ON paid.REGISTRATION_ID = reg.REGISTRATION_ID
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
   AND reg.CANCELLED IS NULL
 ORDER BY prog.START_DATE, prog.PROGRAM_NAME, participant_name;

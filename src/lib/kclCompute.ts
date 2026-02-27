@@ -228,6 +228,7 @@ export function computeKclMetrics(
 
   // Program categories
   const programCategories = computeProgramCategories(programCatalog, yearProgramRevenue, year);
+  const residencyIhrRevenue = programCategories.find(c => c.categoryCode.toUpperCase() === 'IHR')?.totalRevenue ?? 0;
 
   // Data gaps
   const dataGaps = identifyDataGaps(
@@ -279,6 +280,7 @@ export function computeKclMetrics(
     nonResidentialStaffCount,
     topPrograms,
     revenueStreams,
+    residencyIhrRevenue,
     monthlyData,
     occupancy,
     volunteerMetrics,

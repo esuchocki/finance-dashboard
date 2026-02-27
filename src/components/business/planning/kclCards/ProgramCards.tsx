@@ -385,8 +385,24 @@ export const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
 // ─── Occupancy Card ───────────────────────────────────────────────────────────
 
 export const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
-  const { occupancy, availableRooms } = metrics;
+  const { occupancy, availableRooms, volunteerMetrics, year } = metrics;
   if (!occupancy) return null;
+
+  const [selectedCell, setSelectedCell] = useState<{ track: 'staff' | 'volunteers' | 'residency'; month: number } | null>(null);
+
+  function presentInMonth(arrival: string, departure: string, month: number): boolean {
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const monthEnd = month < 12
+      ? `${year}-${String(month + 1).padStart(2, '0')}-01`
+      : `${year + 1}-01-01`;
+    return arrival < monthEnd && departure > monthStart;
+  }
+
+  function toggleCell(track: 'staff' | 'volunteers' | 'residency', month: number) {
+    setSelectedCell(prev =>
+      prev?.track === track && prev.month === month ? null : { track, month }
+    );
+  }
 
   const tracks: Array<{ key: 'staff' | 'volunteers' | 'residency'; label: string; avg: number }> = [
     { key: 'staff',      label: 'Staff',      avg: occupancy.avgMonthlyByTrack.staff },
@@ -402,7 +418,7 @@ export const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metri
       <CardContent className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Days and monthly counts computed from actual arrival/departure dates in Omnis (not the SQL-precomputed column).
-          A person counts in a month if their stay overlaps any day of that month.
+          A person counts in a month if their stay overlaps any day of that month. Click a count to see names.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <SummaryCard
@@ -441,24 +457,68 @@ export const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metri
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tracks.map(({ key, label, avg }) => (
-              <TableRow key={key}>
-                <TableCell className="text-xs py-1.5 font-medium">{label}</TableCell>
-                {Array.from({ length: 12 }, (_, i) => {
-                  const count = occupancy.monthlyByTrack[i + 1]?.[key] ?? 0;
-                  return (
-                    <TableCell key={i} className="text-xs text-center px-1 py-1.5">
-                      {count > 0
-                        ? <Tip hint={`Number of ${label.toLowerCase()} people whose [arrival, departure) date range overlaps any day in ${MONTH_NAMES[i + 1]}. A person departing on the 1st does NOT count for that month (exclusive of departure day).`}>{count}</Tip>
-                        : <span className="text-muted-foreground">—</span>}
+            {tracks.map(({ key, label, avg }) => {
+              const isOpen = selectedCell?.track === key;
+              const detailMonth = isOpen ? selectedCell!.month : null;
+              const detailPeople = detailMonth !== null
+                ? (volunteerMetrics?.rosterByTrack?.[key] ?? []).filter(p =>
+                    presentInMonth(p.arrivalDate, p.departureDate, detailMonth)
+                  )
+                : [];
+
+              return (
+                <React.Fragment key={key}>
+                  <TableRow>
+                    <TableCell className="text-xs py-1.5 font-medium">{label}</TableCell>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = i + 1;
+                      const count = occupancy.monthlyByTrack[month]?.[key] ?? 0;
+                      const isSelected = selectedCell?.track === key && selectedCell.month === month;
+                      return (
+                        <TableCell key={i} className="text-xs text-center px-1 py-1.5">
+                          {count > 0 ? (
+                            <button
+                              onClick={() => toggleCell(key, month)}
+                              className={`rounded px-1 tabular-nums hover:bg-muted transition-colors ${isSelected ? 'bg-muted font-semibold' : ''}`}
+                            >
+                              {count}
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-xs text-right py-1.5 text-muted-foreground">
+                      <Tip hint="Average of the 12 monthly counts for this track (zero months included).">{avg.toFixed(1)}</Tip>
                     </TableCell>
-                  );
-                })}
-                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">
-                  <Tip hint="Average of the 12 monthly counts for this track (zero months included).">{avg.toFixed(1)}</Tip>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableRow>
+                  {isOpen && detailMonth !== null && (
+                    <TableRow>
+                      <TableCell colSpan={14} className="p-0 bg-muted/20">
+                        <div className="px-4 py-2">
+                          <p className="text-xs font-medium mb-1">
+                            {label} — {MONTH_NAMES[detailMonth]}
+                            {detailPeople.length === 0 && !volunteerMetrics && (
+                              <span className="text-muted-foreground font-normal ml-2">Load residential roster to see names.</span>
+                            )}
+                          </p>
+                          {detailPeople.length > 0 ? (
+                            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                              {detailPeople.map((p, i) => (
+                                <span key={i} className="text-xs">{p.name}</span>
+                              ))}
+                            </div>
+                          ) : volunteerMetrics ? (
+                            <p className="text-xs text-muted-foreground">No roster entries overlap this month.</p>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              );
+            })}
             <TableRow className="border-t font-medium">
               <TableCell className="text-xs py-1.5">Total</TableCell>
               {Array.from({ length: 12 }, (_, i) => {

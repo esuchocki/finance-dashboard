@@ -1,6 +1,7 @@
 -- All Omnis transactions by program, GL account, and transaction type.
 -- Includes ALL GL accounts (not just 4xxx) — use for diagnosing unexpected codes.
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year.
 -- Replace 2025 with the target year when running for future years.
 --
 -- Cross-reference with program_revenue.sql (GL 4xxx only, aggregated per program)
@@ -27,7 +28,6 @@ JOIN transactions t
     AND t.REVERSE   = 0
     AND t.INACTIVE IS NULL
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
 GROUP BY
     prog.PROGRAM_ID,
     prog.PROGRAM_NAME,

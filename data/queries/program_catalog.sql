@@ -1,5 +1,6 @@
 -- Program catalog: all programs for a given year
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year.
 -- Replace 2025 with the target year when running for future years.
 --
 -- Output columns used by the web app:
@@ -21,7 +22,6 @@ SELECT
 FROM program prog
 LEFT JOIN registration reg ON reg.PROGRAM_ID = prog.PROGRAM_ID
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
 GROUP BY
     prog.PROGRAM_ID,
     prog.PROGRAM_NAME,

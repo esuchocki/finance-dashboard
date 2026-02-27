@@ -1,5 +1,6 @@
--- Per-program revenue for strict-year programs (GL 4xxx charges only)
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+-- Per-program revenue for year programs (GL 4xxx charges only)
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year.
 -- Replace 2025 with the target year when running for future years.
 --
 -- Revenue source: transactions table, GL accounts 4xxx (program charges).
@@ -28,7 +29,6 @@ LEFT JOIN transactions t
     AND t.INACTIVE IS NULL
     AND t.GL_ACCOUNT LIKE '4%'
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
 GROUP BY
     prog.PROGRAM_ID,
     prog.PROGRAM_NAME,

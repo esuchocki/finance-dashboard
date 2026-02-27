@@ -114,10 +114,8 @@ export function getSeason(month: number): Season {
 }
 
 export function strictYearFilter(startDate: string, endDate: string, year: number): boolean {
-  if (!startDate || !endDate) return false;
-  const sy = parseInt(startDate.substring(0, 4), 10);
-  const ey = parseInt(endDate.substring(0, 4), 10);
-  return sy === year && ey === year;
+  if (!startDate) return false;
+  return parseInt(startDate.substring(0, 4), 10) === year;
 }
 
 /** Last day (1–31) of a 1-based month in the given year. */

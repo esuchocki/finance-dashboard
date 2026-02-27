@@ -1,5 +1,6 @@
--- Outstanding accounts receivable for strict-year programs.
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+-- Outstanding accounts receivable for year programs.
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year.
 -- Replace 2025 with the target year when running for future years.
 --
 -- Shows amounts billed in Omnis that have not yet been collected.
@@ -38,7 +39,6 @@ LEFT JOIN (
     GROUP BY pd.REGISTRATION_ID
 ) paid ON paid.REGISTRATION_ID = reg.REGISTRATION_ID
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
   AND reg.CANCELLED IS NULL
   AND COALESCE(charges.total_charged, 0) > COALESCE(paid.total_paid, 0)
 ORDER BY outstanding DESC;
