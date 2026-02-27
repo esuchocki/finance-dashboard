@@ -44,14 +44,15 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
       month: MONTH_NAMES[+m], debit: v.debit, credit: v.credit,
     }));
 
-    const byAccount: Record<string, number> = {};
+    const byAccount: Record<string, { volume: number; name: string }> = {};
     data.forEach(r => {
-      const k = String(r.accountCode || '(none)');
-      byAccount[k] = (byAccount[k] || 0) + (Number(r.debit) || 0) + (Number(r.credit) || 0);
+      const code = String(r.accountCode || '(none)');
+      if (!byAccount[code]) byAccount[code] = { volume: 0, name: String(r.accountName || code) };
+      byAccount[code].volume += (Number(r.debit) || 0) + (Number(r.credit) || 0);
     });
     const topAccounts = Object.entries(byAccount)
-      .sort((a, b) => b[1] - a[1]).slice(0, 10)
-      .map(([name, value]) => ({ name, value }));
+      .sort((a, b) => b[1].volume - a[1].volume).slice(0, 10)
+      .map(([, v]) => ({ name: trunc(v.name, 30), value: v.volume }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -68,12 +69,12 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Top Account Codes by Volume">
+        <ChartCard title="Top Accounts by Volume">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={topAccounts} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-              <XAxis type="number" tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} width={56} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={48} />
+              <XAxis type="number" tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={120} />
               <Tooltip formatter={(v: number) => fmt$2(v)} />
               <Bar dataKey="value" name="Volume" radius={[0,2,2,0]}>
                 {topAccounts.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
@@ -85,47 +86,65 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Program Catalog: programs by category + participant days by category
+  // Program Catalog: programs by month (stacked by category) + p-days by month (stacked by category)
   if (sourceKey === 'programCatalog') {
     const isResidentialTracking = (r: Row) => {
       const n = String(r.programName || '').toLowerCase();
       return n.includes('residential staff') || n.includes('residential volunteer') || n.includes('residency program');
     };
-    const byCat: Record<string, { count: number; pDays: number }> = {};
+
+    const categories = Array.from(new Set(
+      data.filter(r => !isResidentialTracking(r)).map(r => String(r.categoryCode || 'Other'))
+    )).sort();
+
+    const countByMonth: Record<number, Record<string, number>> = {};
+    const pDaysByMonth: Record<number, Record<string, number>> = {};
+    for (let i = 1; i <= 12; i++) {
+      countByMonth[i] = {};
+      pDaysByMonth[i] = {};
+      categories.forEach(c => { countByMonth[i][c] = 0; pDaysByMonth[i][c] = 0; });
+    }
+
     data.forEach(r => {
       if (isResidentialTracking(r)) return;
-      const k = String(r.categoryCode || 'Uncategorized');
-      if (!byCat[k]) byCat[k] = { count: 0, pDays: 0 };
-      byCat[k].count++;
-      byCat[k].pDays += Number(r.participantDays) || 0;
+      const d = new Date(String(r.startDate || '') + 'T00:00:00');
+      if (isNaN(d.getTime())) return;
+      const m = d.getMonth() + 1;
+      const cat = String(r.categoryCode || 'Other');
+      countByMonth[m][cat] = (countByMonth[m][cat] || 0) + 1;
+      pDaysByMonth[m][cat] = (pDaysByMonth[m][cat] || 0) + (Number(r.participantDays) || 0);
     });
-    const catData = Object.entries(byCat).map(([name, v]) => ({ name, count: v.count, pDays: v.pDays }));
+
+    const countData = Object.entries(countByMonth).map(([m, cats]) => ({ month: MONTH_NAMES[+m], ...cats }));
+    const pDaysData = Object.entries(pDaysByMonth).map(([m, cats]) => ({ month: MONTH_NAMES[+m], ...cats }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Programs by Category">
+        <ChartCard title="Programs by Month">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={catData} barCategoryGap="35%">
+            <BarChart data={countData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} width={36} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} width={28} />
               <Tooltip />
-              <Bar dataKey="count" name="Programs" fill={C[0]} radius={[2,2,0,0]}>
-                {catData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-              </Bar>
+              <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+              {categories.map((cat, i) => (
+                <Bar key={cat} dataKey={cat} name={cat} stackId="a" fill={C[i % C.length]} radius={i === categories.length - 1 ? [2,2,0,0] : [0,0,0,0]} />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Participant Days by Category">
+        <ChartCard title="Participant Days by Month">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={catData} barCategoryGap="35%">
+            <BarChart data={pDaysData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tickFormatter={fmtN} tick={{ fontSize: 11 }} width={40} />
               <Tooltip formatter={(v: number) => fmtN(v)} />
-              <Bar dataKey="pDays" name="P-Days" fill={C[1]} radius={[2,2,0,0]}>
-                {catData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-              </Bar>
+              <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+              {categories.map((cat, i) => (
+                <Bar key={cat} dataKey={cat} name={cat} stackId="a" fill={C[i % C.length]} radius={i === categories.length - 1 ? [2,2,0,0] : [0,0,0,0]} />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -133,17 +152,20 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Program Revenue: revenue by category + top 10 programs
+  // Program Revenue: revenue by month (stacked: tuition/accommodation/other) + top 10 programs
   if (sourceKey === 'programRevenue') {
-    const byCat: Record<string, { tuition: number; accommodation: number; other: number }> = {};
+    const byMonth: Record<number, { tuition: number; accommodation: number; other: number }> = {};
+    for (let i = 1; i <= 12; i++) byMonth[i] = { tuition: 0, accommodation: 0, other: 0 };
     data.forEach(r => {
-      const k = String(r.categoryCode || 'Other');
-      if (!byCat[k]) byCat[k] = { tuition: 0, accommodation: 0, other: 0 };
-      byCat[k].tuition       += Number(r.tuitionRevenue) || 0;
-      byCat[k].accommodation += Number(r.accommodationRevenue) || 0;
-      byCat[k].other         += Number(r.otherRevenue) || 0;
+      const d = new Date(String(r.startDate || '') + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        const m = d.getMonth() + 1;
+        byMonth[m].tuition       += Number(r.tuitionRevenue)       || 0;
+        byMonth[m].accommodation += Number(r.accommodationRevenue) || 0;
+        byMonth[m].other         += Number(r.otherRevenue)         || 0;
+      }
     });
-    const catData = Object.entries(byCat).map(([name, v]) => ({ name, ...v }));
+    const monthData = Object.entries(byMonth).map(([m, v]) => ({ month: MONTH_NAMES[+m], ...v }));
 
     const top10 = [...data]
       .sort((a, b) => (Number(b.totalRevenue) || 0) - (Number(a.totalRevenue) || 0))
@@ -152,17 +174,17 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Revenue by Category">
+        <ChartCard title="Revenue by Month">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={catData} barCategoryGap="35%">
+            <BarChart data={monthData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} width={56} />
               <Tooltip formatter={(v: number) => fmt$(v)} />
               <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="tuition"       name="Tuition"       fill={C[0]} radius={[2,2,0,0]} stackId="a" />
-              <Bar dataKey="accommodation" name="Accommodation"  fill={C[1]} radius={[0,0,0,0]} stackId="a" />
-              <Bar dataKey="other"         name="Other"          fill={C[2]} radius={[2,2,0,0]} stackId="a" />
+              <Bar dataKey="tuition"       name="Tuition"       fill={C[0]} stackId="a" radius={[0,0,0,0]} />
+              <Bar dataKey="accommodation" name="Accommodation"  fill={C[1]} stackId="a" radius={[0,0,0,0]} />
+              <Bar dataKey="other"         name="Other"          fill={C[2]} stackId="a" radius={[2,2,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -193,12 +215,24 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
         days: Number(r.daysInYear) || 0,
       }));
 
-    const byProgram: Record<string, number> = {};
+    // Monthly occupancy: count residents on-site for any part of each month
+    let dataYear = new Date().getFullYear();
+    for (const r of data) {
+      const d = new Date(String(r.arrivalDate || '') + 'T00:00:00');
+      if (!isNaN(d.getTime()) && d.getFullYear() >= 2000) { dataYear = d.getFullYear(); break; }
+    }
+    const monthOcc = Array(13).fill(0);
     data.forEach(r => {
-      const k = trunc(r.programName, 30);
-      byProgram[k] = (byProgram[k] || 0) + 1;
+      const arr = new Date(String(r.arrivalDate || '') + 'T00:00:00');
+      const dep = r.departureDate ? new Date(String(r.departureDate) + 'T00:00:00') : null;
+      if (isNaN(arr.getTime())) return;
+      for (let m = 1; m <= 12; m++) {
+        const mStart = new Date(dataYear, m - 1, 1);
+        const mEnd   = new Date(dataYear, m, 0);
+        if (arr <= mEnd && (!dep || dep >= mStart)) monthOcc[m]++;
+      }
     });
-    const programData = Object.entries(byProgram).map(([name, count]) => ({ name, count }));
+    const occData = monthOcc.slice(1).map((v, i) => ({ month: MONTH_NAMES[i + 1], residents: v }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -215,16 +249,14 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Headcount by Program Track">
+        <ChartCard title="Residents On-Site by Month">
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={programData} barCategoryGap="35%">
+            <BarChart data={occData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} width={32} />
               <Tooltip />
-              <Bar dataKey="count" name="People" radius={[2,2,0,0]}>
-                {programData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-              </Bar>
+              <Bar dataKey="residents" name="Residents" fill={C[4]} radius={[2,2,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -232,12 +264,12 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Room Inventory: rooms by type + single vs shared price comparison
+  // Room Inventory: capacity by type + single vs shared price comparison
   if (sourceKey === 'roomInventory') {
     const byType: Record<string, number> = {};
     data.forEach(r => {
       const k = String(r.roomType || 'Other');
-      byType[k] = (byType[k] || 0) + 1;
+      byType[k] = (byType[k] || 0) + (Number(r.occupancyLimit) || 1);
     });
     const typeData = Object.entries(byType).map(([name, count]) => ({ name, count }));
 
@@ -258,14 +290,14 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Rooms by Type">
+        <ChartCard title="Capacity by Room Type">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={typeData} barCategoryGap="30%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} width={32} />
               <Tooltip />
-              <Bar dataKey="count" name="Rooms" radius={[2,2,0,0]}>
+              <Bar dataKey="count" name="Beds" radius={[2,2,0,0]}>
                 {typeData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
               </Bar>
             </BarChart>
@@ -288,31 +320,48 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Staff Salaries: salary by department
+  // Staff Salaries: salary by department + headcount by department
   if (sourceKey === 'staffSalaries') {
-    const byDept: Record<string, number> = {};
+    const byDept: Record<string, { salary: number; count: number }> = {};
     data.forEach(r => {
       const k = String(r.department || 'Other');
-      byDept[k] = (byDept[k] || 0) + (Number(r.annualSalary) || 0);
+      if (!byDept[k]) byDept[k] = { salary: 0, count: 0 };
+      byDept[k].salary += Number(r.annualSalary) || 0;
+      byDept[k].count++;
     });
     const deptData = Object.entries(byDept)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, value]) => ({ name, value }));
+      .sort((a, b) => b[1].salary - a[1].salary)
+      .map(([name, v]) => ({ name, salary: v.salary, count: v.count }));
 
     return (
-      <ChartCard title="Total Annual Salary by Department">
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={deptData} barCategoryGap="30%">
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-            <YAxis tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} width={60} />
-            <Tooltip formatter={(v: number) => fmt$(v)} />
-            <Bar dataKey="value" name="Salary" radius={[2,2,0,0]}>
-              {deptData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="Total Annual Salary by Department">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={deptData} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} width={60} />
+              <Tooltip formatter={(v: number) => fmt$(v)} />
+              <Bar dataKey="salary" name="Salary" radius={[2,2,0,0]}>
+                {deptData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Headcount by Department">
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={deptData} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} width={32} />
+              <Tooltip />
+              <Bar dataKey="count" name="Staff" radius={[2,2,0,0]}>
+                {deptData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
     );
   }
 
@@ -380,9 +429,13 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
       .sort((a, b) => b[1].paid - a[1].paid)
       .map(([name, v]) => ({ name, ...v }));
 
-    const byType: Record<string, number> = {};
-    data.forEach(r => { const k = String(r.donationType || 'Unknown'); byType[k] = (byType[k] || 0) + (Number(r.amountPaid) || 0); });
-    const typeData = Object.entries(byType).map(([name, paid]) => ({ name, paid }));
+    const byMonth: Record<number, number> = {};
+    for (let i = 1; i <= 12; i++) byMonth[i] = 0;
+    data.forEach(r => {
+      const d = new Date(String(r.paymentDate || '') + 'T00:00:00');
+      if (!isNaN(d.getTime())) byMonth[d.getMonth() + 1] += Number(r.amountPaid) || 0;
+    });
+    const monthData = Object.entries(byMonth).map(([m, v]) => ({ month: MONTH_NAMES[+m], amount: v }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -399,16 +452,14 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
-        <ChartCard title="Amount Paid by Donation Type">
+        <ChartCard title="Monthly Giving">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={typeData} barCategoryGap="35%">
+            <BarChart data={monthData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} width={56} />
               <Tooltip formatter={(v: number) => fmt$(v)} />
-              <Bar dataKey="paid" name="Paid" radius={[2,2,0,0]}>
-                {typeData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-              </Bar>
+              <Bar dataKey="amount" name="Received" fill={C[1]} radius={[2,2,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -522,31 +573,68 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     );
   }
 
-  // Recurring Donors: top 15 by total paid
+  // Recurring Donors: top 15 by total paid + payment frequency distribution
   if (sourceKey === 'recurringDonors') {
     const top15 = [...data]
       .sort((a, b) => (Number(b.totalPaid) || 0) - (Number(a.totalPaid) || 0))
       .slice(0, 15)
       .map(r => ({ name: trunc(r.donorName, 24), value: Number(r.totalPaid) || 0 }));
+
+    const bins: Record<string, number> = { '0': 0, '1–2': 0, '3–4': 0, '5–6': 0, '7–9': 0, '10–12': 0, '13+': 0 };
+    data.forEach(r => {
+      const n = Number(r.paymentsMade) || 0;
+      if      (n === 0)  bins['0']++;
+      else if (n <= 2)   bins['1–2']++;
+      else if (n <= 4)   bins['3–4']++;
+      else if (n <= 6)   bins['5–6']++;
+      else if (n <= 9)   bins['7–9']++;
+      else if (n <= 12)  bins['10–12']++;
+      else               bins['13+']++;
+    });
+    const freqData = Object.entries(bins).map(([range, count]) => ({ range, count }));
+
     return (
-      <ChartCard title="Top 15 Donors by Total Paid">
-        <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={top15} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis type="number" tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
-            <Tooltip formatter={(v: number) => fmt$2(v)} />
-            <Bar dataKey="value" name="Total Paid" radius={[0,2,2,0]}>
-              {top15.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ChartCard title="Top 15 Donors by Total Paid">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={top15} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis type="number" tickFormatter={fmtAxisMoney} tick={{ fontSize: 11 }} />
+              <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={110} />
+              <Tooltip formatter={(v: number) => fmt$2(v)} />
+              <Bar dataKey="value" name="Total Paid" radius={[0,2,2,0]}>
+                {top15.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+        <ChartCard title="Donor Frequency Distribution">
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={freqData} barCategoryGap="30%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="range" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} width={40} tickFormatter={fmtN} />
+              <Tooltip />
+              <Bar dataKey="count" name="Donors" fill={C[0]} radius={[2,2,0,0]}>
+                {freqData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
     );
   }
 
-  // Room Bookings: bookings by room type + avg nights by room type
+  // Room Bookings: guest nights by month + avg nights by room type
   if (sourceKey === 'roomBookings') {
+    const byMonth: Record<number, number> = {};
+    for (let i = 1; i <= 12; i++) byMonth[i] = 0;
+    data.forEach(r => {
+      const d = new Date(String(r.arrivalDate || '') + 'T00:00:00');
+      if (!isNaN(d.getTime())) byMonth[d.getMonth() + 1] += Number(r.nights) || 0;
+    });
+    const monthData = Object.entries(byMonth).map(([m, v]) => ({ month: MONTH_NAMES[+m], nights: v }));
+
     const byType: Record<string, { bookings: number; nights: number }> = {};
     data.forEach(r => {
       const k = trunc(r.roomTypeDesc, 22);
@@ -556,22 +644,19 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     });
     const typeData = Object.entries(byType).map(([name, v]) => ({
       name,
-      bookings: v.bookings,
       avgNights: v.bookings ? +(v.nights / v.bookings).toFixed(1) : 0,
     }));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Bookings by Room Type">
+        <ChartCard title="Guest Nights by Month">
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={typeData} barCategoryGap="30%">
+            <BarChart data={monthData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} width={36} />
               <Tooltip />
-              <Bar dataKey="bookings" name="Bookings" radius={[2,2,0,0]}>
-                {typeData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
-              </Bar>
+              <Bar dataKey="nights" name="Nights" fill={C[5]} radius={[2,2,0,0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
