@@ -326,7 +326,7 @@ const PlanningDataTab: React.FC<PlanningDataTabProps> = ({ dataset }) => {
           )}
 
           {/* Charts */}
-          <KclSourceCharts sourceKey={activeKey} data={rawData} />
+          <KclSourceCharts sourceKey={activeKey} data={rawData} dataset={dataset} />
 
           {/* Table */}
           <div className="rounded-lg border overflow-hidden">

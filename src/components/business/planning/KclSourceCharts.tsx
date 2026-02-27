@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, Cell,
 } from 'recharts';
-import type { KclDataSourceKey } from '@/lib/kclTypes';
+import type { KclDataSourceKey, KclAnnualDataset } from '@/lib/kclTypes';
 import { MONTH_NAMES } from '@/lib/kclTypes';
 import { fmt$, fmt$2, fmtN, trunc, fmtAxisMoney } from '@/lib/kclColumnDefs';
 import type { Row } from '@/lib/kclColumnDefs';
@@ -14,10 +14,13 @@ const C = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#8
 
 // ─── Chart card wrapper ───────────────────────────────────────────────────────
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border bg-card p-4">
-      <p className="text-sm font-medium text-muted-foreground mb-3">{title}</p>
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
+        {note && <p className="text-xs text-muted-foreground/60 italic ml-2 shrink-0">{note}</p>}
+      </div>
       {children}
     </div>
   );
@@ -25,7 +28,11 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 // ─── Per-source charts ────────────────────────────────────────────────────────
 
-export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceKey; data: Row[] }) {
+export function KclSourceCharts({ sourceKey, data, dataset }: {
+  sourceKey: KclDataSourceKey;
+  data: Row[];
+  dataset?: KclAnnualDataset;
+}) {
   if (data.length === 0) return null;
 
   // GL Transactions: monthly debit/credit + top account codes
@@ -627,13 +634,42 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
 
   // Room Bookings: guest nights by month + avg nights by room type
   if (sourceKey === 'roomBookings') {
+    // Build program-date lookup for fallback when booking arrival/departure is NULL
+    const progDates = new Map<string, { startDate: string; endDate: string }>();
+    if (dataset) {
+      dataset.data.programCatalog.forEach(p => {
+        progDates.set(p.programId, { startDate: p.startDate, endDate: p.endDate });
+      });
+    }
+
     const byMonth: Record<number, number> = {};
     for (let i = 1; i <= 12; i++) byMonth[i] = 0;
+    let fallbackCount = 0;
+    let placedCount = 0;
     data.forEach(r => {
-      const d = new Date(String(r.arrivalDate || '') + 'T00:00:00');
-      if (!isNaN(d.getTime())) byMonth[d.getMonth() + 1] += Number(r.nights) || 0;
+      const direct = new Date(String(r.arrivalDate || '') + 'T00:00:00');
+      let arrDate: Date | null = null;
+      let usedFallback = false;
+
+      if (!isNaN(direct.getTime())) {
+        arrDate = direct;
+      } else {
+        const prog = progDates.get(String(r.programId || ''));
+        if (prog?.startDate) {
+          const fallback = new Date(prog.startDate + 'T00:00:00');
+          if (!isNaN(fallback.getTime())) { arrDate = fallback; usedFallback = true; }
+        }
+      }
+
+      if (!arrDate) return;
+      placedCount++;
+      if (usedFallback) fallbackCount++;
+      byMonth[arrDate.getMonth() + 1] += Number(r.nights) || 0;
     });
     const monthData = Object.entries(byMonth).map(([m, v]) => ({ month: MONTH_NAMES[+m], nights: v }));
+    const nightsNote = fallbackCount > 0
+      ? `${fallbackCount}/${placedCount} via program date`
+      : undefined;
 
     const byType: Record<string, { bookings: number; nights: number }> = {};
     data.forEach(r => {
@@ -649,7 +685,7 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <ChartCard title="Guest Nights by Month">
+        <ChartCard title="Guest Nights by Month" note={nightsNote}>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthData} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
