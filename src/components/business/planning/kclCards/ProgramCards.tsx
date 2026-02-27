@@ -191,12 +191,13 @@ export const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
 
         {/* Methodology note */}
         <div className="rounded border border-muted px-3 py-2 text-xs text-muted-foreground space-y-1">
-          <p><strong>Direct costs</strong> — teacher compensation (GL 5250/5300/5350, first-claim by date window ±7/+3 days), marginal kitchen food (GL 5200 above baseline × participant-days), CC fees (rate × program revenue), scholarships (COGS-SCH/COGS-PC, rate × program revenue), marginal utility (above-baseline GL 6270/6250 for program dates). Teacher window caveat: payments made more than 7 days before a program (e.g. advance contracts signed months prior) fall into overhead rather than the program's direct cost.</p>
-          <p><strong>Overhead</strong> — payroll, insurance, repairs, facilities, admin, fixed utility, and staff-baseline food, allocated proportionally by participant-days. The food baseline (avg of 3 lowest-spend months × 365) stays in overhead alongside fixed utility — both are always-on costs independent of program load. Cabin retreats (CABN) carry no food cost — self-catering. Teacher costs not attributed to CABN or IHR programs.</p>
-          <p><strong>Scholarship attribution note</strong> — Scholarship/credit costs (COGS-SCH, COGS-PC) are attributed as a revenue-proportional rate across all programs rather than to specific programs, because the GL export does not link COGS entries to individual program IDs. This is a proxy; the actual distribution of scholarships by program may differ.</p>
+          <p><strong>Direct costs</strong> — teacher compensation (GL 5250/5300/5350, first-claim by date window ±7/+3 days), marginal kitchen food (GL 5200 above baseline × participant-days), CC fees (rate × program revenue), scholarships (COGS-SCH/COGS-PC, rate × REG revenue only), marginal utility (proportional share of each month's above-baseline GL 6270/6250). Teacher window caveat: payments made more than 7 days before a program (e.g. advance contracts signed months prior) fall into overhead rather than the program's direct cost.</p>
+          <p><strong>Overhead</strong> — payroll, insurance, repairs, facilities, admin, fixed utility, and staff-baseline food, allocated proportionally by participant-days. The food baseline (avg of 3 lowest-spend months × 365) stays in overhead alongside fixed utility — both are always-on costs independent of program load. Cabin retreats (CABN) carry no food cost — self-catering. Teacher costs and scholarship credits not attributed to CABN or IHR programs.</p>
+          <p><strong>Utility allocation</strong> — Each calendar month's above-baseline utility cost is distributed among all programs running that month, proportional to their overlap days. This prevents double-counting when programs run concurrently (e.g. IHR year-round alongside REG programs). The sum of all per-program utility charges equals the total above-baseline utility for months with active programs.</p>
+          <p><strong>Scholarship attribution note</strong> — Scholarship/credit costs (COGS-SCH, COGS-PC) are attributed as a rate × REG revenue, since these credits are issued to meditation program participants, not year-round residents or cabin retreatants. The GL export does not link COGS entries to individual program IDs, so within REG this remains a proportional proxy.</p>
           <p><strong>IHR food caveat</strong> — IHR includes both year-round residency participants (whose food is largely in the overhead baseline) and short-stay solitary retreatants (who do cause marginal kitchen cost). The marginal food rate is applied uniformly to all IHR participant-days, which may overstate food cost for year-round residency tracks.</p>
           <p><strong>Overhead allocation note</strong> — The overhead rate uses all program-catalog participant-days as the denominator. Programs appearing in the catalog but excluded from this PnL (zero revenue and zero registrations) absorb some overhead in the rate but have no allocated row here. If such programs have significant participant-days, the sum of overhead shown below may be less than the actual overhead pool.</p>
-          <p><strong>Day-count conventions</strong> — Participant-days (from program_catalog.sql) use SQL DATEDIFF semantics: departure day is exclusive (number of nights). Utility marginal overlap uses inclusive day counts (both arrival and departure day), which may add 1 day of marginal utility per program. The difference is small relative to program-level utility spend.</p>
+          <p><strong>Day-count conventions</strong> — Participant-days (from program_catalog.sql) use SQL DATEDIFF semantics: departure day is exclusive (number of nights). Utility overlap uses exclusive departure-day counting consistent with participant-days.</p>
         </div>
 
         <Table>
@@ -208,7 +209,7 @@ export const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
                 <Tip hint="Omnis program_revenue.csv amount_charged total for this program.">Revenue</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
-                <Tip hint="teacherCost + foodCost + ccFees + utilityMarginal for this program.">Direct</Tip>
+                <Tip hint="teacherCost + foodCost + ccFees + scholarshipCost (REG only) + utilityMarginal for this program.">Direct</Tip>
               </TableHead>
               <TableHead className="text-xs text-right">
                 <Tip hint="Proportional share of payroll, insurance, repairs, facilities, admin, fixed utility, and staff-baseline food. Allocated by participant-days: (program part-days ÷ total part-days) × overhead pool.">Overhead</Tip>
@@ -353,7 +354,7 @@ export const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
             <div>
               <p className="text-muted-foreground">Scholarships</p>
               <p className="font-medium">
-                <Tip hint="COGS-SCH + COGS-PC GL total attributed as a revenue-proportional rate × each program's revenue. Proxy attribution — the GL does not link scholarship credits to individual program IDs.">
+                <Tip hint="COGS-SCH + COGS-PC GL total attributed as a rate × each REG program's revenue. Not applied to IHR or CABN — scholarship credits are for meditation program participants only. Proxy within REG — the GL does not link credits to individual program IDs.">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.scholarshipCost, 0))}
                 </Tip>
               </p>
@@ -361,7 +362,7 @@ export const ProgramPnLCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metr
             <div>
               <p className="text-muted-foreground">Utility (marginal)</p>
               <p className="font-medium">
-                <Tip hint="Above-baseline utility cost for the program's date window. Per day: max(0, month_spend ÷ month_days − baseline_spend ÷ baseline_month_days) × overlap_days, summed across all months the program spans.">
+                <Tip hint="Proportional share of each month's above-baseline utility (GL 6270/6250). Each month's marginal is split among all programs running that month by overlap days, so concurrent programs share rather than each paying the full monthly amount.">
                   {fmtCurrency(programPnL.reduce((s, p) => s + p.costs.utilityMarginal, 0))}
                 </Tip>
               </p>
@@ -504,7 +505,7 @@ export const OccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metri
                             )}
                           </p>
                           {detailPeople.length > 0 ? (
-                            <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+                            <div className="flex flex-col gap-y-0.5">
                               {detailPeople.map((p, i) => (
                                 <span key={i} className="text-xs">{p.name}</span>
                               ))}

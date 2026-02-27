@@ -9,6 +9,8 @@
 --
 -- Use this as the participant source for per-program drill-downs.
 -- Participants with total_charged = 0 are scholarship / comp registrations.
+-- Program staff (reg.PROGRAM_STAFF = 1) are excluded — their registrations
+-- are comped and any outstanding balance should be forgiven, not tracked as AR.
 
 SELECT
     reg.REGISTRATION_ID,
@@ -44,4 +46,5 @@ LEFT JOIN (
 ) paid ON paid.REGISTRATION_ID = reg.REGISTRATION_ID
 WHERE YEAR(prog.START_DATE) = 2025
   AND reg.CANCELLED IS NULL
+  AND reg.PROGRAM_STAFF = 0
 ORDER BY prog.START_DATE, prog.PROGRAM_NAME, participant_name;

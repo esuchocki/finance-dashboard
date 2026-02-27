@@ -3,6 +3,7 @@ import type {
   ProgramEntry,
   ProgramRevenueEntry,
   RoomEntry,
+  RoomBookingEntry,
   StaffSalaryEntry,
   ResidentialRosterEntry,
   KclExpenseCategory,
@@ -18,6 +19,7 @@ import {
   RESIDENCY_GL,
   DONATION_GL,
   PRIVATE_ROOM_TYPES,
+  STAFF_ROOM_TYPE_CODES,
   txnYear,
   txnMonth,
   getSeason,
@@ -253,7 +255,11 @@ export function computeExpenseCategories(
 
 // ─── Participant days ─────────────────────────────────────────────────────────
 
-export function computeParticipantDays(programs: ProgramEntry[], year: number): {
+export function computeParticipantDays(
+  programs: ProgramEntry[],
+  year: number,
+  revenueIds?: Set<string>,
+): {
   total: number;
   count: number;
   seasonalDays: Record<Season, number>;
@@ -266,6 +272,9 @@ export function computeParticipantDays(programs: ProgramEntry[], year: number): 
 
   for (const p of programs) {
     if (!strictYearFilter(p.startDate, p.endDate, year)) continue;
+    // Exclude residential tracking programs that have no revenue (staff/volunteer trackers).
+    // Residency programs with billing revenue are kept (they contribute to overhead).
+    if (p.isResidential && revenueIds && !revenueIds.has(p.programId)) continue;
     total += p.participantDays;
     if (p.participantDays > 0) {
       count++;
@@ -281,7 +290,7 @@ export function computeParticipantDays(programs: ProgramEntry[], year: number): 
 
 // ─── Room capacity & opportunity cost ────────────────────────────────────────
 
-export function computeCapacity(rooms: RoomEntry[]): {
+export function computeCapacity(rooms: RoomEntry[], bookings: RoomBookingEntry[]): {
   totalRooms: number;
   staffRooms: number;
   availableRooms: number;
@@ -292,11 +301,24 @@ export function computeCapacity(rooms: RoomEntry[]): {
 } {
   const privateRooms = rooms.filter(r => PRIVATE_ROOM_TYPES.has(r.roomType.toLowerCase()));
   const totalRooms = privateRooms.length;
-  const staffOccupied = privateRooms.filter(r => r.occupiedByStaff && r.occupiedByStaff.trim() !== '');
-  const staffRooms = staffOccupied.length;
 
-  const dormBeds = rooms.filter(r => r.roomType.toLowerCase() === 'dorm').length;
+  // Dorms are now consolidated rows — sum occupancyLimit instead of counting rows.
+  const dormBeds = rooms
+    .filter(r => r.roomType.toLowerCase() === 'dorm')
+    .reduce((s, r) => s + r.occupancyLimit, 0);
   const cabinRoomCount = rooms.filter(r => r.roomType.toLowerCase() === 'tent cabin').length;
+
+  // Staff rooms: identified by Omnis ROOM_TYPE_CODE, not program name.
+  // KCLSTAFF = year-long residential staff; KCL SPRB = staff private room benefit.
+  // Pricing for opportunity cost comes from room_inventory (privateRooms), not Omnis rates.
+  const staffRoomNos = new Set(
+    bookings
+      .filter(b => STAFF_ROOM_TYPE_CODES.has(b.roomTypeCode))
+      .map(b => b.roomNo)
+      .filter(Boolean),
+  );
+  const staffOccupied = privateRooms.filter(r => staffRoomNos.has(r.roomId));
+  const staffRooms = staffOccupied.length;
 
   const staffRates = staffOccupied
     .map(r => r.priceSingle)

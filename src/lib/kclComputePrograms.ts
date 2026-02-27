@@ -17,39 +17,6 @@ import {
   daySpan,
 } from './kclComputeUtils';
 
-// ─── Utility marginal for a program's date range (private helper) ─────────────
-
-function programUtilityMarginal(
-  rawStart: string,
-  rawEnd: string,
-  year: number,
-  utilityMonthly: Record<number, number>,
-  baselinePerDay: number,
-): number {
-  const yr = String(year);
-  const start = rawStart < `${yr}-01-01` ? `${yr}-01-01` : rawStart;
-  const end   = rawEnd   > `${yr}-12-31` ? `${yr}-12-31` : rawEnd;
-  if (start > end) return 0;
-
-  let marginal = 0;
-  for (let m = 1; m <= 12; m++) {
-    const mStr   = String(m).padStart(2, '0');
-    const mStart = `${yr}-${mStr}-01`;
-    const dim    = dimOf(year, m);
-    const mEnd   = `${yr}-${mStr}-${String(dim).padStart(2, '0')}`;
-
-    const oStart = start > mStart ? start : mStart;
-    const oEnd   = end   < mEnd   ? end   : mEnd;
-    if (oStart > oEnd) continue;
-
-    const days       = daySpan(oStart, oEnd);
-    const dailyRate  = dim > 0 ? (utilityMonthly[m] ?? 0) / dim : 0;
-    const margDaily  = Math.max(0, dailyRate - baselinePerDay);
-    marginal += margDaily * days;
-  }
-  return marginal;
-}
-
 // ─── Per-program contribution margin ─────────────────────────────────────────
 
 export function computeProgramPnL(
@@ -62,10 +29,12 @@ export function computeProgramPnL(
   utilityBaselinePerDay: number,
   totalParticipantDays: number,
   totalExpenses: number,
-  utilityFixed: number,
   arEntries: ArEntry[],
   roomBookings: RoomBookingEntry[],
 ): KclProgramPnL[] {
+
+  const yr     = String(year);
+  const yrNext = String(year + 1);
 
   // ── 1. Participant-days by programId from catalog ─────────────────────────
   const pdByProgramId: Record<string, number> = {};
@@ -73,6 +42,14 @@ export function computeProgramPnL(
     if (!strictYearFilter(p.startDate, p.endDate, year)) continue;
     if (p.programId) pdByProgramId[p.programId] = (pdByProgramId[p.programId] ?? 0) + p.participantDays;
   }
+
+  // ── 2. Eligible PnL programs ──────────────────────────────────────────────
+  const eligibleRevenue = programRevenue.filter(
+    r => strictYearFilter(r.startDate, r.endDate, year) && (r.totalRevenue > 0 || r.registrations > 0)
+  );
+
+  // Set of program IDs that appear in revenue — used to exclude non-revenue residential.
+  const revenueIds = new Set(eligibleRevenue.map(r => r.programId).filter(Boolean));
 
   // ── 3. Food marginal rate (GL 5200) ───────────────────────────────────────
   const foodMonthly: Record<number, number> = {};
@@ -93,13 +70,18 @@ export function computeProgramPnL(
   );
   const sortedByRate = Array.from({ length: 12 }, (_, i) => i + 1)
     .sort((a, b) => foodDailyByMonth[a] - foodDailyByMonth[b]);
-  const baselineMonths = sortedByRate.slice(0, 3);
+  const baselineMonths    = sortedByRate.slice(0, 3);
   const foodBaselinePerDay = baselineMonths.reduce((s, m) => s + foodDailyByMonth[m], 0) / 3;
   const foodMarginalTotal  = Math.max(0, foodTotal - foodBaselinePerDay * 365);
 
-  // Non-CABN participant-days for rate denominator.
+  // Non-CABN participant-days for food marginal rate denominator.
+  // Exclude non-revenue residential tracking programs (same logic as computeParticipantDays).
   const nonCabnPartDays = programCatalog
-    .filter(p => strictYearFilter(p.startDate, p.endDate, year) && (p.categoryCode ?? '').trim().toUpperCase() !== 'CABN')
+    .filter(p =>
+      strictYearFilter(p.startDate, p.endDate, year) &&
+      (p.categoryCode ?? '').trim().toUpperCase() !== 'CABN' &&
+      !(p.isResidential && !revenueIds.has(p.programId))
+    )
     .reduce((s, p) => s + p.participantDays, 0);
   const foodMarginalRate = nonCabnPartDays > 0 ? foodMarginalTotal / nonCabnPartDays : 0;
 
@@ -109,11 +91,10 @@ export function computeProgramPnL(
     .map(t => ({ date: t.date, amount: t.debit - t.credit, claimed: false }));
 
   const teacherCostById: Record<string, number> = {};
-  const regPrograms = [...programRevenue]
-    .filter(r => (r.categoryCode ?? '').trim().toUpperCase() === 'REG' && strictYearFilter(r.startDate, r.endDate, year))
+  const regPrograms = [...eligibleRevenue]
+    .filter(r => (r.categoryCode ?? '').trim().toUpperCase() === 'REG')
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
 
-  const yr = String(year);
   for (const r of regPrograms) {
     const key = r.programId || r.programName;
     const clampedStart = r.startDate < `${yr}-01-01` ? `${yr}-01-01` : r.startDate;
@@ -132,24 +113,88 @@ export function computeProgramPnL(
 
   const teacherClaimed = Object.values(teacherCostById).reduce((s, v) => s + v, 0);
 
-  // ── 5. Overhead pool ──────────────────────────────────────────────────────
-  const utilityTotal       = Object.values(utilityMonthly).reduce((a, b) => a + b, 0);
-  const utilityVar         = Math.max(0, utilityTotal - utilityFixed);
-  const omnisProgramTotal  = programRevenue
-    .filter(r => strictYearFilter(r.startDate, r.endDate, year))
-    .reduce((s, r) => s + r.totalRevenue, 0);
-  const ccFeesAttributed   = ccFeeRate * omnisProgramTotal;
-
-  const scholarshipTotal   = glTransactions
+  // ── 5. Scholarships (COGS-SCH, COGS-PC) — REG programs only ─────────────
+  // Scholarship credits are issued to program participants, not year-round
+  // residents or cabin retreatants. Attributed proportionally by REG revenue.
+  const scholarshipTotal = glTransactions
     .filter(t => txnYear(t) === year && ['COGS - SCH', 'COGS - PC'].includes(t.accountCode))
     .reduce((s, t) => s + t.debit - t.credit, 0);
-  const schRate            = omnisProgramTotal > 0 ? scholarshipTotal / omnisProgramTotal : 0;
-  const schAttributed      = schRate * omnisProgramTotal;
+  const regRevenueTotal = regPrograms.reduce((s, r) => s + r.totalRevenue, 0);
+  const schRate         = regRevenueTotal > 0 ? scholarshipTotal / regRevenueTotal : 0;
 
-  const overheadPool = totalExpenses - foodMarginalTotal - teacherClaimed - ccFeesAttributed - schAttributed - utilityVar;
+  // ── 6. Utility — proportional per-month marginal allocation ──────────────
+  // For each calendar month, compute the above-baseline utility cost.
+  // Distribute that month's marginal to programs proportionally by their
+  // overlap days in that month. This ensures the sum of per-program utility
+  // charges equals the total attributed marginal (no double-counting when
+  // programs run concurrently).
+  const monthMarginals: Record<number, number> = {};
+  for (let m = 1; m <= 12; m++) {
+    const dim      = dimOf(year, m);
+    const dailyRate = dim > 0 ? (utilityMonthly[m] ?? 0) / dim : 0;
+    monthMarginals[m] = Math.max(0, dailyRate - utilityBaselinePerDay) * dim;
+  }
+
+  // Exclusive overlap: days of [pStart, pEnd) that fall within month m.
+  // pEnd is treated as exclusive (departure day not counted).
+  function monthOverlapDays(pStart: string, pEnd: string, m: number): number {
+    const mStr     = String(m).padStart(2, '0');
+    const mStart   = `${yr}-${mStr}-01`;
+    const mEndExcl = m < 12
+      ? `${yr}-${String(m + 1).padStart(2, '0')}-01`
+      : `${yrNext}-01-01`;
+    const oStart = pStart > mStart   ? pStart   : mStart;
+    const oEnd   = pEnd   < mEndExcl ? pEnd     : mEndExcl;
+    if (oStart >= oEnd) return 0;
+    return Math.round(
+      (new Date(oEnd + 'T00:00:00Z').getTime() - new Date(oStart + 'T00:00:00Z').getTime()) / 86400000
+    );
+  }
+
+  // Build per-program month overlap map (clamp to year boundaries).
+  const programMonthOverlap: Record<string, Record<number, number>> = {};
+  for (const r of eligibleRevenue) {
+    if (!r.startDate || !r.endDate) continue;
+    const key    = r.programId || r.programName;
+    const pStart = r.startDate < `${yr}-01-01`      ? `${yr}-01-01`      : r.startDate;
+    const pEnd   = r.endDate   > `${yrNext}-01-01`  ? `${yrNext}-01-01`  : r.endDate;
+    const byMonth: Record<number, number> = {};
+    for (let m = 1; m <= 12; m++) {
+      const d = monthOverlapDays(pStart, pEnd, m);
+      if (d > 0) byMonth[m] = d;
+    }
+    programMonthOverlap[key] = byMonth;
+  }
+
+  // Total overlap days per month across all programs.
+  const totalMonthOverlap: Record<number, number> = {};
+  for (let m = 1; m <= 12; m++) totalMonthOverlap[m] = 0;
+  for (const byMonth of Object.values(programMonthOverlap)) {
+    for (const mStr of Object.keys(byMonth)) {
+      totalMonthOverlap[+mStr] += byMonth[+mStr];
+    }
+  }
+
+  // Only attribute marginals for months where at least one program runs.
+  // Months with no program overlap have their marginal remain in overhead.
+  let utilityMarginalTotal = 0;
+  for (let m = 1; m <= 12; m++) {
+    if (totalMonthOverlap[m] > 0) utilityMarginalTotal += monthMarginals[m];
+  }
+
+  // ── 7. Overhead pool ──────────────────────────────────────────────────────
+  const omnisProgramTotal = eligibleRevenue.reduce((s, r) => s + r.totalRevenue, 0);
+  const ccFeesAttributed  = ccFeeRate * omnisProgramTotal;
+
+  const overheadPool = totalExpenses
+    - foodMarginalTotal
+    - teacherClaimed
+    - ccFeesAttributed
+    - scholarshipTotal
+    - utilityMarginalTotal;
   const overheadPerPartDay = totalParticipantDays > 0 ? overheadPool / totalParticipantDays : 0;
 
-  // ── 6. Participant lookup: AR joined to room bookings via registrationId ──
+  // ── 8. Participant lookup: AR joined to room bookings via registrationId ──
   const bookingByRegId: Record<string, RoomBookingEntry> = {};
   for (const b of roomBookings) {
     if (b.registrationId) bookingByRegId[b.registrationId] = b;
@@ -172,12 +217,9 @@ export function computeProgramPnL(
     });
   }
 
-  // ── 7. Build per-program records ──────────────────────────────────────────
+  // ── 9. Build per-program records ──────────────────────────────────────────
   const results: KclProgramPnL[] = [];
-  for (const r of programRevenue) {
-    if (r.totalRevenue <= 0 && r.registrations === 0) continue;
-    if (!strictYearFilter(r.startDate, r.endDate, year)) continue;
-
+  for (const r of eligibleRevenue) {
     const key          = r.programId || r.programName;
     const cat          = (r.categoryCode ?? '').trim().toUpperCase();
     const participantDays = pdByProgramId[r.programId ?? ''] ?? 0;
@@ -185,15 +227,23 @@ export function computeProgramPnL(
       ? Math.max(1, daySpan(r.startDate, r.endDate))
       : 0;
 
-    const teacherCost    = teacherCostById[key] ?? 0;
-    const foodCost       = cat === 'CABN' ? 0 : foodMarginalRate * participantDays;
-    const ccFees         = ccFeeRate * r.totalRevenue;
-    const scholarshipCost = schRate * r.totalRevenue;
-    const utilityMarginal = r.startDate && r.endDate
-      ? programUtilityMarginal(r.startDate, r.endDate, year, utilityMonthly, utilityBaselinePerDay)
-      : 0;
-    const overheadAlloc  = overheadPerPartDay * participantDays;
+    const teacherCost     = teacherCostById[key] ?? 0;
+    const foodCost        = cat === 'CABN' ? 0 : foodMarginalRate * participantDays;
+    const ccFees          = ccFeeRate * r.totalRevenue;
+    const scholarshipCost = cat === 'REG' ? schRate * r.totalRevenue : 0;
 
+    // Proportional share of each month's above-baseline utility.
+    const byMonth = programMonthOverlap[key] ?? {};
+    let utilityMarginal = 0;
+    for (let m = 1; m <= 12; m++) {
+      const progDays = byMonth[m] ?? 0;
+      const totDays  = totalMonthOverlap[m];
+      if (progDays > 0 && totDays > 0) {
+        utilityMarginal += monthMarginals[m] * progDays / totDays;
+      }
+    }
+
+    const overheadAlloc      = overheadPerPartDay * participantDays;
     const totalCosts         = teacherCost + foodCost + ccFees + scholarshipCost + utilityMarginal + overheadAlloc;
     const contributionMargin = r.totalRevenue - totalCosts;
 

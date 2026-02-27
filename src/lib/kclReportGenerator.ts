@@ -196,7 +196,7 @@ ${mdTable(
 
 ### Per-Program Contribution Margin
 
-Direct costs per program: teacher compensation (GL 5250/5300/5350 attributed by date window), marginal food cost (above-baseline GL 5200 × participant-days; zero for CABN), scholarships/credits (COGS-SCH/COGS-PC, revenue-proportional proxy), CC fees (effective rate × revenue), marginal utilities (above-baseline daily rate × program days). Overhead is the remaining fixed cost pool allocated proportionally by participant-days.
+Direct costs per program: teacher compensation (GL 5250/5300/5350 attributed by date window), marginal food cost (above-baseline GL 5200 × participant-days; zero for CABN), scholarships/credits (COGS-SCH/COGS-PC; REG programs only, revenue-proportional), CC fees (effective rate × revenue), marginal utilities (above-baseline portion of each calendar month distributed proportionally by program overlap days). Overhead is the remaining fixed cost pool allocated proportionally by participant-days, excluding non-revenue residential tracking programs.
 
 ${mdTable(
   ['Program', 'Cat', 'Days', 'P-Days', 'Revenue', 'Teacher', 'Food', 'Scholarships', 'CC Fees', 'Utilities', 'Overhead', 'Margin', 'Margin %'],
@@ -330,21 +330,6 @@ ${mdTable(
 
 The opportunity cost of ${fmt$(metrics.opportunityCostAnnual)} represents the estimated revenue forgone by allocating ${fmtN(metrics.staffRooms)} private rooms to residential staff rather than guest use at single-occupancy rack rates (avg ${fmt$2(metrics.avgStaffRoomRate)}/night). This is a conservative estimate — double rooms at shared occupancy could yield more per night.
 
-${metrics.roomTypeOccupancy
-  ? `### Room Booking Occupancy
-
-${mdTable(
-  ['Room Type', 'Bookings', 'Total Nights', 'Avg Stay (nights)'],
-  metrics.roomTypeOccupancy.byType.map(t => [
-    t.roomTypeDesc,
-    fmtN(t.bookings),
-    fmtN(t.totalNights),
-    t.avgNights.toFixed(1),
-  ])
-)}
-
-**Total bookings:** ${fmtN(metrics.roomTypeOccupancy.totalBookings)} | **Total room-nights booked:** ${fmtN(metrics.roomTypeOccupancy.totalNights)}`
-  : `_Room booking occupancy data not loaded. Load room_bookings.csv for occupancy by room type._`}`
   );
 
   // ── 7. Residential Population ──────────────────────────────────────────────
@@ -723,7 +708,7 @@ ${metrics.dataGaps.length > 0
 
 - **Strict-year filter:** Programs are included only when both start and end dates fall within the calendar year ${year}. Programs spanning year boundaries are excluded.
 - **Revenue recognition:** Xero records cash received on the collection date. Omnis records charges when billed. The two systems diverge by timing, donations, and residency income.
-- **Contribution margin:** Teacher costs are attributed to REG programs via a first-claim date-window algorithm (program start −7 to end +3 days). Food costs are marginal above a 3-month baseline. Scholarships/credits (COGS-SCH/COGS-PC) are allocated as a revenue-proportional proxy. Overhead is the remaining fixed cost pool allocated proportionally by participant-days.
+- **Contribution margin:** Teacher costs are attributed to REG programs via a first-claim date-window algorithm (program start −7 to end +3 days). Food costs are marginal above a 3-month baseline (zero for CABN). Scholarships/credits (COGS-SCH/COGS-PC) are attributed to REG programs only, proportional to revenue. Utility marginals are distributed across programs proportionally by their overlap days in each calendar month. Overhead is the remaining fixed cost pool allocated proportionally by participant-days, excluding non-revenue residential tracking programs.
 - **Occupancy:** Monthly headcounts count a person in a month if their stay overlaps any day of that month (exclusive of departure day, matching SQL DATEDIFF semantics).
 - **Volunteer labor value:** Estimated at $${metrics.volunteerMetrics?.laborValuePerDay ?? 150}/day (Vermont minimum wage equivalent × 8 hours plus housing/food offset).
 - **REVPAR:** Calculated as (residency + program revenue) / (available private rooms × 365). Only private room types are counted (Premium, Standard, Double, Accessibility).`

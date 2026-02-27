@@ -89,6 +89,7 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
   if (sourceKey === 'programCatalog') {
     const byCat: Record<string, { count: number; pDays: number }> = {};
     data.forEach(r => {
+      if (r.isResidential) return;
       const k = String(r.categoryCode || 'Other');
       if (!byCat[k]) byCat[k] = { count: 0, pDays: 0 };
       byCat[k].count++;
@@ -99,6 +100,7 @@ export function KclSourceCharts({ sourceKey, data }: { sourceKey: KclDataSourceK
     const byMonth: Record<number, number> = {};
     for (let i = 1; i <= 12; i++) byMonth[i] = 0;
     data.forEach(r => {
+      if (r.isResidential) return;
       const d = new Date(String(r.startDate || '') + 'T00:00:00');
       if (!isNaN(d.getTime())) byMonth[d.getMonth() + 1] += Number(r.participantDays) || 0;
     });

@@ -218,6 +218,7 @@ export function parseProgramCatalog(content: string): ProgramEntry[] {
       participantDays: partDays,
       totalRegistrations: int(col(row, ['total_registrations', 'TOTAL_REGISTRATIONS', 'total_reg'])),
       activeRegistrations: int(col(row, ['active_registrations', 'ACTIVE_REGISTRATIONS', 'active_reg'])),
+      isResidential: col(row, ['is_residential']) === '1',
     });
   }
 
@@ -290,13 +291,21 @@ export function parseResidentialRoster(content: string): ResidentialRosterEntry[
     const lastName = col(row, ['LAST_NAME', 'last_name', 'Last Name']);
     if (!firstName && !lastName) continue;
 
+    const arrivalDate = col(row, ['ARRIVAL_DATE', 'arrival_date', 'Arrival']).substring(0, 10);
+    const departureDate = col(row, ['DEPARTURE_DATE', 'departure_date', 'Departure']).substring(0, 10);
+
+    // Skip rows where ARRIVAL_DATE is not a valid ISO date — these are summary or
+    // aggregate rows that Omnis occasionally emits at the top of an export, where
+    // column values are shifted (e.g. LAST_NAME holds the program name).
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(arrivalDate)) continue;
+
     results.push({
       firstName,
       lastName,
       email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email', 'email']),
       programName: col(row, ['PROGRAM_NAME', 'program_name', 'Program']),
-      arrivalDate: col(row, ['ARRIVAL_DATE', 'arrival_date', 'Arrival']).substring(0, 10),
-      departureDate: col(row, ['DEPARTURE_DATE', 'departure_date', 'Departure']).substring(0, 10),
+      arrivalDate,
+      departureDate,
       daysInYear: int(row[daysCol] ?? '0'),
     });
   }
@@ -309,28 +318,26 @@ export function parseResidentialRoster(content: string): ResidentialRosterEntry[
 /**
  * Parses the KCL room inventory CSV.
  *
- * Expected columns (from kcl_accommodations.csv):
- *   Room Number, Room Type, Accommodation, Price for Single Occupancy,
- *   Price for Shared Occupancy, Shared Occupancy Limit, Shared Occupancy Potential,
- *   Occupied by Staff, Seasons
+ * Expected columns (from room_inventory.csv):
+ *   Room ID, Room Type, Occupancy Limit, Price for Single Occupancy,
+ *   Price for Shared Occupancy, Shared Occupancy Potential, Accommodation, Seasons
  */
 export function parseRoomInventory(content: string): RoomEntry[] {
   const rows = parseCSVText(content);
   const results: RoomEntry[] = [];
 
   for (const row of rows) {
-    const roomNumber = col(row, ['Room Number', 'room_number', 'Room', 'RoomNumber']);
-    if (!roomNumber) continue;
+    const roomId = col(row, ['Room ID', 'room_id', 'Room Number', 'room_number', 'Room', 'RoomNumber']);
+    if (!roomId) continue;
 
     results.push({
-      roomNumber,
+      roomId,
       roomType: col(row, ['Room Type', 'room_type', 'Type']),
       accommodation: col(row, ['Accommodation', 'accommodation', 'Building']),
+      occupancyLimit: int(col(row, ['Occupancy Limit', 'occupancy_limit', 'Shared Occupancy Limit', 'shared_limit', 'Limit'])),
       priceSingle: num(col(row, ['Price for Single Occupancy', 'price_single', 'Single Price', 'Single'])),
       priceShared: num(col(row, ['Price for Shared Occupancy', 'price_shared', 'Shared Price', 'Shared'])),
-      sharedLimit: int(col(row, ['Shared Occupancy Limit', 'shared_limit', 'Limit'])),
       sharedPotential: int(col(row, ['Shared Occupancy Potential', 'shared_potential', 'Potential'])),
-      occupiedByStaff: col(row, ['Occupied by Staff', 'occupied_by_staff', 'Staff', 'OccupiedByStaff']),
       seasons: col(row, ['Seasons', 'seasons', 'Season']),
     });
   }
@@ -600,6 +607,7 @@ export function parseRoomBookings(content: string): RoomBookingEntry[] {
       roomTypeDesc: col(row, ['ROOM_TYPE_DESC', 'room_type_desc', 'Room Type']),
       registrationId: col(row, ['REGISTRATION_ID', 'registration_id']),
       programId: col(row, ['PROGRAM_ID', 'program_id']),
+      programName: col(row, ['PROGRAM_NAME', 'program_name']),
       arrivalDate: arrivalRaw ? arrivalRaw.substring(0, 10) : '',
       departureDate: departureRaw ? departureRaw.substring(0, 10) : '',
       nights: int(col(row, ['nights', 'NIGHTS', 'Nights'])),

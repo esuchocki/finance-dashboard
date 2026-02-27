@@ -18,7 +18,6 @@ import type {
   KclDiscountSummary,
   KclRecurringDonorSummary,
   KclProgramBillingSummary,
-  KclRoomTypeOccupancy,
   KclRosterPerson,
   KclProgramPnL,
   KclRevenueStreams,
@@ -251,15 +250,24 @@ export function computeTrialBalanceSummary(entries: TrialBalanceEntry[]): KclTri
 export function computeDonationBreakdown(donations: DonationEntry[]): KclDonationBreakdown {
   const fundMap: Record<string, KclDonationFund> = {};
   let totalPledged = 0, totalPaid = 0;
-  let monthlyCount = 0, oneTimeCount = 0, cancelledCount = 0, voidCount = 0;
+  let monthlyCount = 0, monthlyPledged = 0, monthlyPaid = 0;
+  let oneTimeCount = 0, oneTimePledged = 0, oneTimePaid = 0;
+  let cancelledCount = 0, voidCount = 0;
 
   for (const d of donations) {
     if (d.cancelledDate !== '') { cancelledCount++; continue; }
     if (d.voidDate !== '') { voidCount++; continue; }
 
     const type = d.donationType.toUpperCase();
-    if (type.includes('MONTHLY') || type.includes('RECURRING')) monthlyCount++;
-    else oneTimeCount++;
+    if (type.includes('MONTHLY') || type.includes('RECURRING')) {
+      monthlyCount++;
+      monthlyPledged += d.pledgedAmount;
+      monthlyPaid += d.amountPaid;
+    } else {
+      oneTimeCount++;
+      oneTimePledged += d.pledgedAmount;
+      oneTimePaid += d.amountPaid;
+    }
 
     totalPledged += d.pledgedAmount;
     totalPaid += d.amountPaid;
@@ -284,7 +292,11 @@ export function computeDonationBreakdown(donations: DonationEntry[]): KclDonatio
     totalPaid,
     paymentRate: totalPledged > 0 ? totalPaid / totalPledged : 0,
     monthlyCount,
+    monthlyPledged,
+    monthlyPaid,
     oneTimeCount,
+    oneTimePledged,
+    oneTimePaid,
     cancelledCount,
     voidCount,
   };
@@ -371,35 +383,6 @@ export function computeRecurringDonorSummary(donors: RecurringDonorEntry[]): Kcl
     avgPaymentsPerDonor: donorCount > 0 ? totalPayments / donorCount : 0,
     avgAmountPerDonor: donorCount > 0 ? totalPaid / donorCount : 0,
     topDonors,
-  };
-}
-
-// ─── Room type occupancy ──────────────────────────────────────────────────────
-
-export function computeRoomTypeOccupancy(bookings: RoomBookingEntry[]): KclRoomTypeOccupancy {
-  const valid = bookings.filter(b => b.nights > 0);
-  const typeMap: Record<string, { bookings: number; totalNights: number }> = {};
-
-  for (const b of valid) {
-    const type = b.roomTypeDesc || b.roomTypeCode || 'Unknown';
-    if (!typeMap[type]) typeMap[type] = { bookings: 0, totalNights: 0 };
-    typeMap[type].bookings++;
-    typeMap[type].totalNights += b.nights;
-  }
-
-  const byType = Object.entries(typeMap)
-    .map(([roomTypeDesc, d]) => ({
-      roomTypeDesc,
-      bookings: d.bookings,
-      totalNights: d.totalNights,
-      avgNights: d.bookings > 0 ? d.totalNights / d.bookings : 0,
-    }))
-    .sort((a, b) => b.totalNights - a.totalNights);
-
-  return {
-    totalNights: valid.reduce((s, b) => s + b.nights, 0),
-    totalBookings: valid.length,
-    byType,
   };
 }
 

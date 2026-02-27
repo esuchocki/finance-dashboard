@@ -65,6 +65,32 @@ export const CC_BENCHMARK_RATE = 0.025;
 // capacity or REVPAR purposes.
 export const PRIVATE_ROOM_TYPES = new Set(['premium', 'standard', 'double', 'accessibility']);
 
+// Omnis ROOM_TYPE_CODE values by occupancy category.
+// Source: data/room_type_codes.csv — use these to classify room_booking rows,
+// not program names (which change each year).
+//
+// Staff (year-long private room, $0 rate — subtracts from available guest rooms):
+//   KCLSTAFF  = Residential Staff
+//   KCL SPRB  = Staff Private Room Benefit
+export const STAFF_ROOM_TYPE_CODES = new Set(['KCLSTAFF', 'KCL SPRB']);
+
+// Volunteers ($0 rate, typically dorm or lower-tier rooms):
+//   KCL VOL   = KCL Volunteer
+export const VOLUNTEER_ROOM_TYPE_CODES = new Set(['KCL VOL']);
+
+// Long-term residents, Residency Program participants ($0 rate, private room):
+//   KCL RESI  = KCL Residents
+export const RESIDENT_ROOM_TYPE_CODES = new Set(['KCL RESI']);
+
+// Paying guest private rooms (GL 4250):
+//   KCL PSGL  = Premium single     KCL PDBL  = Premium shared
+//   KCL LSGL  = Luxury single      KCL PFAM  = Premium family
+//   KCL SING  = Standard single    KCL DBL   = Standard shared
+export const GUEST_PRIVATE_ROOM_TYPE_CODES = new Set([
+  'KCL PSGL', 'KCL PDBL', 'KCL LSGL', 'KCL PFAM',
+  'KCL SING', 'KCL DBL',
+]);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**

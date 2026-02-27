@@ -1,15 +1,15 @@
--- Per-person payment summary: everyone who made a payment in the target year.
+-- Per-person donation payment summary: everyone who made a donation payment in the target year.
 -- Replace 2025 with the target year when running for future years.
 --
--- Anchors on payment.PERSON_ID so it captures both:
---   - Program participants (payment_detail.REGISTRATION_ID IS NOT NULL)
---   - Direct donors     (payment_detail.DONATION_ID IS NOT NULL, no registration)
+-- Filters to pd.DONATION_ID IS NOT NULL so only actual donation payments are included.
+-- This excludes program registration payments and residential housing payments, which
+-- flow through payment_detail.REGISTRATION_ID instead and are NOT donations.
 --
 -- Output columns used by the web app:
 --   PERSON_ID, donor_name, EMAIL_ADDRESS,
 --   num_active_enrollments  (distinct non-cancelled program registrations)
---   payments_made_<YYYY>    (count of payment_detail rows applied in the year)
---   total_paid_<YYYY>       (sum of those payment amounts)
+--   payments_made_<YYYY>    (count of donation payment_detail rows applied in the year)
+--   total_paid_<YYYY>       (sum of those donation payment amounts)
 --
 -- Voided payments are excluded. Only people with total_paid > 0 are included.
 
@@ -30,6 +30,7 @@ LEFT JOIN registration reg
     AND reg.CANCELLED       IS NULL
 WHERE YEAR(pay.PAYMENT_DATE)    = 2025
   AND pay.VOID_TRANSACTION     IS NULL
+  AND pd.DONATION_ID           IS NOT NULL
 GROUP BY
     per.PERSON_ID,
     per.FIRST_NAME,

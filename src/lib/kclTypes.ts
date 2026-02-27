@@ -48,6 +48,7 @@ export interface ProgramEntry {
   participantDays: number;
   totalRegistrations: number;
   activeRegistrations: number;
+  isResidential?: boolean;  // true if any registration has KCL_RESIDENT set
 }
 
 export interface ProgramRevenueEntry {
@@ -75,14 +76,13 @@ export interface ResidentialRosterEntry {
 }
 
 export interface RoomEntry {
-  roomNumber: string;
+  roomId: string;
   roomType: string;
   accommodation: string;
+  occupancyLimit: number;
   priceSingle: number;
   priceShared: number;
-  sharedLimit: number;
   sharedPotential: number;
-  occupiedByStaff: string;
   seasons: string;
 }
 
@@ -174,6 +174,7 @@ export interface RoomBookingEntry {
   roomTypeDesc: string;
   registrationId: string;
   programId: string;
+  programName: string;
   arrivalDate: string;
   departureDate: string;
   nights: number;
@@ -367,7 +368,11 @@ export interface KclDonationBreakdown {
   totalPaid: number;
   paymentRate: number;          // totalPaid / totalPledged
   monthlyCount: number;         // DONATION_TYPE === 'MONTHLY'
+  monthlyPledged: number;
+  monthlyPaid: number;
   oneTimeCount: number;
+  oneTimePledged: number;
+  oneTimePaid: number;
   cancelledCount: number;
   voidCount: number;
 }
@@ -427,17 +432,6 @@ export interface KclProgramBillingSummary {
   }>;
 }
 
-// Room-type occupancy from booking records
-export interface KclRoomTypeOccupancy {
-  totalNights: number;
-  totalBookings: number;
-  byType: Array<{
-    roomTypeDesc: string;
-    bookings: number;
-    totalNights: number;
-    avgNights: number;
-  }>;
-}
 
 export interface KclComputedMetrics {
   year: number;
@@ -498,7 +492,7 @@ export interface KclComputedMetrics {
 
   // Revenue streams breakdown
   revenueStreams: KclRevenueStreams;
-  residencyIhrRevenue: number;  // IHR program revenue (Omnis) — subset of revenueStreams.residency
+  residencyResidentsBilled: number;  // Omnis billing for programs named "residency program" (long-term tenants)
 
   // Monthly revenue and expenses (indices 0–11, month=1–12)
   monthlyData: KclMonthlyRow[];
@@ -524,9 +518,6 @@ export interface KclComputedMetrics {
 
   // Program billing summary — charges billed (null if not loaded)
   programBillingSummary: KclProgramBillingSummary | null;
-
-  // Room-type occupancy from booking records (null if not loaded)
-  roomTypeOccupancy: KclRoomTypeOccupancy | null;
 
   // Break-even scenario analysis
   breakEven: KclBreakEven;

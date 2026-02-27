@@ -7,6 +7,8 @@
 -- These appear in Xero in a future period when the participant pays.
 --
 -- For ALL participants (paid and unpaid), use all_program_registrations.sql instead.
+-- Program staff (reg.PROGRAM_STAFF = 1) are excluded — their registrations
+-- are comped and any outstanding balance should be forgiven, not tracked as AR.
 
 SELECT
     reg.REGISTRATION_ID,
@@ -40,5 +42,6 @@ LEFT JOIN (
 ) paid ON paid.REGISTRATION_ID = reg.REGISTRATION_ID
 WHERE YEAR(prog.START_DATE) = 2025
   AND reg.CANCELLED IS NULL
+  AND reg.PROGRAM_STAFF = 0
   AND COALESCE(charges.total_charged, 0) > COALESCE(paid.total_paid, 0)
 ORDER BY outstanding DESC;

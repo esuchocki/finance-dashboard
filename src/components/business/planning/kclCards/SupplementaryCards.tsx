@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -333,12 +333,18 @@ export const DonationBreakdownCard: React.FC<{ metrics: KclComputedMetrics }> = 
           />
           <div className="rounded border px-3 py-2 space-y-1">
             <p className="text-xs text-muted-foreground">Donor split</p>
-            <p className="text-xs">
-              <Tip hint="Classified by pledge_type field in donations.csv.">{db.monthlyCount.toLocaleString()} monthly</Tip>
-            </p>
-            <p className="text-xs">
-              <Tip hint="Classified by pledge_type field in donations.csv.">{db.oneTimeCount.toLocaleString()} one-time</Tip>
-            </p>
+            <div className="flex justify-between text-xs">
+              <Tip hint="Count of active monthly/recurring donation records. Classified by DONATION_TYPE field.">{db.monthlyCount.toLocaleString()} monthly</Tip>
+              <Tip hint="Paid ÷ Pledged for monthly/recurring donations only." className="text-muted-foreground">
+                {db.monthlyPledged > 0 ? fmtPct(db.monthlyPaid / db.monthlyPledged, 0) : '—'}
+              </Tip>
+            </div>
+            <div className="flex justify-between text-xs">
+              <Tip hint="Count of active one-time donation records. Classified by DONATION_TYPE field.">{db.oneTimeCount.toLocaleString()} one-time</Tip>
+              <Tip hint="Paid ÷ Pledged for one-time donations only." className="text-muted-foreground">
+                {db.oneTimePledged > 0 ? fmtPct(db.oneTimePaid / db.oneTimePledged, 0) : '—'}
+              </Tip>
+            </div>
           </div>
         </div>
 
@@ -599,126 +605,6 @@ export const RecurringDonorCard: React.FC<{ metrics: KclComputedMetrics }> = ({ 
             </TableBody>
           </Table>
         )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// ─── Program Billing Card ──────────────────────────────────────────────────────
-
-export const ProgramBillingCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
-  const pb = metrics.programBillingSummary;
-  if (!pb) return null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Program Billing</CardTitle>
-        <CardDescription className="text-xs">
-          Charges billed via Omnis — includes all registered participants regardless of payment status.
-          Pair with Recurring Donors (cash received) for the full billing-to-cash picture.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <SummaryCard
-            label="Unique Participants"
-            value={pb.personCount.toLocaleString()}
-            hint="Count of distinct people charged for a strict-year program. Source: program_billing.csv."
-          />
-          <SummaryCard
-            label="Total Billed"
-            value={fmtCurrency(pb.totalCharged)}
-            sub="Omnis charges"
-            hint="Sum of total_charged_2025 across all participants. This is what Omnis billed, not what was received in cash."
-          />
-          <SummaryCard
-            label="Avg per Person"
-            value={fmtCurrency(pb.avgChargePerPerson)}
-            hint="Total Billed ÷ Unique Participants."
-          />
-          <SummaryCard
-            label="Avg Registrations"
-            value={pb.avgRegistrationsPerPerson.toFixed(1)}
-            sub="per person"
-            hint="Average number of program registrations per participant for the year."
-          />
-        </div>
-        {pb.topBilled.length > 0 && (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">Participant</TableHead>
-                <TableHead className="text-xs text-right">Registrations</TableHead>
-                <TableHead className="text-xs text-right">Total Billed</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pb.topBilled.map((e, i) => (
-                <TableRow key={i}>
-                  <TableCell className="text-xs py-1.5 font-medium">{e.participantName}</TableCell>
-                  <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{e.registrations}</TableCell>
-                  <TableCell className="text-xs text-right py-1.5">{fmtCurrency(e.totalCharged)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// ─── Room Type Occupancy Card ─────────────────────────────────────────────────
-
-export const RoomTypeOccupancyCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
-  const ro = metrics.roomTypeOccupancy;
-  if (!ro) return null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm">Room Bookings by Type</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <SummaryCard
-            label="Total Bookings"
-            value={ro.totalBookings.toLocaleString()}
-            hint="Count of booking records in roomBookings.csv."
-          />
-          <SummaryCard
-            label="Total Nights"
-            value={ro.totalNights.toLocaleString()}
-            hint="Σ(checkout_date − checkin_date) across all bookings."
-          />
-        </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="text-xs">Room Type</TableHead>
-              <TableHead className="text-xs text-right">
-                <Tip hint="Number of booking records for this room type.">Bookings</Tip>
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <Tip hint="Sum of stay duration (checkout − checkin) for this room type.">Total Nights</Tip>
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <Tip hint="Total Nights ÷ Bookings for this room type.">Avg Stay</Tip>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ro.byType.map((t, i) => (
-              <TableRow key={i}>
-                <TableCell className="text-xs py-1.5 font-medium">{t.roomTypeDesc}</TableCell>
-                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{t.bookings}</TableCell>
-                <TableCell className="text-xs text-right py-1.5">{t.totalNights.toLocaleString()}</TableCell>
-                <TableCell className="text-xs text-right py-1.5 text-muted-foreground">{t.avgNights.toFixed(1)} nights</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
       </CardContent>
     </Card>
   );

@@ -63,7 +63,6 @@ import {
   computeArMetrics,
   computeDiscountSummary,
   computeRecurringDonorSummary,
-  computeRoomTypeOccupancy,
   computeProgramBillingSummary,
 } from './kclComputeSupplementary';
 
@@ -102,9 +101,12 @@ export function computeKclMetrics(
   // Omnis billed total
   const omnisBilledTotal = yearProgramRevenue.reduce((s, p) => s + p.totalRevenue, 0);
 
-  // Participation
+  // Set of program IDs with revenue — used to exclude non-revenue residential tracking programs.
+  const revenueIds = new Set(yearProgramRevenue.map(r => r.programId).filter(Boolean));
+
+  // Participation (excludes non-revenue residential programs from overhead denominator)
   const { total: participantDays, count: programCount, seasonalDays, seasonalPrograms } =
-    computeParticipantDays(programCatalog, year);
+    computeParticipantDays(programCatalog, year, revenueIds);
 
   // Utilities
   const {
@@ -129,7 +131,7 @@ export function computeKclMetrics(
 
   // Capacity
   const { totalRooms, staffRooms, availableRooms, dormBeds, cabinRoomCount, opportunityCostAnnual, avgStaffRoomRate } =
-    computeCapacity(roomInventory);
+    computeCapacity(roomInventory, roomBookings);
 
   // Payroll cross-reference
   const { csvPayrollAnnualized, payrollGap, residentialStaffCount, nonResidentialStaffCount } =
@@ -181,11 +183,6 @@ export function computeKclMetrics(
     ? computeProgramBillingSummary(programBilling)
     : null;
 
-  // Room type occupancy
-  const roomTypeOccupancy = roomBookings.length > 0
-    ? computeRoomTypeOccupancy(roomBookings)
-    : null;
-
   // CC fee benchmark
   const ccFeeBenchmarkRate = CC_BENCHMARK_RATE;
   const ccFeeExcessRate = Math.max(0, ccFeeRate - CC_BENCHMARK_RATE);
@@ -210,7 +207,6 @@ export function computeKclMetrics(
     baselinePerDay,
     participantDays,
     totalExpenses,
-    fixedAnnual,
     participantEntries,
     roomBookings,
   );
@@ -228,7 +224,11 @@ export function computeKclMetrics(
 
   // Program categories
   const programCategories = computeProgramCategories(programCatalog, yearProgramRevenue, year);
-  const residencyIhrRevenue = programCategories.find(c => c.categoryCode.toUpperCase() === 'IHR')?.totalRevenue ?? 0;
+  // Revenue from programs whose name contains "residency program" — these are the long-term
+  // tenants registered as a program in Omnis (mirrors the rosterTrack 'residency' logic).
+  const residencyResidentsBilled = yearProgramRevenue
+    .filter(r => r.programName.toLowerCase().includes('residency program'))
+    .reduce((s, r) => s + r.totalRevenue, 0);
 
   // Data gaps
   const dataGaps = identifyDataGaps(
@@ -280,7 +280,7 @@ export function computeKclMetrics(
     nonResidentialStaffCount,
     topPrograms,
     revenueStreams,
-    residencyIhrRevenue,
+    residencyResidentsBilled,
     monthlyData,
     occupancy,
     volunteerMetrics,
@@ -290,7 +290,6 @@ export function computeKclMetrics(
     discountSummary,
     recurringDonorSummary,
     programBillingSummary,
-    roomTypeOccupancy,
     breakEven,
     programCategories,
     programPnL,

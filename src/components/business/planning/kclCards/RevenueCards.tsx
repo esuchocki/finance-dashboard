@@ -17,20 +17,20 @@ import { Tip, SummaryCard } from './kclCardUtils';
 // ─── Revenue Streams Card ─────────────────────────────────────────────────────
 
 export const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
-  const { revenueStreams, totalRevenue, omnisBilledTotal, revenueGapAmount, residencyIhrRevenue } = metrics;
+  const { revenueStreams, totalRevenue, omnisBilledTotal, revenueGapAmount, residencyResidentsBilled } = metrics;
   const pct = (n: number) => totalRevenue > 0 ? fmtPct(n / totalRevenue) : '—';
 
-  const residencyResidents = revenueStreams.residency - residencyIhrRevenue;
+  const residencyProgramHousing = revenueStreams.residency - residencyResidentsBilled;
 
   const rows = [
     { label: 'Regular Programs',        sub: 'GL 4300, 4310, 4510',       value: revenueStreams.programs,              hint: 'GL 4300 + 4310 + 4510 credit entries. Program tuition and retreat registrations.' },
-    ...(residencyIhrRevenue > 0
+    ...(residencyResidentsBilled > 0
       ? [
-          { label: 'Residency — Programs (IHR)', sub: 'Omnis IHR programs', value: residencyIhrRevenue,    hint: 'Total revenue billed in Omnis for programs with category code IHR (In-House Retreat / Residency). These are short-to-medium-stay in-house programs, as opposed to long-term residents.' },
-          { label: 'Residency — Long-term Residents', sub: 'GL 4500, 4520 minus IHR programs', value: residencyResidents, hint: 'GL 4500 + 4520 credit entries (Xero) minus the IHR program billing total (Omnis). Represents housing revenue from long-term residents/tenants. Small discrepancies between Xero and Omnis timing may affect this figure.' },
+          { label: 'Residency — Long-term Residents', sub: 'Omnis: residency program billing', value: residencyResidentsBilled,    hint: 'Total revenue billed in Omnis for programs whose name contains "residency program". These are long-term tenants registered as program participants. Mirrors the Residency Participants track in the Residential Population Breakdown.' },
+          { label: 'Residency — Program Housing',     sub: 'GL 4500, 4520 minus residents',    value: residencyProgramHousing,     hint: 'GL 4500 + 4520 credit entries (Xero) minus the Omnis residency program billing. Represents housing charges collected through Xero for in-house retreat and other program participants.' },
         ]
       : [
-          { label: 'Residency',          sub: 'GL 4500, 4520',             value: revenueStreams.residency,             hint: 'GL 4500 + 4520 credit entries. Annual residency program tuition. Load program_revenue.csv to split this into Programs (IHR) vs Long-term Residents.' },
+          { label: 'Residency',          sub: 'GL 4500, 4520',             value: revenueStreams.residency,             hint: 'GL 4500 + 4520 credit entries. Annual residency program tuition. Load program_revenue.csv to split this into Long-term Residents vs Program Housing.' },
         ]
     ),
     { label: 'Donations (unrestr.)',    sub: 'GL 4000, 4050, 4150',       value: revenueStreams.donationsUnrestricted, hint: 'GL 4000 + 4050 + 4150 credit entries. Unrestricted general donations.' },

@@ -38,7 +38,7 @@ export type CsvCell = string | number;
 export type CsvRows = CsvCell[][];
 
 export function downloadCsv(rows: CsvRows, filename: string): void {
-  const content = rows
+  const content = '\uFEFF' + rows
     .map(r => r.map(cell => {
       const s = String(cell ?? '');
       return s.includes(',') || s.includes('"') || s.includes('\n')

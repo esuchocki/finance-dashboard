@@ -146,9 +146,8 @@ export function buildOccupancyMetrics(metrics: KclComputedMetrics, dataset: KclA
   const regByMonth:  Record<number, number> = {};
   for (let m = 1; m <= 12; m++) { revByMonth[m] = 0; regByMonth[m] = 0; }
   for (const p of dataset.data.programRevenue) {
-    if (!p.startDate || !p.endDate) continue;
+    if (!p.startDate) continue;
     if (parseInt(p.startDate.slice(0, 4), 10) !== year) continue;
-    if (parseInt(p.endDate.slice(0, 4), 10) !== year) continue;
     const pm = parseInt(p.startDate.slice(5, 7), 10);
     if (pm >= 1 && pm <= 12) {
       revByMonth[pm] += p.tuitionRevenue;
@@ -193,16 +192,22 @@ export function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: Kcl
   const mdByMonth = indexByMonth(monthlyData);
   const months    = Array.from({ length: 12 }, (_, i) => i + 1);
 
-  // Fixed cost components (monthly GL totals)
-  const payroll     = monthlyExpenseGL(txns, year, ['6105', '6110', '6114', '6116']);
-  const insurance   = monthlyExpenseGL(txns, year, ['6150']);
-  const utilities   = monthlyExpenseGL(txns, year, ['6270', '6250']);
-  const maintenance = monthlyExpenseGL(txns, year, ['6210', '6190', '6200']);
+  // Fixed cost components (monthly GL totals) — all overhead GL categories
+  const payroll        = monthlyExpenseGL(txns, year, ['6105', '6110', '6114', '6116']);
+  const insurance      = monthlyExpenseGL(txns, year, ['6150']);
+  const utilities      = monthlyExpenseGL(txns, year, ['6270', '6250']);
+  const maintenance    = monthlyExpenseGL(txns, year, ['6210', '6190', '6200']);
+  const admin          = monthlyExpenseGL(txns, year, ['6240', '6120', '6170', '6160', '6180', '6260', '6230']);
+  const housekeeping   = monthlyExpenseGL(txns, year, ['6280']);
+  const marketing      = monthlyExpenseGL(txns, year, ['5100']);
+  const development    = monthlyExpenseGL(txns, year, ['6145']);
+  const organizational = monthlyExpenseGL(txns, year, ['5900']);
 
-  // Monthly totals of tracked fixed costs
+  // Monthly fixed overhead total — excludes program-variable costs (teachers, food, scholarships, CC fees)
   const fixedTotal: Record<number, number> = {};
   for (let m = 1; m <= 12; m++) {
-    fixedTotal[m] = payroll[m] + insurance[m] + utilities[m] + maintenance[m];
+    fixedTotal[m] = payroll[m] + insurance[m] + utilities[m] + maintenance[m]
+      + admin[m] + housekeeping[m] + marketing[m] + development[m] + organizational[m];
   }
 
   // Bed nights available per month
@@ -243,15 +248,20 @@ export function buildFixedCostBaseline(metrics: KclComputedMetrics, dataset: Kcl
 
   return [
     ['', ...months.map(m => MONTH_NAMES[m])],
-    rN('Payroll Baseline', payroll),
-    rN('Insurance',        insurance),
-    rN('Utilities (actual monthly)',  utilities),
-    r ('Property Tax',     Object.fromEntries(months.map(m => [m, '']))),
-    r ('Debt Service',     Object.fromEntries(months.map(m => [m, '']))),
-    rN('Essential Maintenance', maintenance),
-    rN('Monthly Fixed Cost (Total)', fixedTotal),
-    r ('Break-Even Residency Occupancy % (total fixed costs \u00f7 residency nightly rate)', breakEvenOcc),
-    r ('Fixed Cost per Bed Night Available', fixedPerBed),
+    rN('Payroll',                   payroll),
+    rN('Insurance',                 insurance),
+    rN('Utilities (actual monthly)', utilities),
+    rN('Maintenance & Facilities',  maintenance),
+    rN('Admin & Office',            admin),
+    rN('Housekeeping',              housekeeping),
+    rN('Marketing',                 marketing),
+    rN('Development',               development),
+    rN('Organizational',            organizational),
+    r ('Property Tax (exempt)',      Object.fromEntries(months.map(m => [m, '']))),
+    r ('Debt Service',               Object.fromEntries(months.map(m => [m, '']))),
+    rN('Monthly Overhead Total (excl. teachers, food, scholarships, CC fees)', fixedTotal),
+    r ('Break-Even Residency Occupancy % (overhead total \u00f7 residency nightly rate)', breakEvenOcc),
+    r ('Overhead Cost per Bed Night Available', fixedPerBed),
     r ('Residency Revenue per Occupied Residency Night', avgRevPerBed),
   ];
 }

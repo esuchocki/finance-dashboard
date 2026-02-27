@@ -40,7 +40,7 @@ export function indicatorRevPerParticipantDay(
   const joined = programRevenue
     .map(p => {
       const cat = catalogById.get(p.programId);
-      if (!cat || cat.participantDays <= 0 || p.participants <= 0) return null;
+      if (!cat || cat.isResidential || cat.participantDays <= 0 || p.participants <= 0) return null;
       const flagged = cat.activeRegistrations > 0 && cat.activeRegistrations !== p.participants;
       if (flagged) flaggedCount++;
       return {
@@ -245,8 +245,9 @@ ${mdTable(['Fund (normalized)', 'Total Collected', 'Share'], rows)}`;
 
 // Indicator 9 — Registration Retention Rate
 export function indicatorRegistrationRetention(programCatalog: KclAnnualDataset['data']['programCatalog']): string {
-  if (programCatalog.every(p => p.totalRegistrations === 0 && p.activeRegistrations === 0)) return '';
-  const P = programCatalog.filter(p => p.totalRegistrations > 0);
+  const programs = programCatalog.filter(p => !p.isResidential);
+  if (programs.every(p => p.totalRegistrations === 0 && p.activeRegistrations === 0)) return '';
+  const P = programs.filter(p => p.totalRegistrations > 0);
   if (P.length === 0) return '';
 
   const totalActive = P.reduce((s, p) => s + p.activeRegistrations, 0);
@@ -261,7 +262,7 @@ export function indicatorRegistrationRetention(programCatalog: KclAnnualDataset[
   }).filter((r): r is string[] => r !== null);
 
   const fullDropout  = P.filter(p => p.activeRegistrations === 0);
-  const unregistered = programCatalog.filter(p => p.activeRegistrations > p.totalRegistrations);
+  const unregistered = programs.filter(p => p.activeRegistrations > p.totalRegistrations);
   const dropoutList  = fullDropout.slice(0, 10).map(p => `  - ${p.programName}`).join('\n')
     + (fullDropout.length > 10 ? `\n  - ... and ${fullDropout.length - 10} more` : '');
 
@@ -278,10 +279,10 @@ ${unregistered.length > 0 ? `**Unregistered participation** (active_registration
 
 // Indicator 10 — Program Utilization Rate
 export function indicatorProgramUtilization(programCatalog: KclAnnualDataset['data']['programCatalog']): string {
-  if (programCatalog.length === 0) return '';
-  if (programCatalog.every(p => p.totalRegistrations === 0 && p.activeRegistrations === 0)) return '';
+  const all = programCatalog.filter(p => !p.isResidential);
+  if (all.length === 0) return '';
+  if (all.every(p => p.totalRegistrations === 0 && p.activeRegistrations === 0)) return '';
 
-  const all      = programCatalog;
   const enrolled = all.filter(p => p.totalRegistrations > 0);
   const attended = all.filter(p => p.activeRegistrations > 0);
   const zeroReg  = all.filter(p => p.totalRegistrations === 0);
