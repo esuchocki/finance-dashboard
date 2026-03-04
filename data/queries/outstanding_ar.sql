@@ -7,8 +7,19 @@
 -- These appear in Xero in a future period when the participant pays.
 --
 -- For ALL participants (paid and unpaid), use all_program_registrations.sql instead.
--- Program staff (reg.PROGRAM_STAFF = 1) are excluded — their registrations
--- are comped and any outstanding balance should be forgiven, not tracked as AR.
+--
+-- Excluded from results:
+--   reg.PROGRAM_STAFF = 1  — formal program staff (comped, per registration flag)
+--   residential persons    — anyone with an active registration in a residential tracking
+--                            program (Residential Staff, Residential Volunteer, Residency
+--                            Program) for the same year. These people register as regular
+--                            participants in other programs but do not pay tuition or board.
+--                            Identified by PERSON_ID subquery rather than the registration-
+--                            level KCL_RESIDENT flag, which is not set on their non-residential
+--                            program registrations.
+--
+-- Note: PROGRAM_STAFF and REVERSE are numeric flags (0/1), not nullable.
+-- CANCELLED and INACTIVE are nullable fields (NULL = active).
 
 SELECT
     reg.REGISTRATION_ID,
@@ -43,5 +54,17 @@ LEFT JOIN (
 WHERE YEAR(prog.START_DATE) = 2025
   AND reg.CANCELLED IS NULL
   AND reg.PROGRAM_STAFF = 0
+  AND reg.PERSON_ID NOT IN (
+      SELECT DISTINCT r2.PERSON_ID
+      FROM registration r2
+      JOIN program p2 ON p2.PROGRAM_ID = r2.PROGRAM_ID
+      WHERE YEAR(p2.START_DATE) = 2025
+        AND (
+            p2.PROGRAM_NAME LIKE '%Residential Staff%'
+            OR p2.PROGRAM_NAME LIKE '%Residential Volunteer%'
+            OR p2.PROGRAM_NAME LIKE '%Residency Program%'
+        )
+        AND r2.CANCELLED IS NULL
+  )
   AND COALESCE(charges.total_charged, 0) > COALESCE(paid.total_paid, 0)
 ORDER BY outstanding DESC;
