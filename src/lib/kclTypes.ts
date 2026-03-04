@@ -70,6 +70,7 @@ export interface ResidentialRosterEntry {
   lastName: string;
   email: string;
   programName: string;
+  categoryCode?: string;  // PROG_CATEGORY_CODE — use to configure rosterTrack once codes are known
   arrivalDate: string;
   departureDate: string;
   daysInYear: number;
@@ -471,7 +472,16 @@ export interface KclComputedMetrics {
   expenseCategories: Record<string, KclExpenseCategory>;
   totalExpenses: number;
   deficit: number;
-  costPerDay: number;
+
+  // Cost per day — blended and scenario breakdowns
+  costPerDay: number;          // totalExpenses / (retreatDays + residentDays)  — blended average
+  retreatDays: number;         // participant-days from non-residential programs only
+  residentDays: number;        // participant-days from residential revenue programs (Residency)
+  staffVolunteerDays: number;  // residential staff + volunteer person-days (from roster)
+  costPerDayRetreat: number;   // totalExpenses / retreatDays  — retreat-only scenario
+  costPerDayResident: number;  // totalExpenses / residentDays — resident-only scenario
+  costPerDayStaff: number;     // -(totalExpenses / staffVolunteerDays) — cost burden per staff day
+  marginalCostPerDay: number;  // variable + program-specific costs only / participantDays
 
   // Capacity
   totalRooms: number;            // private rooms only (Premium, Standard, Double, Accessibility)

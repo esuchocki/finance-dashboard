@@ -299,11 +299,13 @@ export function parseResidentialRoster(content: string): ResidentialRosterEntry[
     // column values are shifted (e.g. LAST_NAME holds the program name).
     if (!/^\d{4}-\d{2}-\d{2}$/.test(arrivalDate)) continue;
 
+    const categoryCode = col(row, ['PROG_CATEGORY_CODE', 'prog_category_code', 'Category Code']);
     results.push({
       firstName,
       lastName,
       email: col(row, ['EMAIL_ADDRESS', 'email_address', 'Email', 'email']),
       programName: col(row, ['PROGRAM_NAME', 'program_name', 'Program']),
+      ...(categoryCode ? { categoryCode } : {}),
       arrivalDate,
       departureDate,
       daysInYear: int(row[daysCol] ?? '0'),

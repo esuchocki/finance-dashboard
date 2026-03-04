@@ -654,8 +654,37 @@ export const FinancialSummaryCard: React.FC<{ metrics: KclComputedMetrics }> = (
         <SummaryCard
           label="Cost Per Day"
           value={fmtCurrency(metrics.costPerDay)}
-          sub="per participant-day"
-          hint="Total Expenses ÷ Total Participant-Days. The average organizational cost to host one participant for one day across all programs."
+          sub="blended avg"
+          hint="Total Expenses ÷ (Retreat + Resident participant-days). Fully-loaded average across all paying populations. Staff and volunteer days are excluded from the denominator — their costs are real and included in the numerator, correctly showing the full cost burden borne by revenue-generating participants."
+        />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+        <SummaryCard
+          label="Cost/Day — Retreat"
+          value={fmtCurrency(metrics.costPerDayRetreat)}
+          sub={`${metrics.retreatDays.toLocaleString()} retreat days`}
+          hint="Total Expenses ÷ Retreat participant-days only. Answers: if the center ran only retreat programs and no residents, what would each guest-night cost? Higher than the blended figure because the same total expenses are spread over fewer days."
+        />
+        <SummaryCard
+          label="Cost/Day — Resident"
+          value={fmtCurrency(metrics.costPerDayResident)}
+          sub={`${metrics.residentDays.toLocaleString()} resident days`}
+          hint="Total Expenses ÷ Residency Program participant-days only. Answers: if the center housed only long-term residents and ran no programs, what would each resident-night cost? Useful for evaluating whether residency revenue covers its proportional share of overhead."
+        />
+        {metrics.staffVolunteerDays > 0 && (
+          <SummaryCard
+            label="Cost/Day — Staff"
+            value={fmtCurrency(metrics.costPerDayStaff)}
+            sub={`${metrics.staffVolunteerDays.toLocaleString()} staff+vol days`}
+            valueClass="text-red-600"
+            hint="-(Total Expenses ÷ Residential staff + volunteer person-days). Negative because staff and volunteers generate no direct revenue — each person-day represents a net cost burden to the organization. Shows what the center costs to sustain per operational workforce day, assuming no programs or residents."
+          />
+        )}
+        <SummaryCard
+          label="Marginal Cost/Day"
+          value={fmtCurrency(metrics.marginalCostPerDay)}
+          sub="variable costs only"
+          hint="(Food + Teacher compensation + Scholarships + Variable utilities) ÷ Total participant-days. The incremental cost of hosting one additional participant-night — fixed overhead (payroll, insurance, facilities, admin) is excluded as it does not change with volume. Use this as the floor for incremental pricing decisions."
         />
       </div>
     </>

@@ -1,13 +1,18 @@
 import type { KclDataSourceKey } from '@/lib/kclTypes';
 
 export const SQL_CONTENT: Partial<Record<KclDataSourceKey, string>> = {
-  programCatalog: `-- Program catalog: all programs for a given year
--- "Strict year" = both START_DATE and END_DATE fall within the calendar year.
+  programCatalog: `-- Program catalog: all programs for a given year.
+-- Year is assigned by START_DATE only — programs that start in 2025 are 2025 programs,
+-- even if they end in the following year (e.g. year-long residential tracking programs).
 -- Replace 2025 with the target year when running for future years.
 --
 -- Output columns used by the web app:
 --   PROGRAM_ID, PROGRAM_NAME, START_DATE, END_DATE, PROG_CATEGORY_CODE,
---   total_registrations, active_registrations, total_participant_days
+--   total_registrations, active_registrations, total_participant_days, is_residential
+--
+-- is_residential: 1 for year-long residential tracking programs (Staff, Volunteer,
+--   Residency Program). Detected by program duration >= 270 days rather than program
+--   name, so renaming a tracking program does not break the classification.
 
 SELECT
     prog.PROGRAM_ID,
@@ -17,14 +22,15 @@ SELECT
     prog.PROG_CATEGORY_CODE,
     COUNT(reg.REGISTRATION_ID)                                         AS total_registrations,
     COUNT(CASE WHEN reg.CANCELLED IS NULL THEN 1 END)                  AS active_registrations,
-    SUM(CASE WHEN reg.CANCELLED IS NULL THEN DATEDIFF(
+    SUM(CASE WHEN reg.CANCELLED IS NULL THEN GREATEST(0, COALESCE(DATEDIFF(
         LEAST(reg.DEPARTURE_DATE,  prog.END_DATE),
         GREATEST(reg.ARRIVAL_DATE, prog.START_DATE)
-    ) ELSE 0 END)                                                      AS total_participant_days
+    ), 0)) ELSE 0 END)                                                 AS total_participant_days,
+    CASE WHEN DATEDIFF(prog.END_DATE, prog.START_DATE) >= 270
+         THEN 1 ELSE 0 END                                             AS is_residential
 FROM program prog
 LEFT JOIN registration reg ON reg.PROGRAM_ID = prog.PROGRAM_ID
 WHERE YEAR(prog.START_DATE) = 2025
-  AND YEAR(prog.END_DATE)   = 2025
 GROUP BY
     prog.PROGRAM_ID,
     prog.PROGRAM_NAME,
@@ -79,7 +85,8 @@ ORDER BY total_revenue DESC;`,
 --   7320  "2025 Residency Program"          (2025-01-01 to 2025-12-31)
 --
 -- Replace the program IDs and year literals when running for future years.
--- The days_in_year column is clamped to the calendar year (2025-01-01 / 2025-12-31).
+-- days_in_year is clamped to [2025-01-01, 2026-01-01) — upper bound is exclusive
+-- so that a full-year resident (Jan 1 → Jan 1 next year) gets 365 nights, not 364.
 
 SELECT
     per.FIRST_NAME,
@@ -90,7 +97,7 @@ SELECT
     reg.ARRIVAL_DATE,
     reg.DEPARTURE_DATE,
     DATEDIFF(
-        LEAST(reg.DEPARTURE_DATE, '2025-12-31'),
+        LEAST(reg.DEPARTURE_DATE, '2026-01-01'),
         GREATEST(reg.ARRIVAL_DATE, '2025-01-01')
     ) AS days_in_year,
     reg.KCL_RESIDENT,

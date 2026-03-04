@@ -38,7 +38,7 @@ import type {
   ProgramBillingEntry,
   KclComputedMetrics,
 } from './kclTypes';
-import { strictYearFilter, CC_BENCHMARK_RATE, normalizePersonName } from './kclComputeUtils';
+import { strictYearFilter, CC_BENCHMARK_RATE, normalizePersonName, rosterTrack } from './kclComputeUtils';
 import {
   computeRevenue,
   computeRevenueStreams,
@@ -147,6 +147,42 @@ export function computeKclMetrics(
     ccFeeRate, participantDays,
   );
   const totalExpenses = Object.values(expenseCategories).reduce((s, c) => s + c.total, 0);
+
+  // Cost-per-day population segments ──────────────────────────────────────────
+  // retreatDays: non-residential programs (regular retreats, IHR, cabins).
+  // residentDays: residential programs that have revenue (Residency Program).
+  //   retreatDays + residentDays = participantDays (the existing blended denominator).
+  // staffVolunteerDays: residential staff + volunteer person-days from the roster.
+  //   The roster is the authoritative source here — it uses calendar-year-clamped
+  //   arrival/departure dates, and these programs are excluded from participantDays.
+  const retreatDays = programCatalog
+    .filter(p => strictYearFilter(p.startDate, p.endDate, year) && !p.isResidential)
+    .reduce((s, p) => s + p.participantDays, 0);
+  const residentDays = programCatalog
+    .filter(p => strictYearFilter(p.startDate, p.endDate, year) && !!p.isResidential && revenueIds.has(p.programId))
+    .reduce((s, p) => s + p.participantDays, 0);
+  const staffVolunteerDays = residentialRoster
+    .filter(e => rosterTrack(e) !== 'residency')
+    .reduce((s, e) => s + e.daysInYear, 0);
+
+  // Scenario cost-per-day metrics.
+  // Each answers: "if this were the only population, what would totalExpenses
+  // cost per person-day?" Staff/volunteer is expressed as negative because it
+  // represents a pure cost burden — they incur expenses but generate no revenue.
+  const costPerDayRetreat   = retreatDays        > 0 ? totalExpenses / retreatDays        : 0;
+  const costPerDayResident  = residentDays       > 0 ? totalExpenses / residentDays       : 0;
+  const costPerDayStaff     = staffVolunteerDays > 0 ? -(totalExpenses / staffVolunteerDays) : 0;
+
+  // Marginal cost per day: only costs that scale with participant activity
+  // (food, teacher compensation, scholarships) plus the variable portion of
+  // utilities. Fixed overhead (payroll, insurance, facilities, admin, etc.)
+  // is excluded — these are sunk costs that don't change with one more guest.
+  const marginalExpenses =
+    Object.values(expenseCategories)
+      .filter(c => c.type === 'variable' || c.type === 'program_specific')
+      .reduce((s, c) => s + c.total, 0)
+    + variableAnnual; // variable portion of utilities (semi_variable — above baseline)
+  const marginalCostPerDay = participantDays > 0 ? marginalExpenses / participantDays : 0;
 
   // Payroll actual (Xero)
   const xeroPayrollActual = expenseCategories['payroll']?.total ?? 0;
@@ -287,6 +323,13 @@ export function computeKclMetrics(
     totalExpenses,
     deficit,
     costPerDay: participantDays > 0 ? totalExpenses / participantDays : 0,
+    retreatDays,
+    residentDays,
+    staffVolunteerDays,
+    costPerDayRetreat,
+    costPerDayResident,
+    costPerDayStaff,
+    marginalCostPerDay,
     totalRooms,
     staffRooms,
     availableRooms,

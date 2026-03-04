@@ -51,6 +51,12 @@ export const PROG_CATEGORY_LABELS: Record<string, string> = {
   CABN: 'Cabin Retreats',
 };
 
+// Map PROG_CATEGORY_CODE → residential track for roster classification.
+// Populate once you have verified the codes from your Omnis data (query
+// SELECT DISTINCT PROG_CATEGORY_CODE FROM program WHERE PROGRAM_ID IN (<staff/vol/residency IDs>)).
+// Example: { 'RSTF': 'staff', 'RVOL': 'volunteer', 'RRES': 'residency' }
+export const RESIDENTIAL_CATEGORY_CODES: Record<string, 'staff' | 'volunteer' | 'residency'> = {};
+
 // Assumed monthly residency rate for implied-resident count (from requirements.md)
 export const RESIDENT_MONTHLY_RATE = 1750;
 
@@ -127,14 +133,25 @@ export function clampedDays(arrival: string, departure: string, year: number): n
 }
 
 /**
- * Classify a roster entry into one of three on-site tracks based on program name.
+ * Classify a roster entry into one of three on-site tracks.
+ *
+ * Uses PROG_CATEGORY_CODE first if the entry carries one and it appears in
+ * RESIDENTIAL_CATEGORY_CODES — populate that map once you know the codes.
+ * Falls back to program-name heuristics so existing data keeps working.
+ *
  * The three programs in the residential roster query are:
  *   "2025 KCL Residential Staff"     → 'staff'
  *   "2025 KCL Residential Volunteer" → 'volunteer'
  *   "2025 Residency Program"         → 'residency'
  */
-export function rosterTrack(programName: string): 'staff' | 'volunteer' | 'residency' {
-  const lower = programName.toLowerCase();
+export function rosterTrack(
+  entry: { programName: string; categoryCode?: string },
+): 'staff' | 'volunteer' | 'residency' {
+  if (entry.categoryCode) {
+    const mapped = RESIDENTIAL_CATEGORY_CODES[entry.categoryCode];
+    if (mapped) return mapped;
+  }
+  const lower = entry.programName.toLowerCase();
   if (lower.includes('volunteer')) return 'volunteer';
   if (lower.includes('residency program')) return 'residency';
   return 'staff';

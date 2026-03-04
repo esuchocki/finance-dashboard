@@ -57,7 +57,7 @@ export function computeOccupancy(
     const end   = r.departureDate > `${yr}-12-31` ? `${yr}-12-31` : r.departureDate;
     if (start > end) continue;
 
-    const track = rosterTrack(r.programName);
+    const track = rosterTrack(r);
     totalResidentDays += clampedDays(r.arrivalDate, r.departureDate, year);
 
     for (let m = 1; m <= 12; m++) {
@@ -102,7 +102,7 @@ export function computeVolunteerMetrics(roster: ResidentialRosterEntry[], year: 
 
   for (const r of roster) {
     const days = clampedDays(r.arrivalDate, r.departureDate, year);
-    const track = rosterTrack(r.programName);
+    const track = rosterTrack(r);
     const person: KclRosterPerson = {
       name: `${r.firstName} ${r.lastName}`.trim(),
       arrivalDate: r.arrivalDate,
