@@ -38,7 +38,7 @@ import type {
   ProgramBillingEntry,
   KclComputedMetrics,
 } from './kclTypes';
-import { strictYearFilter, CC_BENCHMARK_RATE } from './kclComputeUtils';
+import { strictYearFilter, CC_BENCHMARK_RATE, normalizePersonName } from './kclComputeUtils';
 import {
   computeRevenue,
   computeRevenueStreams,
@@ -88,8 +88,30 @@ export function computeKclMetrics(
   programBilling: ProgramBillingEntry[],
 ): KclComputedMetrics {
 
-  // Prefer allRegistrations over outstandingAr for participant data.
-  const participantEntries = allRegistrations.length > 0 ? allRegistrations : arEntries;
+  // Build a name → employment period map from staff salaries for AR exclusion.
+  // Names in the salary CSV may be "First Last" or "Last, First"; both are
+  // normalised to lowercase "first last" for comparison against Omnis names.
+  // If a staff entry carries no dates, the person is excluded for the full year.
+  // If dates are present, only AR entries whose program period overlaps with the
+  // employment period are excluded — allowing for mid-year staff changes.
+  const staffByName = new Map<string, { startDate?: string; endDate?: string }>();
+  for (const s of staffSalaries) {
+    staffByName.set(normalizePersonName(s.name), { startDate: s.startDate, endDate: s.endDate });
+  }
+
+  const baseEntries = allRegistrations.length > 0 ? allRegistrations : arEntries;
+  const participantEntries = baseEntries.filter(e => {
+    const staff = staffByName.get(normalizePersonName(e.participantName));
+    if (!staff) return true;
+    if (!staff.startDate && !staff.endDate) return false; // full-year exclusion
+    // Date-range exclusion: drop entry only when program overlaps employment period.
+    const empStart  = staff.startDate ?? `${year}-01-01`;
+    const empEnd    = staff.endDate   ?? `${year + 1}-01-01`;
+    const progStart = e.startDate     || `${year}-01-01`;
+    const progEnd   = e.endDate       || `${year + 1}-01-01`;
+    return !(progStart < empEnd && progEnd > empStart);
+  });
+  const staffExcludedCount = baseEntries.length - participantEntries.length;
 
   // Revenue
   const totalRevenue = computeRevenue(glTransactions, year);
@@ -165,7 +187,7 @@ export function computeKclMetrics(
 
   // Accounts receivable health
   const arMetrics = participantEntries.length > 0
-    ? computeArMetrics(participantEntries)
+    ? { ...computeArMetrics(participantEntries), staffExcludedCount }
     : null;
 
   // Discount summary from program transactions

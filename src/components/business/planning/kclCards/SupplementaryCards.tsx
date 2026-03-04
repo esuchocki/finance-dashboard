@@ -449,6 +449,12 @@ export const ArMetricsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metri
           Outstanding balances include registrations for future programs where payment is not yet due.
           Review the top debtors list below to distinguish genuinely delinquent accounts from future-due balances.
         </p>
+        {ar.staffExcludedCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {ar.staffExcludedCount} {ar.staffExcludedCount === 1 ? 'registration' : 'registrations'} excluded
+            because the participant matched a staff salary entry.
+          </p>
+        )}
 
         {ar.topDebtors.length > 0 && (
           <Table>

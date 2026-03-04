@@ -94,6 +94,22 @@ export const GUEST_PRIVATE_ROOM_TYPE_CODES = new Set([
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
+ * Normalise a person name to lowercase "firstname lastname" for comparison.
+ * Handles both "First Last" and "Last, First" orderings so that salary CSV
+ * entries can be matched against Omnis participant names regardless of format.
+ */
+export function normalizePersonName(name: string): string {
+  const s = name.trim();
+  if (s.includes(',')) {
+    const comma = s.indexOf(',');
+    const last  = s.slice(0, comma).trim();
+    const first = s.slice(comma + 1).trim();
+    return `${first} ${last}`.toLowerCase().replace(/\s+/g, ' ');
+  }
+  return s.toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
  * Days a roster entry spends within the target calendar year, computed directly
  * from arrival/departure dates.  Mirrors SQL DATEDIFF semantics (exclusive of
  * departure day, i.e. number of nights).

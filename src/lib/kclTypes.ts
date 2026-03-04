@@ -95,6 +95,8 @@ export interface StaffSalaryEntry {
   hoursPerMonth: number | null;
   medicareMonthly: number | null;  // monthly employer Medicare contribution
   oasdiMonthly: number | null;     // monthly employer OASDI contribution
+  startDate?: string;              // ISO date — first day of employment (optional)
+  endDate?: string;                // ISO date — last day of employment (optional)
 }
 
 export interface TrialBalanceEntry {
@@ -384,6 +386,7 @@ export interface KclArMetrics {
   totalPaid: number;
   collectionRate: number;       // totalPaid / totalCharged
   debtorCount: number;          // participants with outstanding > 0
+  staffExcludedCount: number;   // entries removed because name matched staff salaries
   topDebtors: Array<{
     participantName: string;
     programName: string;

@@ -486,6 +486,8 @@ export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
 
     const medicareStr = col(row, ['Medicare', 'medicare', 'MEDICARE']);
     const oasdiStr    = col(row, ['OASDI', 'oasdi']);
+    const startStr    = col(row, ['start_date', 'Start Date', 'Start', 'Hire Date', 'hire_date']);
+    const endStr      = col(row, ['end_date', 'End Date', 'End', 'Last Day', 'last_day', 'Termination Date', 'termination_date']);
     results.push({
       name,
       department: col(row, ['Department', 'department', 'Dept']),
@@ -495,6 +497,8 @@ export function parseStaffSalaries(content: string): StaffSalaryEntry[] {
       hoursPerMonth: hoursStr ? int(hoursStr) || null : null,
       medicareMonthly: medicareStr && medicareStr !== 'NULL' ? num(medicareStr) || null : null,
       oasdiMonthly:    oasdiStr    && oasdiStr    !== 'NULL' ? num(oasdiStr)    || null : null,
+      ...(startStr ? { startDate: startStr.substring(0, 10) } : {}),
+      ...(endStr   ? { endDate:   endStr.substring(0, 10)   } : {}),
     });
   }
 
