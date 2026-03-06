@@ -110,6 +110,7 @@ export const RevenueStreamsCard: React.FC<{ metrics: KclComputedMetrics }> = ({ 
 
 export const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({ metrics }) => {
   const { monthlyData } = metrics;
+  const hasOmnis = monthlyData.length > 0 && monthlyData[0].omnisTuition !== undefined;
 
   return (
     <Card>
@@ -120,17 +121,34 @@ export const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({
         <p className="text-xs text-muted-foreground pb-1">
           MJ% = share of revenue recognized via Omnis Manual Journal batch postings (period-closing).
           High values are normal for months when many programs close. Amber = &gt;80%.
+          {hasOmnis && ' Tuition, Housing, and Residents columns are Omnis-billed amounts by program start month.'}
         </p>
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="text-xs w-10">Mo.</TableHead>
-              <TableHead className="text-xs text-right">
-                <Tip hint="GL 4300 + 4310 + 4510 credit entries for this calendar month.">Programs</Tip>
-              </TableHead>
-              <TableHead className="text-xs text-right">
-                <Tip hint="GL 4500 + 4520 credit entries for this calendar month.">Residency</Tip>
-              </TableHead>
+              {hasOmnis ? (
+                <>
+                  <TableHead className="text-xs text-right">
+                    <Tip hint="Omnis tuitionRevenue from non-residency programs starting in this month. Program registration and tuition fees only.">Tuition</Tip>
+                  </TableHead>
+                  <TableHead className="text-xs text-right">
+                    <Tip hint="Omnis accommodationRevenue from non-residency programs starting in this month. Room and board charged to short-term program participants.">Prog. Housing</Tip>
+                  </TableHead>
+                  <TableHead className="text-xs text-right">
+                    <Tip hint="Omnis totalRevenue from programs named 'residency program' starting in this month. Long-term resident billing (room + board combined).">Residents</Tip>
+                  </TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead className="text-xs text-right">
+                    <Tip hint="GL 4300 + 4310 + 4510 credit entries for this calendar month.">Programs</Tip>
+                  </TableHead>
+                  <TableHead className="text-xs text-right">
+                    <Tip hint="GL 4500 + 4520 credit entries for this calendar month. Includes both long-term residents and short-term program housing. Load program_revenue.csv to split.">Residency & Housing</Tip>
+                  </TableHead>
+                </>
+              )}
               <TableHead className="text-xs text-right">
                 <Tip hint="GL 4000 + 4050 + 4150 + 4200 (donations) + 3xxx (campaigns) credit entries for this calendar month.">Donations & Campaigns</Tip>
               </TableHead>
@@ -153,19 +171,36 @@ export const MonthlyOverviewCard: React.FC<{ metrics: KclComputedMetrics }> = ({
               const net = row.revenueTotal - row.expenses;
               const mjPct = row.revenueTotal > 0 ? row.revenueManualJournal / row.revenueTotal : 0;
               const mjAnomaly = mjPct > 0.80;
+              const dash = <span className="text-muted-foreground">—</span>;
               return (
                 <TableRow key={row.month}>
                   <TableCell className="text-xs py-1.5 font-medium">{MONTH_NAMES[row.month]}</TableCell>
-                  <TableCell className="text-xs text-right py-1.5">
-                    {row.revenuePrograms > 0 ? fmtCurrency(row.revenuePrograms) : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
-                  <TableCell className="text-xs text-right py-1.5">
-                    {row.revenueResidency > 0 ? fmtCurrency(row.revenueResidency) : <span className="text-muted-foreground">—</span>}
-                  </TableCell>
+                  {hasOmnis ? (
+                    <>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {(row.omnisTuition ?? 0) > 0 ? fmtCurrency(row.omnisTuition!) : dash}
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {(row.omnisAccommodation ?? 0) > 0 ? fmtCurrency(row.omnisAccommodation!) : dash}
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {(row.omnisResidency ?? 0) > 0 ? fmtCurrency(row.omnisResidency!) : dash}
+                      </TableCell>
+                    </>
+                  ) : (
+                    <>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {row.revenuePrograms > 0 ? fmtCurrency(row.revenuePrograms) : dash}
+                      </TableCell>
+                      <TableCell className="text-xs text-right py-1.5">
+                        {row.revenueResidency > 0 ? fmtCurrency(row.revenueResidency) : dash}
+                      </TableCell>
+                    </>
+                  )}
                   <TableCell className="text-xs text-right py-1.5">
                     {(row.revenueDonations + row.revenueCampaigns) > 0
                       ? fmtCurrency(row.revenueDonations + row.revenueCampaigns)
-                      : <span className="text-muted-foreground">—</span>}
+                      : dash}
                   </TableCell>
                   <TableCell className="text-xs text-right py-1.5 font-medium">{fmtCurrency(row.revenueTotal)}</TableCell>
                   <TableCell className="text-xs text-right py-1.5">{fmtCurrency(row.expenses)}</TableCell>

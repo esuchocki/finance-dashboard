@@ -64,7 +64,11 @@ export function computeRevenueStreams(txns: GlTransaction[], year: number): KclR
 
 // ─── Monthly revenue + expense breakdown ──────────────────────────────────────
 
-export function computeMonthlyData(txns: GlTransaction[], year: number): KclMonthlyRow[] {
+export function computeMonthlyData(
+  txns: GlTransaction[],
+  year: number,
+  programRevenue?: ProgramRevenueEntry[],
+): KclMonthlyRow[] {
   const rows: Record<number, KclMonthlyRow> = {};
   for (let m = 1; m <= 12; m++) {
     rows[m] = {
@@ -111,6 +115,29 @@ export function computeMonthlyData(txns: GlTransaction[], year: number): KclMont
       rows[m].expenses += t.debit - t.credit;
     }
   }
+
+  // Omnis monthly breakdown — assign by program start month
+  if (programRevenue && programRevenue.length > 0) {
+    for (let m = 1; m <= 12; m++) {
+      rows[m].omnisTuition       = 0;
+      rows[m].omnisAccommodation = 0;
+      rows[m].omnisResidency     = 0;
+    }
+    for (const pr of programRevenue) {
+      if (!pr.startDate) continue;
+      const d = new Date(pr.startDate);
+      if (isNaN(d.getTime()) || d.getFullYear() !== year) continue;
+      const m = d.getMonth() + 1;
+      if (m < 1 || m > 12) continue;
+      if (pr.programName.toLowerCase().includes('residency program')) {
+        rows[m].omnisResidency! += pr.totalRevenue;
+      } else {
+        rows[m].omnisTuition!       += pr.tuitionRevenue;
+        rows[m].omnisAccommodation! += pr.accommodationRevenue;
+      }
+    }
+  }
+
   return Array.from({ length: 12 }, (_, i) => rows[i + 1]);
 }
 

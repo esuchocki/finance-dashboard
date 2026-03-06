@@ -199,7 +199,7 @@ export function computeKclMetrics(
   const topPrograms = buildTopPrograms(yearProgramRevenue);
 
   // Monthly breakdown
-  const monthlyData = computeMonthlyData(glTransactions, year);
+  const monthlyData = computeMonthlyData(glTransactions, year, yearProgramRevenue.length > 0 ? yearProgramRevenue : undefined);
 
   // Occupancy
   const occupancy = residentialRoster.length > 0

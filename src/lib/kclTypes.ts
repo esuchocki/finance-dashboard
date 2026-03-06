@@ -230,6 +230,11 @@ export interface KclMonthlyRow {
   revenueTotal: number;
   revenueManualJournal: number;  // subset of revenueTotal: Omnis period-closing batch postings
   expenses: number;              // same GL codes as totalExpenses
+  // Omnis-sourced monthly breakdown (present when programRevenue.csv is loaded)
+  // Assigned by program start month. Not summed into revenueTotal (different source).
+  omnisTuition?: number;         // tuitionRevenue from non-residency programs
+  omnisAccommodation?: number;   // accommodationRevenue from non-residency programs
+  omnisResidency?: number;       // totalRevenue from residency-named programs (long-term residents)
 }
 
 // Residential occupancy derived from the roster and revenue
